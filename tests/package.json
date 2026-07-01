@@ -1,0 +1,8 @@
+{
+  "name": "fablethermochess-tests",
+  "private": true,
+  "description": "Match/test harness for the thermodynamic chess engine",
+  "dependencies": {
+    "stockfish": "^18.0.0"
+  }
+}
