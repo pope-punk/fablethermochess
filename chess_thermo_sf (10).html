@@ -188,7 +188,7 @@ label { font-size: 0.85em; }
             <option value="hard">Hard (8 s)</option>
             <option value="max">Max (20 s)</option>
         </select>
-        <label title="multiplier on the material-scaled heat capacity (keep &le;1.5 or the temperature collapses)">C&times;: <input type="range" id="heatCap" min="0.3" max="1.5" step="0.1" value="1.0"
+        <label title="multiplier on the material-scaled heat capacity C: higher demands a cooler, sharper engine. If the demand exceeds the position's critical capacity C*, T pins at the spinodal (dashboard shows C_eff &lt; C).">C&times;: <input type="range" id="heatCap" min="0.3" max="1.5" step="0.1" value="1.0"
             oninput="onHeatCapChange(this.value)"><span id="heatCapVal">1.0</span>
         </label>
     </div>
@@ -209,6 +209,11 @@ label { font-size: 0.85em; }
         <span class="h2-sub">Engine plays argmax Q; weights show competitive moves</span>
     </h2>
     <div id="dash-moves" class="dash-section" style="max-height:320px;overflow-y:auto"></div>
+
+    <h2>Chemical Potential &mu;<sub>P</sub>
+        <span class="h2-sub">&mu;<sub>P</sub> = &minus;T ln(1 &minus; p<sub>P</sub>): free-energy cost of freezing piece P</span>
+    </h2>
+    <div id="dash-mu" class="dash-section" style="max-height:220px;overflow-y:auto"></div>
 
     <h2>History</h2>
     <div class="dash-section">
@@ -988,6 +993,22 @@ var Chess = function(fen) {
       }
       return { Uw:Uw, Ub:Ub };
     },
+    /* Null move (pass): flips the side to move and clears en passant,
+     * touching no pieces — used to evaluate the opponent's move ensemble
+     * from the same position (symmetric leaf optionality). Callers must
+     * pair make/undo and never pass while in check. */
+    fast_make_null: function() {
+      history.push({ move: null, kings: { b: kings.b, w: kings.w }, turn: turn,
+        castling: { b: castling.b, w: castling.w }, ep_square: ep_square,
+        half_moves: half_moves, move_number: move_number });
+      turn = swap_color(turn); ep_square = EMPTY;
+    },
+    fast_undo_null: function() {
+      var old = history.pop();
+      turn = old.turn; ep_square = old.ep_square;
+      kings = old.kings; castling = old.castling;
+      half_moves = old.half_moves; move_number = old.move_number;
+    },
     fast_in_check: function() { return in_check(); },
     fast_in_checkmate: function() { return in_checkmate(); },
     fast_turn: function() { return turn; },
@@ -1021,6 +1042,12 @@ const T_FLOOR = 1e-3;   // Numerical guard only, well below the engine's eval
                         // an arbitrary fixed temperature. Not a physical floor.
 const PAWN_XRAY = 2;   // pawn base = 2 internal units (avg pawn moves); also the display divisor
 const CHECKMATE_SCORE = 100000;
+const MATE_NEAR = CHECKMATE_SCORE - 4096;   // scores beyond this encode mate distance
+// Mate-distance ticking: every negation on the way up the tree pulls a mate
+// score one unit toward zero, so a mate in 2 outscores a mate in 4 and the
+// engine converts won positions instead of shuffling. Scores stay
+// node-relative, which keeps transposition-table entries valid across paths.
+function tickMate(v) { return v > MATE_NEAR ? v - 1 : (v < -MATE_NEAR ? v + 1 : v); }
 const TIME_LIMITS = { easy:500, medium:2000, hard:8000, max:20000 };
 const MATE_SENTINEL = 9999;   // Stockfish mate score, stored in pawn-equivalent units
 const SF_DEPTH = 12;          // Stockfish search depth for the reference evaluation
@@ -1068,18 +1095,18 @@ for (const type of ['p','n','b','r','q','k']) {
 }
 
 // Heat capacity is scaled by material left on the board. Since robustT solves
-// Var(Q)/T^2 = C, a LARGER C is a LOWER temperature. CRUCIAL CONSTRAINT: the
-// self-consistent T equation only has a solution while sqrt(C) stays below the
-// max of sigma_pi/T, which is ~O(1); empirically T stays alive up to C ~ 3.3 and
-// collapses to the floor above that. So C must live in a narrow band. We map the
+// Var(Q)/T^2 = C, a LARGER C demands a LOWER temperature. The demand is not
+// always satisfiable: each position has a critical capacity
+// C* = max_T Var_pi(Q)/T^2 set by its own move ensemble, and when C > C* the
+// solver pins T at the spinodal (see robustT) — so C acts as a capacity
+// DEMAND, an upper bound the position meets when it can. We map the
 // value-weighted material fraction (1 at the start, ->0 as pieces are traded)
 // linearly into [C_BARE, C_OPEN]: a full board is cool and decisive (checks and
-// entropy games are muted) while an open board heats up and the optionality term
-// is allowed to matter. The average-piece-value factor is deliberately dropped:
-// it pushes C past the cliff once pawns come off, which silently kills T and S.
+// entropy games are muted) while an open board heats up and the optionality
+// term is allowed to matter.
 const START_TOTAL = 2 * (8*PIECE_WORTH.p + 2*PIECE_WORTH.n + 2*PIECE_WORTH.b + 2*PIECE_WORTH.r + PIECE_WORTH.q);
-const C_OPEN = 2.0;   // full board: cool enough to mute the check obsession, T/S still alive
-const C_BARE = 0.6;   // open board / endgame: hotter, exploratory
+const C_OPEN = 2.0;   // full board (opening): cool, decisive; typically supercritical → T pins at T̂
+const C_BARE = 0.6;   // bare board (endgame): hotter, exploratory; typically an exact solution exists
 function materialC(g) {
     const placement = g.fen().split(' ')[0];
     let total = 0;
@@ -1111,12 +1138,13 @@ const XRAY = {};
 // the only place the choice actually lives.
 //   'xray'   : static x-ray mobility (default). Cheap, side-symmetric,
 //              position-independent — already baked into the XRAY table.
-//   'thermo' : T·S of the Boltzmann distribution over the leaf's own
-//              legal moves (treating those moves as the leaf's
-//              microstates), added to a material-only base. Grounded
-//              in the same thermodynamics as the rest of the engine,
-//              but far slower and currently side-to-move-only — see the
-//              caveats in leafOptionality(). Off by default.
+//   'thermo' : T·S of the Boltzmann distribution over each side's legal
+//              moves (treating moves as the leaf's microstates), added to
+//              a material-only base. The opponent's ensemble is reached by
+//              a null move, and the two are differenced, so the term is
+//              side-symmetric (no odd/even parity bias). Grounded in the
+//              same thermodynamics as the rest of the engine, but several
+//              times slower. Off by default.
 let OPTIONALITY_MODE = 'xray';
 
 // Material-only companion table (base piece values, no mobility term),
@@ -1146,6 +1174,25 @@ let heatCapMult = 1;      // user slider: a multiplier on the material-scaled C
 const thermoCache = new Map();
 const THERMO_CACHE_MAX = 500000;
 
+// Cached F values are functions of (position, depth, C). C changes with the
+// slider and with material, so entries computed under a different C are
+// stale physics, not just stale search: drop them. Also drop everything when
+// the table nears its cap (no eviction policy — a full table stops learning).
+let tCacheC = -1;
+function syncCache() {
+    if (activeC !== tCacheC || thermoCache.size > THERMO_CACHE_MAX * 0.9) {
+        thermoCache.clear();
+        tCacheC = activeC;
+    }
+}
+
+// Position keys of the played game (since the last irreversible move),
+// passed in with each analysis request and seeded into the search's
+// repetition detection: the engine avoids repetition draws when ahead and
+// steers into them when lost, relative to the ACTUAL game, not merely the
+// search path.
+let PAST_KEYS = [];
+
 // ── X-ray evaluation: split by color ───────────────────────
 function rawU(g) {
     return g.fast_real_u_split ? g.fast_real_u_split() : rawU_slow(g);
@@ -1162,20 +1209,13 @@ function rawU_slow(g) {
 }
 
 // ── Leaf optionality (thermo mode) ─────────────────────────
-// Treats the leaf's own legal moves as its microstates and returns
+// Treats a side's legal moves as the leaf's microstates and returns
 // T·S of the Boltzmann distribution over their static values — a
 // position-aware optionality score that replaces static x-ray
 // mobility. This resolves the "μ can't exist at a leaf" problem:
 // a leaf is a single position, but optionality is a property of the
 // *moves available from it*, which do form a distribution.
-//
-// CAVEAT: this scores only the side to move. Used alone it would give
-// whoever is on move an entropy bonus the opponent doesn't get, which
-// flips sign every ply and would reintroduce an odd/even parity bias
-// (the same failure mode as the old king extension). A side-symmetric
-// version needs the opponent's optionality too (via a null move), which
-// is why 'thermo' is off by default.
-function leafOptionality(g) {
+function sideOptionality(g) {
     const moves = g.fast_moves();
     const n = moves.length;
     if (n <= 1) return 0;                 // 0 or 1 move ⇒ no optionality
@@ -1197,6 +1237,27 @@ function leafOptionality(g) {
     }
     return T * S;                          // same units as U (Q-units)
 }
+// Side-symmetric optionality: the mover's T·S minus the opponent's T·S,
+// the latter evaluated after a null move (a pass — exactly the ensemble
+// "what could they do if it were their turn"). A mover-only bonus would
+// flip sign every ply and inject an odd/even parity bias into the search;
+// the difference restores the symmetry equilibrium requires. Only called
+// from quiet stand-pat positions, where passing is physically meaningful.
+function leafOptionality(g) {
+    const own = sideOptionality(g);
+    g.fast_make_null();
+    const theirs = sideOptionality(g);
+    g.fast_undo_null();
+    return own - theirs;
+}
+// Static leaf evaluation, mode-aware. In 'thermo' mode a position in check
+// has no equilibrium optionality (passing is illegal, the ensemble is not
+// stationary): material only.
+function staticEval(g) {
+    if (OPTIONALITY_MODE !== 'thermo') return g.fast_real_u();
+    const base = g.fast_raw_u(MAT);
+    return g.fast_in_check() ? base : base + leafOptionality(g);
+}
 
 // ── Quiescence Search ──────────────────────────────────────
 // Resolves captures and promotions to reach a quiet position
@@ -1212,24 +1273,26 @@ function quiesce(g, alpha, beta, qd) {
 
     let standPat = 0;
     if (!inCheck) {
-        standPat = (OPTIONALITY_MODE === 'thermo')
-            ? g.fast_raw_u(MAT) + leafOptionality(g)   // material base + thermodynamic optionality
-            : g.fast_real_u();                          // material + REAL blocker-aware mobility
+        standPat = staticEval(g);   // xray: material + REAL blocker-aware mobility;
+                                    // thermo: material + symmetric T·S optionality
         if (standPat >= beta) return standPat;
         if (standPat > alpha) alpha = standPat;
         if (qd <= 0) return standPat;                   // quiescence depth cap (quiet)
     }
-    if (inCheck && qd <= -8) return g.fast_real_u();    // bound runaway checking sequences
+    if (inCheck && qd <= -8) return staticEval(g);      // bound runaway checking sequences
 
     // In check: all evasions. Not in check: captures and promotions only.
     const moves = inCheck ? g.fast_moves() : g.fast_captures();
     if (moves.length === 0) return inCheck ? -CHECKMATE_SCORE : alpha;
 
     // MVV-LVA ordering: most valuable victim, least valuable attacker first,
-    // so the strongest captures produce beta cutoffs early.
+    // so the strongest captures produce beta cutoffs early. The king has no
+    // material worth (it is never traded) but as an ATTACKER it is ordered
+    // last, not first — its ordering value is its irreplaceability.
     if (!inCheck && moves.length > 1) {
         for (let i = 0; i < moves.length; i++)
-            moves[i]._o = (PIECE_WORTH[moves[i].captured] || 0) * 16 - PIECE_WORTH[moves[i].piece];
+            moves[i]._o = (PIECE_WORTH[moves[i].captured] || 0) * 16 -
+                          (moves[i].piece === 'k' ? 2 * PIECE_WORTH.q : PIECE_WORTH[moves[i].piece]);
         moves.sort((a, b) => b._o - a._o);
     }
 
@@ -1239,7 +1302,7 @@ function quiesce(g, alpha, beta, qd) {
         if (!inCheck && m.captured && !m.promotion &&
             standPat + (PIECE_WORTH[m.captured] || 0) + DELTA_MARGIN <= alpha) continue;
         g.fast_make(m);
-        const score = -quiesce(g, -beta, -alpha, qd - 1);
+        const score = -tickMate(quiesce(g, -beta, -alpha, qd - 1));
         g.fast_undo();
         if (score >= beta) return score;
         if (score > alpha) alpha = score;
@@ -1249,52 +1312,133 @@ function quiesce(g, alpha, beta, qd) {
 }
 
 // ── Self-Consistent Temperature ────────────────────────────
-// Finds the fixed point of T = σ_π(T) / √C, where σ_π is the
-// standard deviation of Q under the Boltzmann distribution at
-// temperature T. At convergence, Var(Q)/T² = C (the heat
-// capacity). C is set by the user:
-//   C < 1 → T amplified → broader distribution → exploratory
-//   C > 1 → T suppressed → sharper distribution → decisive
-//   C = 1 → T = σ (original behavior)
+// Solves the fixed-point equation  Var_π(Q) / T² = C  for T, where π is
+// the Boltzmann distribution over the node's move values at temperature T
+// and C is the prescribed heat capacity. Writing r(T) ≡ σ_π(T)/T, the
+// equation reads r(T) = √C. r(T) → 0 as T → 0 (the distribution freezes
+// onto the best move) and r(T) → 0 as T → ∞ (σ_π saturates while T grows),
+// so r is peaked in between and the solver distinguishes three phases:
 //
-// Phase 1: MAD for outlier-robust initial estimate.
-// Phase 2: Iterate Boltzmann-weighted σ until convergence.
-function robustT(Qs, n) {
-    const sqrtC = Math.sqrt(activeC);
-    const tmp = new Array(n);
-    for (let i=0;i<n;i++) tmp[i]=Qs[i];
-    tmp.sort((a,b) => a-b);
-    const med = n&1 ? tmp[n>>1] : (tmp[(n>>1)-1]+tmp[n>>1])*0.5;
-    for (let i=0;i<n;i++) tmp[i]=Math.abs(Qs[i]-med);
-    tmp.sort((a,b) => a-b);
-    const mad = n&1 ? tmp[n>>1] : (tmp[(n>>1)-1]+tmp[n>>1])*0.5;
-    let T = Math.max(1.4826*mad / sqrtC, T_FLOOR);
-
-    let maxQ=Qs[0];
-    for (let i=1;i<n;i++) if (Qs[i]>maxQ) maxQ=Qs[i];
-
-    for (let iter=0; iter<8; iter++) {
-        let expSum=0;
-        for (let i=0;i<n;i++) { tmp[i]=Math.exp((Qs[i]-maxQ)/T); expSum+=tmp[i]; }
-        let avgQ=0, avgQ2=0;
-        for (let i=0;i<n;i++) { const p=tmp[i]/expSum; avgQ+=p*Qs[i]; avgQ2+=p*Qs[i]*Qs[i]; }
-        const sigW = Math.sqrt(Math.max(avgQ2 - avgQ*avgQ, 0));
-        const Tnew = Math.max(sigW / sqrtC, T_FLOOR);
-        if (Math.abs(Tnew-T) < 0.01) break;
-        T = Math.max(Math.sqrt(T*Tnew), T_FLOOR);
+//   subcritical   max r > √C : the self-consistent temperature exists.
+//                 Take the crossing on the RIGHT (descending) branch —
+//                 the thermodynamically stable fixed point — by log-space
+//                 bisection, solved to <1%.
+//   supercritical max r < √C : NO temperature can supply the demanded
+//                 capacity. T pins at the spinodal T̂ = argmax r(T), the
+//                 closest achievable equilibrium; the achieved capacity
+//                 saturates at the position's critical capacity
+//                 C* = max_T Var_π(Q)/T² < C. (Dashboard: C_eff vs C.)
+//   frozen        max r ≈ 0 : one move dominates at every temperature in
+//                 the domain (forced positions, mates): T → T_FLOOR and
+//                 F → max Q, the minimax limit.
+//
+// The search domain is set by a robust median-based scale of the BULK of
+// the Q distribution, not the full range: a mate outlier must freeze the
+// ensemble, not open a fake high-temperature branch in which F would be
+// valued as a mixture of mate and quiet moves.
+function _sigmaOverT(xs, n, T, xmax) {
+    let expSum = 0, m1 = 0, m2 = 0;
+    for (let i = 0; i < n; i++) {
+        const w = Math.exp((xs[i] - xmax) / T);
+        expSum += w; m1 += w * xs[i]; m2 += w * xs[i] * xs[i];
     }
-    return T;
+    m1 /= expSum; m2 /= expSum;
+    const v = m2 - m1 * m1;
+    return v > 0 ? Math.sqrt(v) / T : 0;
+}
+function robustT(Qs, n) {
+    if (n < 2) return T_FLOOR;
+    const sqrtC = Math.sqrt(activeC);
+
+    // Robust bulk scale: MAD, with quantile fallbacks for degenerate bulks.
+    const tmp = new Array(n);
+    for (let i = 0; i < n; i++) tmp[i] = Qs[i];
+    tmp.sort((a, b) => a - b);
+    const med = n & 1 ? tmp[n >> 1] : (tmp[(n >> 1) - 1] + tmp[n >> 1]) * 0.5;
+    for (let i = 0; i < n; i++) tmp[i] = Math.abs(Qs[i] - med);
+    tmp.sort((a, b) => a - b);
+    const mad = n & 1 ? tmp[n >> 1] : (tmp[(n >> 1) - 1] + tmp[n >> 1]) * 0.5;
+    let scale = 1.4826 * mad;
+    if (scale === 0) scale = tmp[Math.min(n - 1, Math.ceil(0.9 * n) - 1)]; // 90th-pct deviation
+    if (scale === 0 && tmp[n - 1] < MATE_NEAR) scale = tmp[n - 1];         // widest non-mate gap
+    if (scale === 0) return T_FLOOR;                                       // frozen: no bulk spread
+
+    // Median-centered values: T depends only on the spread, and centering
+    // keeps E[Q²]−E[Q]² numerically stable when |Q| is large.
+    const xs = tmp;
+    let xmax = -Infinity;
+    for (let i = 0; i < n; i++) { xs[i] = Qs[i] - med; if (xs[i] > xmax) xmax = xs[i]; }
+
+    // Geometric sweep downward from well above the bulk scale. If r is
+    // still above √C at the ceiling, the stable branch sits higher: expand.
+    let T_hi = 6 * scale / sqrtC;
+    let r_hi = _sigmaOverT(xs, n, T_hi, xmax);
+    let guard = 0;
+    while (r_hi >= sqrtC && guard++ < 40) { T_hi *= 2; r_hi = _sigmaOverT(xs, n, T_hi, xmax); }
+
+    const RHO = 0.6, T_min = Math.max(T_FLOOR, scale * 1e-3);
+    let bestT = T_hi, bestR = r_hi;
+    let Ta = T_hi, Tb = 0, found = false;
+    for (let T = T_hi * RHO; T >= T_min; T *= RHO) {
+        const r = _sigmaOverT(xs, n, T, xmax);
+        if (r >= sqrtC) { found = true; Tb = T; break; }     // bracket [Tb, Ta]
+        if (r > bestR) { bestR = r; bestT = T; }
+        else if (r < 0.3 * bestR) break;                      // well past the peak: no crossing below
+        Ta = T;
+    }
+
+    if (found) {
+        // Largest root: bisect in log T on [Tb, Ta] with r(Tb) ≥ √C > r(Ta).
+        let lo = Tb, hi = Ta;
+        for (let it = 0; it < 10; it++) {
+            const mid = Math.sqrt(lo * hi);
+            if (_sigmaOverT(xs, n, mid, xmax) >= sqrtC) lo = mid; else hi = mid;
+        }
+        return Math.max(Math.sqrt(lo * hi), T_FLOOR);
+    }
+
+    // No grid point cleared √C: refine the peak of r by golden-section in
+    // log T. Frozen if even the peak is negligible.
+    if (bestR < 1e-6) return T_FLOOR;
+    let lo = Math.log(bestT * RHO), hi = Math.log(Math.min(bestT / RHO, T_hi));
+    const GR = 0.6180339887498949;
+    let x1 = hi - GR * (hi - lo), x2 = lo + GR * (hi - lo);
+    let r1 = _sigmaOverT(xs, n, Math.exp(x1), xmax), r2 = _sigmaOverT(xs, n, Math.exp(x2), xmax);
+    for (let it = 0; it < 8; it++) {
+        if (r1 < r2) { lo = x1; x1 = x2; r1 = r2; x2 = lo + GR * (hi - lo); r2 = _sigmaOverT(xs, n, Math.exp(x2), xmax); }
+        else { hi = x2; x2 = x1; r2 = r1; x1 = hi - GR * (hi - lo); r1 = _sigmaOverT(xs, n, Math.exp(x1), xmax); }
+    }
+    const Tpk = Math.exp((lo + hi) * 0.5);
+    const rPk = _sigmaOverT(xs, n, Tpk, xmax);
+    // Near-critical rescue: the band where r ≥ √C can be narrower than one
+    // grid step and slip between sweep points. If the refined peak clears
+    // √C after all, the position is subcritical — recover the stable
+    // (right-branch) crossing between the peak and the grid point above it,
+    // where r < √C was already established.
+    if (rPk >= sqrtC) {
+        let cl = Tpk, ch = Math.min(bestT / RHO, T_hi);
+        for (let it = 0; it < 10; it++) {
+            const mid = Math.sqrt(cl * ch);
+            if (_sigmaOverT(xs, n, mid, xmax) >= sqrtC) cl = mid; else ch = mid;
+        }
+        return Math.max(Math.sqrt(cl * ch), T_FLOOR);
+    }
+    // Genuinely supercritical: pin at the spinodal.
+    return Math.max(Tpk, T_FLOOR);
 }
 
 // ── Thermodynamic Search: F = T ln Z ───────────────────────
 // Unified search at all depths. Both sides computed identically
 // (equilibrium requires symmetry).
 //   depth ≤ 0: quiescence search (alpha-beta over captures)
-//   depth 1–2: full Boltzmann evaluation of all moves
-//   depth ≥ 3: Boltzmann pruning + importance-sampled tail
+//   depth 1 : full Boltzmann evaluation of all moves
+//   depth ≥ 2: partition-function truncation — the dominant set is
+//              fully recursed, the negligible tail keeps its shallow
+//              values (it contributes <1% of Z)
 //
-// Draw detection via pathKeys set: if the current position
-// has appeared earlier on the search path, return 0 (draw).
+// Draw detection via pathKeys: if the current position has appeared
+// earlier on the search path — or in the PLAYED GAME since the last
+// irreversible move (PAST_KEYS, seeded per search) — return 0 (draw).
 function thermoSearch(g, depth, pathKeys) {
     nodeCount++;
 
@@ -1309,8 +1453,9 @@ function thermoSearch(g, depth, pathKeys) {
     // Draw detection: repetition on current search path
     if (pathKeys.has(posKey)) return 0;
 
-    // Transposition table lookup
-    const key = depth + ':' + posKey;
+    // Transposition table lookup (numeric key: 32-bit hash × depth ≤ 64
+    // packs exactly into a double — no string allocation per node)
+    const key = posKey * 128 + depth;
     const cached = thermoCache.get(key);
     if (cached !== undefined) return cached;
 
@@ -1330,7 +1475,7 @@ function thermoSearch(g, depth, pathKeys) {
         pathKeys.add(posKey);
         for (let i = 0; i < n; i++) {
             g.fast_make(moves[i]);
-            Qs[i] = -thermoSearch(g, 0, pathKeys);
+            Qs[i] = -tickMate(thermoSearch(g, 0, pathKeys));
             g.fast_undo();
         }
         pathKeys.delete(posKey);
@@ -1346,7 +1491,7 @@ function thermoSearch(g, depth, pathKeys) {
         pathKeys.add(posKey);
         for (let i = 0; i < n; i++) {
             g.fast_make(moves[i]);
-            quickQs[i] = -thermoSearch(g, depth - 2, pathKeys);
+            quickQs[i] = -tickMate(thermoSearch(g, depth - 2, pathKeys));
             g.fast_undo();
         }
 
@@ -1364,7 +1509,7 @@ function thermoSearch(g, depth, pathKeys) {
             const i = order[r];
             if (r > 0 && quickQs[i] < threshold) break;   // past the dominant set
             g.fast_make(moves[i]);
-            Qs[i] = -thermoSearch(g, depth - 1, pathKeys);
+            Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys));
             g.fast_undo();
         }
         pathKeys.delete(posKey);
@@ -1374,13 +1519,20 @@ function thermoSearch(g, depth, pathKeys) {
 }
 
 function computeF(Qs, n, cacheKey) {
-    const T = robustT(Qs, n);
     let maxQ = Qs[0];
     for (let i = 1; i < n; i++) if (Qs[i] > maxQ) maxQ = Qs[i];
-    if (!Number.isFinite(maxQ)) {
+    // Mate scores are absorbing states, not thermal energies. A forced win
+    // is taken deterministically (ground-state selection, T → 0 for this
+    // decision); when every move loses by force, the value is the longest
+    // resistance. No entropy bonus may attach to a terminal outcome —
+    // otherwise "many ways to mate" would outscore the mate itself
+    // (F = maxQ + T·ln Z > mate) and the engine would shuffle checks
+    // forever instead of converting.
+    if (maxQ > MATE_NEAR || maxQ < -MATE_NEAR || !Number.isFinite(maxQ)) {
         if (cacheKey && thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(cacheKey, maxQ);
         return maxQ;
     }
+    const T = robustT(Qs, n);
     let expSum = 0;
     for (let i = 0; i < n; i++) expSum += Math.exp((Qs[i] - maxQ) / T);
     const val = maxQ + T * Math.log(expSum);
@@ -1391,14 +1543,15 @@ function computeF(Qs, n, cacheKey) {
 // ── Full Thermodynamic State (dashboard analysis) ──────────
 function computeThermodynamics(g, depth) {
     activeC = heatCapMult * materialC(g);   // temperature set by material on the board
+    syncCache();
     const rawMoves = g.fast_moves();
     if (rawMoves.length === 0) return null;
 
-    const pathKeys = new Set();
+    const pathKeys = new Set(PAST_KEYS);
     const posKey = g.fast_hash();
     pathKeys.add(posKey);
 
-    g.fast_seed_acc();
+    if (OPTIONALITY_MODE === 'thermo') g.fast_seed_acc();
     const Qs = new Array(rawMoves.length);
     const moveNames = new Array(rawMoves.length);
     const fromSqs = new Array(rawMoves.length);
@@ -1406,16 +1559,20 @@ function computeThermodynamics(g, depth) {
         moveNames[i] = g.fast_to_san(rawMoves[i]);
         fromSqs[i] = g.fast_algebraic(rawMoves[i].from);
         g.fast_make(rawMoves[i]);
-        Qs[i] = -thermoSearch(g, depth - 1, pathKeys);
+        Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys));
         g.fast_undo();
     }
     pathKeys.delete(posKey);
     g.fast_end_acc();
 
     const n = Qs.length;
-    const T = robustT(Qs, n);
     let maxQ = Qs[0], bestIdx = 0;
     for (let i = 1; i < n; i++) if (Qs[i] > maxQ) { maxQ = Qs[i]; bestIdx = i; }
+
+    // Absorbing-state root: a forced mate (for either side) freezes the
+    // ensemble — the decision is deterministic, so T sits at the floor and
+    // F = maxQ. Mirrors the same rule in computeF.
+    const T = (maxQ > MATE_NEAR || maxQ < -MATE_NEAR) ? T_FLOOR : robustT(Qs, n);
 
     const expTerms = new Array(n);
     let expSum = 0;
@@ -1425,14 +1582,21 @@ function computeThermodynamics(g, depth) {
     const probs = new Array(n);
     for (let i = 0; i < n; i++) probs[i] = expTerms[i] / expSum;
 
-    let avgQ = 0, S = 0;
+    let avgQ = 0, avgX = 0, avgX2 = 0, S = 0;
     for (let i = 0; i < n; i++) {
         avgQ += probs[i] * Qs[i];
+        const x = Qs[i] - maxQ;              // centered: stable when |Q| is large
+        avgX += probs[i] * x;
+        avgX2 += probs[i] * x * x;
         if (probs[i] > 1e-15) S -= probs[i] * Math.log(probs[i]);
     }
     const TS = T * S;
+    // Achieved capacity Var(Q)/T². Equals the demanded C in the subcritical
+    // phase; saturates at the position's critical capacity C* when pinned.
+    const Ceff = Math.max(avgX2 - avgX*avgX, 0) / (T*T);
 
-    return { T, F, S, avgQ, TS, probs, moves: moveNames, fromSqs, Qs, bestIdx };
+    return { T, F, S, avgQ, TS, probs, moves: moveNames, fromSqs, Qs, bestIdx,
+             Cdemand: activeC, Ceff };
 }
 
 // ── Chemical Potential: μ = −T ln(1 − p_P) ────────────────
@@ -1440,6 +1604,7 @@ function computeThermodynamics(g, depth) {
 // μ_P = F − F_{−P}: free energy cost of removing P's moves
 // from the partition function. Assumes moves from other
 // pieces are unaffected (ideal-gas / independent-pieces limit).
+function sqId(file, rank) { return String.fromCharCode(97+file)+(rank+1); }
 function computeChemicalPotentials(g, thermo) {
     if (!thermo || !thermo.fromSqs) return [];
 
@@ -1477,11 +1642,15 @@ function computeChemicalPotentials(g, thermo) {
 function bestMove(g, timeLimitMs) {
     const deadline = performance.now() + timeLimitMs;
     nodeCount = 0;
-    thermoCache.clear();
     activeC = heatCapMult * materialC(g);   // temperature set by material on the board
     // activeC is the heat-capacity C; the slider (onHeatCapChange) sets the
     // multiplier heatCapMult, and it is scaled here by the board material. No DOM
     // access, so bestMove can run inside a Web Worker.
+    // Fresh table every move: cached values absorb repetition draws relative
+    // to the current game path (graph-history interaction), so entries must
+    // not outlive the move they were computed for.
+    thermoCache.clear();
+    tCacheC = activeC;
 
     const moves = g.fast_moves();
     const n = moves.length;
@@ -1495,7 +1664,7 @@ function bestMove(g, timeLimitMs) {
     let reachedDepth = 0;
     const pathKeys = new Set();
     const rootPosKey = g.fast_hash();
-    g.fast_seed_acc();
+    if (OPTIONALITY_MODE === 'thermo') g.fast_seed_acc();
 
     for (let depth = 1; depth <= 64; depth++) {
         const Qs = new Array(n);
@@ -1503,13 +1672,16 @@ function bestMove(g, timeLimitMs) {
 
         pathKeys.clear();
         pathKeys.add(rootPosKey);
+        for (let k = 0; k < PAST_KEYS.length; k++) pathKeys.add(PAST_KEYS[k]);
 
         for (let i = 0; i < n; i++) {
             g.fast_make(moves[i]);
-            Qs[i] = -thermoSearch(g, depth - 1, pathKeys);
+            Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys));
             g.fast_undo();
 
-            if (performance.now() > deadline) { timedOut = true; break; }
+            // Depth 1 always runs to completion (it is nearly free): a partial
+            // first iteration would leave undefined Qs and an arbitrary move.
+            if (depth > 1 && performance.now() > deadline) { timedOut = true; break; }
         }
 
         if (timedOut && reachedDepth > 0) break;
@@ -1576,7 +1748,8 @@ function buildRootThermo(g, rawMoves, Qs, depth) {
 // the best move (when timeLimit is set), then computes the dashboard
 // thermodynamics, and returns a plain serialisable object.
 function _runAnalyze(msg) {
-    heatCapMult = msg.activeC || 1;   // slider value is a multiplier; effective C is set from material per-search
+    heatCapMult = msg.heatCapMult || 1;   // slider value is a multiplier; effective C is set from material per-search
+    PAST_KEYS = msg.pastKeys || [];       // played-game repetition keys (see collectPastKeys)
     const g = new Chess(msg.fen);
     const out = { turn: g.turn(), fen: g.fen(), gameOver: g.game_over() };
     if (msg.timeLimit != null) {
@@ -1597,14 +1770,33 @@ function _runAnalyze(msg) {
         out.Uw = r.Uw; out.Ub = r.Ub;
         out.thermo = th ? { T: th.T, F: th.F, S: th.S, avgQ: th.avgQ, TS: th.TS,
                             probs: th.probs, moves: th.moves, fromSqs: th.fromSqs,
-                            Qs: th.Qs, bestIdx: th.bestIdx, depth: depth } : null;
+                            Qs: th.Qs, bestIdx: th.bestIdx, depth: depth,
+                            Cdemand: th.Cdemand, Ceff: th.Ceff,
+                            mu: computeChemicalPotentials(g, th) } : null;
     }
     return out;
 }
 </script>
 <script>
 // ── Board Rendering ────────────────────────────────────────
-function sqId(file, rank) { return String.fromCharCode(97+file)+(rank+1); }
+// (sqId lives in the engine script: the worker needs it for μ.)
+
+// Position keys (fast_hash) of every played position the current position
+// could still legally repeat: everything since the last capture or pawn
+// move. Castling-rights changes need no special reset — the hash includes
+// castling rights, so pre-change positions simply never match again.
+function collectPastKeys() {
+    const t = new Chess();
+    const keys = [t.fast_hash()];
+    const hist = game.history({ verbose: true });
+    for (let i = 0; i < hist.length; i++) {
+        t.move(hist[i].san);
+        if (hist[i].captured || hist[i].piece === 'p') keys.length = 0;   // irreversible
+        keys.push(t.fast_hash());
+    }
+    keys.pop();   // current position is handled by the search root itself
+    return keys;
+}
 
 function renderBoard() {
     const el = document.getElementById('board');
@@ -1714,6 +1906,7 @@ function applyAnalysis(res, engineStats) {
     renderThermoGrid(res.Uw, res.Ub, thermo, source);
     renderMoveHistory();
     renderMoveProbs(thermo);
+    renderMu(thermo, res.turn);
     renderGraph();
 }
 
@@ -1723,10 +1916,10 @@ async function refreshDashboard() {
     if (game.game_over()) {
         const { Uw, Ub } = rawU(game);
         lastThermo = null; renderThermoGrid(Uw, Ub, null, '');
-        renderMoveHistory(); renderMoveProbs(null); renderGraph();
+        renderMoveHistory(); renderMoveProbs(null); renderMu(null); renderGraph();
         return;
     }
-    const res = await analyzeAsync({ fen, activeC: heatCapMult, timeLimit: null, dashDepth: (searchStats.depth > 0 ? searchStats.depth : 2) });
+    const res = await analyzeAsync({ fen, heatCapMult, pastKeys: collectPastKeys(), timeLimit: null, dashDepth: (searchStats.depth > 0 ? searchStats.depth : 2) });
     if (gen !== analysisGen || game.fen() !== fen) return;   // stale
     applyAnalysis(res, null);
 }
@@ -1752,7 +1945,7 @@ async function engineReply() {
     if (!thinking || game.game_over()) { thinking = false; return; }
     const gen = analysisGen;
     const timeLimit = TIME_LIMITS[document.getElementById('difficulty').value];
-    const res = await analyzeAsync({ fen: game.fen(), activeC: heatCapMult, timeLimit });
+    const res = await analyzeAsync({ fen: game.fen(), heatCapMult, pastKeys: collectPastKeys(), timeLimit });
     if (gen !== analysisGen) return;               // aborted by new game / undo / switch
     applyAnalysis(res, null);
     if (res.san) {
@@ -1763,7 +1956,7 @@ async function engineReply() {
     thinking = false;
     renderBoard();
     if (game.game_over()) { handleGameOver(); refreshDashboard(); return; }
-    const res2 = await analyzeAsync({ fen: game.fen(), activeC: heatCapMult, timeLimit: null, dashDepth: res.depth || 2 });
+    const res2 = await analyzeAsync({ fen: game.fen(), heatCapMult, pastKeys: collectPastKeys(), timeLimit: null, dashDepth: res.depth || 2 });
     if (gen !== analysisGen) return;
     applyAnalysis(res2, { timeMs: res.timeMs, depth: res.depth });
     setStatus('Your move (' + (humanColor === 'w' ? 'White' : 'Black') + ') \u2014 depth ' +
@@ -1942,12 +2135,16 @@ function renderThermoGrid(Uw, Ub, th, source) {
     const grid = document.getElementById('thermo-grid');
     if (!th) { grid.innerHTML='<span class="dash-label">Game over</span>'; return; }
 
+    // Eval = value of the move the engine actually plays (argmax Q), in
+    // White-POV pawns \u2014 the same convention as the history table and graph,
+    // and the number the Stockfish delta compares against. F (which adds the
+    // optionality term TS) is displayed on its own row.
     const evalSide = game.turn();
-    const evalW = evalSide === 'w' ? th.F : -th.F;
-    const sign = evalW >= 0 ? '+' : '';
+    const bestQ = th.Qs[th.bestIdx];
+    const evalW = evalSide === 'w' ? bestQ : -bestQ;
     const enginePawns = evalW / PAWN_XRAY;
 
-    // Stockfish reference (White-POV), formatted to match the engine Eval
+    // Shared White-POV pawn formatting for engine and Stockfish evals
     function fmtCp(v) {
         if (v == null) return '\u2014';
         if (Math.abs(v) >= MATE_SENTINEL) return v > 0 ? '#' : '-#';
@@ -1958,18 +2155,27 @@ function renderThermoGrid(Uw, Ub, th, source) {
     else if (sfCurrentPosEval == null) { sfStr = '\u2026'; deltaStr = '\u2014'; }
     else {
         sfStr = fmtCp(sfCurrentPosEval);
-        if (Math.abs(sfCurrentPosEval) >= MATE_SENTINEL) deltaStr = '\u2014';
+        if (Math.abs(sfCurrentPosEval) >= MATE_SENTINEL || Math.abs(enginePawns) >= MATE_SENTINEL) deltaStr = '\u2014';
         else {
             const d = enginePawns - sfCurrentPosEval;
             deltaStr = (d >= 0 ? '+' : '') + d.toFixed(2);
         }
     }
 
+    // Phase: subcritical = the demanded C was met exactly; pinned = the
+    // demand exceeded the position's critical capacity C* and T sits at the
+    // spinodal; frozen = forced position, T at the floor.
+    let phase = '';
+    if (th.Ceff != null) {
+        phase = th.T <= 2e-3 ? ' (frozen)' : (th.Ceff < th.Cdemand * 0.98 ? ' (pinned at C*)' : '');
+    }
+
     const rows = [
         ['U_w', fmt(Uw,1), 'U_b', fmt(Ub,1)],
         ['T',   fmt(th.T,4), 'S',  fmt(th.S,4)],
         ['\u27E8Q\u27E9', fmt(th.avgQ,4), 'TS', fmt(th.TS,4)],
-        ['F=\u27E8Q\u27E9+TS', fmt(th.F,4), 'Eval', sign+fmt(evalW/PAWN_XRAY,2)+' \u2659'],
+        ['C demand', fmt(th.Cdemand,2), 'C_eff', fmt(th.Ceff,2)+phase],
+        ['F=\u27E8Q\u27E9+TS', fmt(th.F,4), 'Eval', fmtCp(enginePawns)],
         ['SF (d'+SF_DEPTH+')', sfStr, '\u0394 (eng\u2212SF)', deltaStr],
     ];
 
@@ -2054,6 +2260,31 @@ function renderMoveProbs(th) {
     el.innerHTML = html;
 }
 
+// Per-piece chemical potential: which pieces carry the position's free
+// energy. p_P is the Boltzmann weight of all moves originating from P;
+// μ_P = −T ln(1−p_P) is the free-energy cost of freezing P in place.
+function renderMu(th, turn) {
+    const el = document.getElementById('dash-mu');
+    if (!el) return;
+    if (!th || !th.mu || th.mu.length === 0) { el.innerHTML = '<span style="color:#666">N/A</span>'; return; }
+
+    let maxMu = 0;
+    for (let i = 0; i < th.mu.length; i++) if (th.mu[i].mu > maxMu) maxMu = th.mu[i].mu;
+
+    let html = '<table class="prob-table"><tr><th>Piece</th><th style="text-align:right">μ (♙)</th>' +
+               '<th style="text-align:right">p_P</th><th class="prob-bar-cell"></th></tr>';
+    for (let i = 0; i < th.mu.length; i++) {
+        const x = th.mu[i];
+        const barW = maxMu > 0 ? Math.max(2, (x.mu / maxMu) * 100) : 2;
+        html += '<tr><td>' + PIECE_CHAR[turn + x.type] + ' ' + x.square +
+                '</td><td style="text-align:right">' + fmt(x.mu / PAWN_XRAY, 3) +
+                '</td><td style="text-align:right">' + fmt(x.pSq, 3) +
+                '</td><td class="prob-bar-cell"><div class="prob-bar" style="width:' + barW.toFixed(1) + '%"></div></td></tr>';
+    }
+    html += '</table>';
+    el.innerHTML = html;
+}
+
 // ── Turn-by-turn Graph ─────────────────────────────────────
 function renderGraph() {
     const canvas = document.getElementById('graph-canvas');
@@ -2067,21 +2298,21 @@ function renderGraph() {
     const w = rect.width, h = rect.height;
 
     const variable = document.getElementById('graphVar').value;
+    const EVAL_CLAMP = 10;   // keep mate scores from blowing up the y-scale (both series)
+    const clampEval = v => Math.max(-EVAL_CLAMP, Math.min(EVAL_CLAMP, v));
     const data = graphData.map(d => {
         switch (variable) {
-            case 'eval': return d.eval_w;
+            case 'eval': return clampEval(d.eval_w);
             case 'T': return d.T;
             case 'S': return d.S;
-            default: return d.eval_w;
+            default: return clampEval(d.eval_w);
         }
     });
 
     // Stockfish reference series (only meaningful for the eval variable)
     const showSf = variable === 'eval';
-    const SF_CLAMP = 10;   // keep mate sentinels from blowing up the y-scale
     const sfData = showSf
-        ? graphData.map(d => (d.sfEval == null ? null
-            : Math.max(-SF_CLAMP, Math.min(SF_CLAMP, d.sfEval))))
+        ? graphData.map(d => (d.sfEval == null ? null : clampEval(d.sfEval)))
         : [];
 
     ctx.clearRect(0, 0, w, h);
