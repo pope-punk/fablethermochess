@@ -159,7 +159,14 @@ label { font-size: 0.85em; }
     display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
 }
 .graph-controls select { padding: 3px 8px; font-size: 0.8em; }
-#graph-canvas { width: 100%; height: 150px; display: block; }
+#graph-canvas { width: 100%; height: 170px; display: block; }
+.inst-canvas { width: 100%; height: 130px; display: block; }
+.inst-canvas-sm { width: 100%; height: 90px; display: block; }
+.mu-halo {
+    position: absolute; border-radius: 50%;
+    width: 82%; height: 82%; top: 9%; left: 9%;
+    pointer-events: none;
+}
 @media (max-width: 960px) {
     #app { flex-direction: column; align-items: center; }
     #right-panel { min-width: unset; width: 100%; max-width: 560px; max-height: unset; }
@@ -199,6 +206,16 @@ label { font-size: 0.85em; }
     </h2>
     <div id="dash-thermo" class="dash-section"><div class="dash-grid" id="thermo-grid"></div></div>
 
+    <h2>Capacity Curve C(T)
+        <span class="h2-sub">The position's Schottky anomaly; marker = measured bath T</span>
+    </h2>
+    <div class="dash-section"><canvas id="schottky-canvas" class="inst-canvas"></canvas></div>
+
+    <h2>Annealing
+        <span class="h2-sub">Cooling schedule of this search: bath T per deepening iteration</span>
+    </h2>
+    <div class="dash-section"><canvas id="anneal-canvas" class="inst-canvas-sm"></canvas></div>
+
     <h2>Move History
         <span class="h2-sub">Per-move thermodynamic state &amp; Stockfish comparison</span>
     </h2>
@@ -210,7 +227,9 @@ label { font-size: 0.85em; }
     <div id="dash-moves" class="dash-section" style="max-height:320px;overflow-y:auto"></div>
 
     <h2>Chemical Potential &mu;<sub>P</sub>
-        <span class="h2-sub">&mu;<sub>P</sub> = &minus;T ln(1 &minus; p<sub>P</sub>): free-energy cost of freezing piece P</span>
+        <span class="h2-sub">&mu;<sub>P</sub> = &minus;T ln(1 &minus; p<sub>P</sub>): free-energy cost of freezing piece P
+            &nbsp;&middot;&nbsp;<label style="cursor:pointer"><input type="checkbox" id="muOverlay" onchange="toggleMuOverlay(this.checked)"> show on board</label>
+        </span>
     </h2>
     <div id="dash-mu" class="dash-section" style="max-height:220px;overflow-y:auto"></div>
 
@@ -219,9 +238,13 @@ label { font-size: 0.85em; }
         <div class="graph-controls">
             <select id="graphVar" onchange="renderGraph()">
                 <option value="eval" selected>Eval (&pawn;)</option>
-                <option value="T">T</option>
+                <option value="T">T (bath)</option>
                 <option value="S">S</option>
+                <option value="TS">TS (optionality, &pawn;&middot;2)</option>
+                <option value="Ceff">C_eff</option>
+                <option value="Cstar">C* (critical capacity)</option>
             </select>
+            <span class="h2-sub" style="display:inline;margin-left:6px">phase strip below: frozen&nbsp;/ cold&nbsp;/ critical&nbsp;/ hot</span>
         </div>
         <canvas id="graph-canvas"></canvas>
     </div>
@@ -1246,27 +1269,6 @@ function quiesce(g, alpha, beta, qd) {
     return alpha;
 }
 
-// ── Self-Consistent Temperature ────────────────────────────
-// Solves the fixed-point equation  Var_π(Q) / T² = C  for T, where π is
-// the Boltzmann distribution over the node's move values at temperature T
-// and C is the prescribed heat capacity. Writing r(T) ≡ σ_π(T)/T, the
-// equation reads r(T) = √C. r(T) → 0 as T → 0 (the distribution freezes
-// onto the best move) and r(T) → 0 as T → ∞ (σ_π saturates while T grows),
-// so r is peaked in between and the solver distinguishes three phases:
-//
-//   subcritical   max r > √C : the self-consistent temperature exists.
-//                 Take the crossing on the RIGHT (descending) branch —
-//                 the thermodynamically stable fixed point — by log-space
-//                 bisection, solved to <1%.
-//   supercritical max r < √C : NO temperature can supply the demanded
-//                 capacity. T pins at the spinodal T̂ = argmax r(T), the
-//                 closest achievable equilibrium; the achieved capacity
-//                 saturates at the position's critical capacity
-//                 C* = max_T Var_π(Q)/T² < C. (Dashboard: C_eff vs C.)
-//   frozen        max r ≈ 0 : one move dominates at every temperature in
-//                 the domain (forced positions, mates): T → T_FLOOR and
-//                 F → max Q, the minimax limit.
-//
 // ── Schottky measurement (dashboard instrument) ────────────
 // Nothing here influences play. Given the root move values and the bath
 // temperature, this measures where the bath sits on the position's own
@@ -1338,7 +1340,19 @@ function measureSchottky(Qs, n, T) {
     if (T <= 2e-3 || rPk < 1e-6) phase = 'frozen';
     else if (Math.abs(Math.log(T / Tspin)) < 0.25) phase = 'critical';
     else phase = T < Tspin ? 'cold' : 'hot';
-    return { Ceff, Cstar, Tspin, phase };
+
+    // Sample the full capacity curve C(T') on a log grid spanning both the
+    // Schottky peak and the bath, for the dashboard's curve plot.
+    const curve = [];
+    const Tlo = Math.min(Tspin, Math.max(T, T_FLOOR)) / 16;
+    const Thi = Math.max(Tspin, Math.max(T, T_FLOOR)) * 16;
+    const NPTS = 40, step = Math.log(Thi / Tlo) / (NPTS - 1);
+    for (let k = 0; k < NPTS; k++) {
+        const Tk = Tlo * Math.exp(k * step);
+        const r = _sigmaOverT(xs, n, Tk, xmax);
+        curve.push({ T: Tk, C: r * r });
+    }
+    return { Ceff, Cstar, Tspin, phase, curve };
 }
 
 // ── Thermodynamic Search: F = T ln Z ───────────────────────
@@ -1529,7 +1543,7 @@ function annealRoot(g, opts) {
     g.fast_seed_acc();
     const pathKeys = new Set();
     const rootPosKey = g.fast_hash();
-    const result = { moves, Qs: null, T: bathT, depth: 0 };
+    const result = { moves, Qs: null, T: bathT, depth: 0, anneal: [] };
 
     // One fresh table per search. Entries computed at earlier (hotter)
     // iterations remain visible to later ones: annealing with hysteresis.
@@ -1597,6 +1611,9 @@ function annealRoot(g, opts) {
         result.Qs = nq;
         result.T = bathT;
         result.depth = depth;
+        // Cooling trace: one point per completed iteration (the annealing
+        // schedule as it actually happened, for the dashboard).
+        result.anneal.push({ d: depth, T: bathT, bestQ: nq[0] });
 
         if (performance.now() > deadline) break;
         if (nodeCount > NODE_HARD_LIMIT) break;
@@ -1650,7 +1667,8 @@ function analyzeRoot(g, opts) {
 
     return { T, F, S, avgQ, TS, probs, moves: moveNames, fromSqs, Qs, bestIdx,
              depth: r.depth, Ceff: schottky.Ceff, Cstar: schottky.Cstar,
-             Tspin: schottky.Tspin, phase: schottky.phase };
+             Tspin: schottky.Tspin, phase: schottky.phase,
+             curve: schottky.curve || [], anneal: r.anneal };
 }
 
 // Unified analysis entry point. Runs identically on the main thread (sync
@@ -1719,6 +1737,19 @@ function renderBoard() {
             if (sq===selectedSq) cell.classList.add('selected');
             if (selectedSq && legalTargets.indexOf(sq)>=0) cell.classList.add(piece ? 'legal-capture' : 'legal-dot');
             if (piece) cell.textContent = PIECE_CHAR[piece.color+piece.type];
+            // μ overlay: a glow ring around each piece of the side to move,
+            // intensity ∝ its chemical potential (how much of the position's
+            // free energy that piece carries).
+            if (muOverlayOn && lastMuMap && piece && piece.color === lastMuTurn) {
+                const m = lastMuMap[sq];
+                if (m !== undefined && lastMuMax > 0) {
+                    const a = (0.18 + 0.62 * m / lastMuMax).toFixed(3);
+                    const halo = document.createElement('div');
+                    halo.className = 'mu-halo';
+                    halo.style.background = 'radial-gradient(circle, rgba(126,200,227,0) 38%, rgba(126,200,227,' + a + ') 60%, rgba(126,200,227,0) 76%)';
+                    cell.appendChild(halo);
+                }
+            }
             if (dc===0) { const lbl=document.createElement('span'); lbl.className='coord-label rank-label'; lbl.textContent=rank+1; cell.appendChild(lbl); }
             if (dr===7) { const lbl=document.createElement('span'); lbl.className='coord-label file-label'; lbl.textContent=String.fromCharCode(97+file); cell.appendChild(lbl); }
             cell.addEventListener('click', () => onCellClick(sq));
@@ -1797,6 +1828,7 @@ function applyAnalysis(res, engineStats) {
         // high T is dragged down by inferior moves and misreads the balance.)
         const eval_w = (turn === 'w' ? 1 : -1) * thermo.Qs[thermo.bestIdx] / PAWN_XRAY;
         graphData.push({ halfMove: graphData.length + 1, eval_w, T: thermo.T, S: thermo.S,
+            TS: thermo.TS, Ceff: thermo.Ceff, Cstar: thermo.Cstar, phase: thermo.phase,
             U: (res.Uw - res.Ub) / PAWN_XRAY, move: moveHistory[graphData.length],
             fen: res.fen, turn, sfEval: undefined,
             timeMs: engineStats ? engineStats.timeMs : null,
@@ -1809,6 +1841,8 @@ function applyAnalysis(res, engineStats) {
     renderMoveHistory();
     renderMoveProbs(thermo);
     renderMu(thermo, res.turn);
+    renderSchottky(thermo);
+    renderAnneal(thermo);
     renderGraph();
 }
 
@@ -1818,7 +1852,8 @@ async function refreshDashboard() {
     if (game.game_over()) {
         const { Uw, Ub } = rawU(game);
         lastThermo = null; renderThermoGrid(Uw, Ub, null, '');
-        renderMoveHistory(); renderMoveProbs(null); renderMu(null); renderGraph();
+        renderMoveHistory(); renderMoveProbs(null); renderMu(null);
+        renderSchottky(null); renderAnneal(null); renderGraph();
         return;
     }
     const res = await analyzeAsync({ fen, pastKeys: collectPastKeys(), timeLimit: null, dashDepth: (searchStats.depth > 0 ? searchStats.depth : 2) });
@@ -2157,10 +2192,23 @@ function renderMoveProbs(th) {
 // Per-piece chemical potential: which pieces carry the position's free
 // energy. p_P is the Boltzmann weight of all moves originating from P;
 // μ_P = −T ln(1−p_P) is the free-energy cost of freezing P in place.
+let muOverlayOn = false, lastMuMap = null, lastMuTurn = 'w', lastMuMax = 0;
+function toggleMuOverlay(on) { muOverlayOn = on; renderBoard(); }
 function renderMu(th, turn) {
     const el = document.getElementById('dash-mu');
     if (!el) return;
-    if (!th || !th.mu || th.mu.length === 0) { el.innerHTML = '<span style="color:#666">N/A</span>'; return; }
+    if (!th || !th.mu || th.mu.length === 0) {
+        el.innerHTML = '<span style="color:#666">N/A</span>';
+        lastMuMap = null;
+        if (muOverlayOn) renderBoard();
+        return;
+    }
+    lastMuMap = {}; lastMuTurn = turn; lastMuMax = 0;
+    for (let i = 0; i < th.mu.length; i++) {
+        lastMuMap[th.mu[i].square] = th.mu[i].mu;
+        if (th.mu[i].mu > lastMuMax) lastMuMax = th.mu[i].mu;
+    }
+    if (muOverlayOn) renderBoard();
 
     let maxMu = 0;
     for (let i = 0; i < th.mu.length; i++) if (th.mu[i].mu > maxMu) maxMu = th.mu[i].mu;
@@ -2177,6 +2225,132 @@ function renderMu(th, turn) {
     }
     html += '</table>';
     el.innerHTML = html;
+}
+
+// ── Instrument canvases ────────────────────────────────────
+const PHASE_COLORS = { frozen: '#5b7bd5', cold: '#7ec8e3', critical: '#e3c87e', hot: '#e37e7e' };
+
+function setupCanvas(id) {
+    const canvas = document.getElementById(id);
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    return { ctx, w: rect.width, h: rect.height };
+}
+function noData(c) {
+    c.ctx.fillStyle = '#555'; c.ctx.font = '12px system-ui';
+    c.ctx.textAlign = 'left'; c.ctx.fillText('No data yet', 10, c.h / 2);
+}
+function fmtT(v) { return v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2); }
+
+// The position's heat-capacity curve C(T) = Var_π(Q)/T² on a log-T axis —
+// its Schottky anomaly — with the measured bath temperature marked on it.
+// Where the marker sits relative to the peak IS the phase.
+function renderSchottky(th) {
+    const c = setupCanvas('schottky-canvas');
+    if (!c) return;
+    const { ctx, w, h } = c;
+    ctx.clearRect(0, 0, w, h);
+    if (!th || !th.curve || th.curve.length < 2) { noData(c); return; }
+
+    const pad = { top: 10, right: 10, bottom: 18, left: 34 };
+    const pw = w - pad.left - pad.right, ph = h - pad.top - pad.bottom;
+    const pts = th.curve;
+    const lx0 = Math.log(pts[0].T), lx1 = Math.log(pts[pts.length - 1].T);
+    let maxC = th.Cstar;
+    for (const p of pts) if (p.C > maxC) maxC = p.C;
+    maxC = Math.max(maxC * 1.1, 1e-6);
+    const X = T => pad.left + (Math.log(T) - lx0) / (lx1 - lx0) * pw;
+    const Y = C => pad.top + ph * (1 - C / maxC);
+
+    // grid + y labels
+    ctx.strokeStyle = '#2a2a3e'; ctx.lineWidth = 1;
+    ctx.fillStyle = '#888'; ctx.font = '9px Consolas, Menlo, monospace'; ctx.textAlign = 'right';
+    for (let i = 0; i <= 2; i++) {
+        const y = pad.top + (i / 2) * ph;
+        ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+        ctx.fillText((maxC * (1 - i / 2)).toFixed(2), pad.left - 4, y + 3);
+    }
+    // x labels (log ticks at ends and peak)
+    ctx.textAlign = 'center';
+    ctx.fillText(fmtT(pts[0].T), X(pts[0].T), h - 5);
+    ctx.fillText(fmtT(pts[pts.length - 1].T), X(pts[pts.length - 1].T), h - 5);
+
+    // the curve
+    ctx.strokeStyle = '#7ec8e3'; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+        const x = X(pts[i].T), y = Y(pts[i].C);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Schottky peak (C*, T̂)
+    ctx.fillStyle = '#e0a458';
+    ctx.beginPath(); ctx.arc(X(th.Tspin), Y(th.Cstar), 3, 0, Math.PI * 2); ctx.fill();
+    ctx.textAlign = 'center'; ctx.fillText('C*', X(th.Tspin), Y(th.Cstar) - 6);
+
+    // bath temperature marker, colored by phase
+    const bx = X(Math.max(th.T, pts[0].T));
+    const pc = PHASE_COLORS[th.phase] || '#e0e0ea';
+    ctx.strokeStyle = pc; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(bx, pad.top); ctx.lineTo(bx, pad.top + ph); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = pc; ctx.textAlign = bx > w * 0.75 ? 'right' : 'left';
+    ctx.fillText('T=' + fmtT(th.T) + ' (' + th.phase + ')', bx + (bx > w * 0.75 ? -4 : 4), pad.top + 8);
+}
+
+// The cooling schedule of the search that just ran: measured bath T per
+// deepening iteration, with the zero-point quantum as a floor line.
+function renderAnneal(th) {
+    const c = setupCanvas('anneal-canvas');
+    if (!c) return;
+    const { ctx, w, h } = c;
+    ctx.clearRect(0, 0, w, h);
+    if (!th || !th.anneal || th.anneal.length === 0) { noData(c); return; }
+
+    const pad = { top: 10, right: 10, bottom: 16, left: 34 };
+    const pw = w - pad.left - pad.right, ph = h - pad.top - pad.bottom;
+    const tr = th.anneal;
+    let maxT = T_ZERO;
+    for (const p of tr) if (p.T > maxT) maxT = p.T;
+    maxT *= 1.15;
+    const X = i => pad.left + (tr.length === 1 ? pw / 2 : (i / (tr.length - 1)) * pw);
+    const Y = T => pad.top + ph * (1 - T / maxT);
+
+    // zero-point floor
+    ctx.strokeStyle = '#3a3a5e'; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, Y(T_ZERO)); ctx.lineTo(w - pad.right, Y(T_ZERO)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#666'; ctx.font = '9px Consolas, Menlo, monospace'; ctx.textAlign = 'left';
+    ctx.fillText('T₀', w - pad.right - 12, Y(T_ZERO) - 3);
+
+    // cooling curve
+    ctx.strokeStyle = '#b07ee3'; ctx.fillStyle = '#b07ee3'; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    for (let i = 0; i < tr.length; i++) {
+        const x = X(i), y = Y(tr[i].T);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    for (let i = 0; i < tr.length; i++) {
+        ctx.beginPath(); ctx.arc(X(i), Y(tr[i].T), 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#888';
+        ctx.fillText('d' + tr[i].d, X(i), h - 4);
+        ctx.fillStyle = '#b07ee3';
+    }
+    // y labels
+    ctx.fillStyle = '#888'; ctx.textAlign = 'right';
+    ctx.fillText(fmtT(maxT), pad.left - 4, pad.top + 3);
+    ctx.fillText('0', pad.left - 4, pad.top + ph + 3);
+    // final T annotation
+    ctx.fillStyle = '#b07ee3'; ctx.textAlign = 'right';
+    ctx.fillText('T=' + fmtT(tr[tr.length - 1].T), w - pad.right, pad.top + 8);
 }
 
 // ── Turn-by-turn Graph ─────────────────────────────────────
@@ -2199,6 +2373,9 @@ function renderGraph() {
             case 'eval': return clampEval(d.eval_w);
             case 'T': return d.T;
             case 'S': return d.S;
+            case 'TS': return d.TS || 0;
+            case 'Ceff': return d.Ceff || 0;
+            case 'Cstar': return d.Cstar || 0;
             default: return clampEval(d.eval_w);
         }
     });
@@ -2344,6 +2521,18 @@ function renderGraph() {
     const step = Math.max(1, Math.ceil(data.length / 10));
     for (let i = 0; i < data.length; i += step) {
         ctx.fillText(String(graphData[i].halfMove), xPos(i), h - 4);
+    }
+
+    // Phase strip: the game's phase geography, one colored cell per
+    // half-move (frozen / cold / critical / hot), just above the x labels.
+    const stripY = h - pad.bottom + 3, stripH = 5;
+    for (let i = 0; i < graphData.length; i++) {
+        const ph2 = graphData[i].phase;
+        if (!ph2) continue;
+        const xl = i === 0 ? pad.left : (xPos(i - 1) + xPos(i)) / 2;
+        const xr = i === graphData.length - 1 ? w - pad.right : (xPos(i) + xPos(i + 1)) / 2;
+        ctx.fillStyle = PHASE_COLORS[ph2] || '#444';
+        ctx.fillRect(xl, stripY, Math.max(xr - xl, 1), stripH);
     }
 }
 

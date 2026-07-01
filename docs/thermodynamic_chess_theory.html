@@ -151,7 +151,16 @@ That a sequence of purely <em>physical</em> repairs — ensemble averaging, pari
 
 <h2>10. The measurement apparatus</h2>
 <p>
-The dashboard reports, per position: the material energies U<sub>w</sub>, U<sub>b</sub>; the measured bath temperature T and root entropy S; ⟨Q⟩, TS, and F; the Schottky readings C<sub>eff</sub>&nbsp;=&nbsp;C(T<sub>bath</sub>) and C* with the phase label; the move ensemble (Q<sub>a</sub>, π<sub>a</sub>); the chemical potentials; and time series of Eval, T, and S across the game. The headline Eval is everywhere the argmax-Q value in White-POV pawns — the energetic part alone, comparable across engines — while F carries the optionality term on its own row. Stockfish runs in a separate worker as an external reference thermometer and never influences play; the Δ(engine−SF) column measures where geometric-thermodynamic valuation diverges from conventional valuation. There is no temperature knob anywhere in the interface: T is a reading, not a setting. The one control that remains — thinking time — is physically meaningful: it is the annealing schedule, and a longer think is a colder engine.
+The dashboard reports, per position: the material energies U<sub>w</sub>, U<sub>b</sub>; the measured bath temperature T and root entropy S; ⟨Q⟩, TS, and F; the Schottky readings C<sub>eff</sub>&nbsp;=&nbsp;C(T<sub>bath</sub>) and C* with the phase label; the move ensemble (Q<sub>a</sub>, π<sub>a</sub>); the chemical potentials; and time series of Eval, T, S, TS, C<sub>eff</sub>, and C* across the game. Four dedicated instruments visualize the physics directly:
+</p>
+<ul>
+<li><b>Capacity curve.</b> The position's full Schottky anomaly C(T) on a log-temperature axis, with the peak (C*, T̂) marked and the measured bath temperature drawn as a phase-colored marker — where the marker sits on the curve <em>is</em> the phase.</li>
+<li><b>Annealing trace.</b> The cooling schedule of the search that just ran: bath T per deepening iteration, with the zero-point quantum T₀ shown as the floor it rides on.</li>
+<li><b>Phase strip.</b> A colored band under the history graph giving the game's phase geography move by move — frozen / cold / critical / hot.</li>
+<li><b>μ overlay.</b> An optional glow on the board itself, ring intensity proportional to each piece's chemical potential: a direct picture of which pieces carry the position's free energy.</li>
+</ul>
+<p>
+The headline Eval is everywhere the argmax-Q value in White-POV pawns — the energetic part alone, comparable across engines — while F carries the optionality term on its own row. Stockfish runs in a separate worker as an external reference thermometer and never influences play; the Δ(engine−SF) column measures where geometric-thermodynamic valuation diverges from conventional valuation. There is no temperature knob anywhere in the interface: T is a reading, not a setting. The one control that remains — thinking time — is physically meaningful: it is the annealing schedule, and a longer think is a colder engine.
 </p>
 
 <h2>11. What this might tell us about chess</h2>
