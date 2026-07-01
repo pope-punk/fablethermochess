@@ -22,7 +22,6 @@ p { margin: 0 0 7pt; text-align: justify; }
     font-family: 'STIX Two Math', Georgia, serif; page-break-inside: avoid;
 }
 .eq .tag { float: right; color: #888; font-size: 9pt; font-family: Georgia, serif; }
-em.v { font-style: italic; }
 code, .mono { font-family: 'Consolas', 'DejaVu Sans Mono', monospace; font-size: 9pt; background: #f4f4f4; padding: 0 2px; border-radius: 2px; }
 table { border-collapse: collapse; margin: 8pt auto; font-size: 9.5pt; page-break-inside: avoid; }
 th, td { border: 1px solid #bbb; padding: 3pt 8pt; text-align: center; }
@@ -43,163 +42,140 @@ li { margin-bottom: 3pt; text-align: justify; }
 <body>
 
 <h1>Thermodynamic Chess</h1>
-<div class="subtitle">A chess engine as a statistical-mechanical system: theory, design decisions, and what an airtight implementation might measure</div>
-<div class="meta">Conceptual summary of the <span class="mono">fablethermochess</span> engine &nbsp;·&nbsp; July 2026</div>
+<div class="subtitle">A chess engine as an annealing computation: emergent temperature, Boltzmann-counting optionality, and the phase structure of positions</div>
+<div class="meta">Conceptual summary of the <span class="mono">fablethermochess</span> engine, second edition (the annealed model) &nbsp;·&nbsp; July 2026</div>
 
 <div class="abstract">
-<b>Abstract.</b> Conventional engines value a chess position by minimax: the value of a position is the value of its single best continuation. This engine replaces that rule with equilibrium statistical mechanics. The legal moves of a position are treated as the microstates of a canonical ensemble; each carries a Boltzmann weight; and the value of the position is its <em>free energy</em> F&nbsp;=&nbsp;T&nbsp;ln&nbsp;Z, which decomposes into an energetic part (how good the moves are) plus an entropic part (how many good moves there are). The temperature is not a tuning knob: it is solved per-position from a fixed-heat-capacity constraint Var(Q)/T²&nbsp;=&nbsp;C, which turns out to define a genuine phase structure — positions where the demanded capacity is achievable, positions that pin at their own critical capacity, and frozen (forced) positions. Every component of the engine — piece values, quiescence, pruning, mate handling, draw handling, and the per-piece "chemical potential" — is derived from, or reconciled with, this single physical picture. The engine plays the argmax move; the thermodynamic state variables (T, S, F, C*, μ) are measurements taken along the way, with Stockfish attached as an external reference thermometer.
+<b>Abstract.</b> Conventional engines value a chess position by minimax. This engine replaces that rule with statistical mechanics, and — in this second edition — removes every prescribed thermodynamic quantity from the model. Energy is geometric material alone. Entropy is optionality: at the search horizon a side's move ensemble is uniform, so its entropy is Boltzmann's own S&nbsp;=&nbsp;ln&nbsp;W with W the number of available moves. Temperature is not chosen but <em>measured</em>: the search is an explicit annealing process in which iterative deepening is time, and the bath temperature is the ensemble-weighted residual fluctuation of the engine's own value revisions — cooling toward the T&nbsp;=&nbsp;0 minimax ground state as the search converges, floored only by the zero-point quantum of the evaluation lattice (one square of reach, derived from the geometry). Position value is free energy F&nbsp;=&nbsp;⟨Q⟩&nbsp;+&nbsp;T·S at the bath temperature, so activity can trade against material only at the rate the engine's genuine uncertainty licenses. The previous edition's prescribed heat capacity C, its material schedule, and its user slider are gone; the phase structure they exposed survives as pure measurement — every position has an intrinsic capacity curve C(T)&nbsp;=&nbsp;Var<sub>π</sub>(Q)/T² with a Schottky peak C* at spinodal temperature T̂, and the dashboard reports where the measured bath sits on it: frozen, cold, critical, or hot. The redesign was driven by adversarial evidence: matches against a pure-material alpha-beta oracle exposed each hidden constant as a blunder source, and the final model plays soundly where its predecessor hemorrhaged material.
 </div>
 
 <h2>1. The central idea</h2>
 <p>
-A chess position with the player to move is treated as a physical system in contact with a heat bath. Its accessible microstates are its legal moves. Each move <em>a</em> has a value Q<sub>a</sub> — the (negated, see below) energy of the microstate — obtained recursively from the position it leads to. The system occupies its microstates with canonical (Boltzmann) probabilities:
+A chess position with the player to move is treated as a physical system. Its accessible microstates are its legal moves; each move <em>a</em> has a value Q<sub>a</sub> — the negated energy of the microstate (<b>Q&nbsp;=&nbsp;−E</b>: good moves are low-energy states) — obtained recursively from the position it leads to. The system occupies its microstates with canonical probabilities and is valued by its free energy:
 </p>
-<div class="eq">π<sub>a</sub> = e<sup>Q<sub>a</sub>/T</sup> / Z ,&emsp; Z = Σ<sub>b</sub> e<sup>Q<sub>b</sub>/T</sup> <span class="tag">(1)</span></div>
+<div class="eq">π<sub>a</sub> = e<sup>Q<sub>a</sub>/T</sup> / Z ,&emsp; F = T ln Z = ⟨Q⟩ + T·S ,&emsp; S = −Σ<sub>a</sub> π<sub>a</sub> ln π<sub>a</sub> <span class="tag">(1)</span></div>
 <p>
-We adopt the convention <b>Q&nbsp;=&nbsp;−E</b>: good moves are low-energy states, and maximizing Q is minimizing energy. Under this convention the free energy of the position (with k<sub>B</sub>&nbsp;=&nbsp;1) is
+Maximizing F is minimizing E&nbsp;−&nbsp;TS. The decomposition is the heart of the design: a position is valuable for the quality of its best continuations <em>and</em> for the entropy of having many comparably good ones — but the entropy is paid at the going temperature, and everything hinges on what sets T.
 </p>
-<div class="eq">F = T ln Z = ⟨Q⟩ + T·S ,&emsp; S = −Σ<sub>a</sub> π<sub>a</sub> ln π<sub>a</sub> <span class="tag">(2)</span></div>
 <p>
-and the engine <em>maximizes</em> F, which corresponds to the usual thermodynamic statement that equilibrium minimizes E&nbsp;−&nbsp;TS. The decomposition in (2) is the heart of the design: a position is valuable both for the quality of its best continuations (⟨Q⟩, weighted toward the best by the Boltzmann factor) and for its <em>optionality</em> — the entropy S of having many comparably good continuations, paid at the going temperature T.
+Search proceeds in negamax form, Q<sub>a</sub>&nbsp;=&nbsp;−F(position after&nbsp;a), with the identical rule for both sides. As T&nbsp;→&nbsp;0 the log-sum-exp collapses to the maximum and the engine is exact minimax; the engine always <em>plays</em> argmax<sub>a</sub>&nbsp;Q<sub>a</sub>, with the weights π<sub>a</sub> displayed as a measurement of how contested the choice was. Equation (1) is the soft Bellman backup of maximum-entropy reinforcement learning, and two-sided Boltzmann best response is a logit quantal-response equilibrium; what distinguishes this engine is that T is an emergent, measured quantity (§4).
 </p>
 
-<h2>2. Free energy replaces minimax</h2>
+<h2>2. Energy: geometric material, and nothing else</h2>
 <p>
-Search proceeds in negamax form. The value of a move is minus the free energy of the resulting position for the opponent, and the value of a position is the log-sum-exp ("softmax") of its move values:
+Nothing is imported from chess folklore — no 1/3/3/5/9 table, no piece-square bonuses. A piece type's value is its mean x-ray reach: the number of squares it sweeps from a square on an empty board, averaged over the 64 squares. The pawn's base is 2 (its typical move count; also the display unit: 1♙&nbsp;=&nbsp;2 internal units) and the king's is 0 (never traded; both sides always have exactly one, so any base cancels in the difference). The static energy of a position is the material difference of these bases — <em>only</em> that:
 </p>
-<div class="eq">Q<sub>a</sub> = −F(position after a) ,&emsp; F = max<sub>a</sub>Q<sub>a</sub> + T ln Σ<sub>a</sub> e<sup>(Q<sub>a</sub>−max Q)/T</sup> <span class="tag">(3)</span></div>
-<p>
-Both sides are computed by the identical rule — equilibrium requires this symmetry; there is no separate "opponent model." Two limits anchor the construction. As T&nbsp;→&nbsp;0, F&nbsp;→&nbsp;max<sub>a</sub>&nbsp;Q<sub>a</sub>: the search becomes exact minimax, and the engine is a conventional engine. As T&nbsp;→&nbsp;∞, π becomes uniform and F&nbsp;→&nbsp;⟨Q⟩&nbsp;+&nbsp;T&nbsp;ln&nbsp;n: pure optionality. Real play lives between the limits, and <em>where</em> between them is not chosen by hand but solved for (§4).
-</p>
-<div class="note">
-<b>Connections.</b> Equation (3) is exactly the <em>soft Bellman backup</em> of maximum-entropy reinforcement learning (soft Q-learning), and a two-player game in which both sides best-respond with Boltzmann distributions is a <em>logit quantal-response equilibrium</em>. What distinguishes this engine from both is that T is not a hyperparameter: it is an emergent, position-dependent quantity fixed by a thermodynamic constraint. The engine can be read as a self-consistent-temperature QRE player.
-</div>
-<p>
-The engine ultimately <em>plays</em> argmax<sub>a</sub>&nbsp;Q<sub>a</sub> — it does not sample from π. Temperature enters play indirectly: through the softmax backups of interior nodes (which reward optionality below the root) and through the pruning width (§8). The weights π<sub>a</sub> are displayed as a measurement of how contested the choice was.
-</p>
-
-<h2>3. The energy function: geometry, not convention</h2>
-<p>
-Leaf positions need a static energy. The design rule is that <em>nothing is imported from chess folklore</em> — no 1/3/3/5/9 point table, no hand-tuned piece-square bonuses. Everything derives from board geometry:
-</p>
-<ul>
-<li><b>X-ray mobility</b> x(t,&nbsp;sq): the number of squares a piece of type t sweeps from square sq on an <em>empty</em> board — a pure function of geometry (rook: 14 everywhere; bishop: 7–13; knight: 2–8; queen: 21–27).</li>
-<li><b>Material base</b>: each piece type's base value is its mean x-ray mobility over the 64 squares, base(t)&nbsp;=&nbsp;⟨x(t,·)⟩. The base is what a piece is worth for existing; it is the same quantity as mobility, averaged, which makes the material term dominate the positional term without introducing a second unit.</li>
-<li><b>Real mobility</b>: at quiet leaves the engine adds each piece's blocker-aware mobility — squares actually reachable, rays stopped at the first blocker — so open files, blocked bishops, and centralization are seen, not assumed.</li>
-</ul>
-<p>The static energy of a position for the side to move is then</p>
-<div class="eq">U = Σ<sub>own pieces</sub> [base(t) + mob(t, sq)] − Σ<sub>their pieces</sub> [base(t) + mob(t, sq)] <span class="tag">(4)</span></div>
-<p>
-with two principled exceptions. The <b>king</b> contributes nothing: it is never traded, both sides always have exactly one (so any base cancels), and rewarding its mobility would teach the engine to walk its king into the open with no compensating safety term. The <b>pawn</b> contributes a fixed base of 2 (its typical move count) and no mobility term: pawn mobility is dominated by enemy-dependent capture geometry, and rewarding pawn x-ray leads to systematic pathologies (a start-rank bonus that penalizes advancing). One pawn = 2 internal units defines the display unit (♙).
-</p>
-<p>Averaging (4) over squares gives the engine's <em>emergent exchange rates</em>, which are a falsifiable output of the theory rather than an input:</p>
 <table>
 <tr><th></th><th>Pawn</th><th>Knight</th><th>Bishop</th><th>Rook</th><th>Queen</th></tr>
-<tr><td>mean x-ray mobility</td><td>(2)</td><td>5.25</td><td>8.75</td><td>14</td><td>22.75</td></tr>
-<tr><td>emergent value (♙)</td><td>1</td><td>5.25</td><td>8.75</td><td>14</td><td>22.75</td></tr>
+<tr><td>mean x-ray reach = base</td><td>(2)</td><td>5.25</td><td>8.75</td><td>14</td><td>22.75</td></tr>
+<tr><td>emergent value (♙)</td><td>1</td><td>2.6</td><td>4.4</td><td>7</td><td>11.4</td></tr>
 <tr><td>classical value (♙)</td><td>1</td><td>3</td><td>3</td><td>5</td><td>9</td></tr>
 </table>
-<p>
-The geometric values compress pawns and spread the pieces: relative to tradition this engine treats pawns as cheaper, bishops as clearly better than knights (ratio 5:3), and heavy pieces as more precious. Systematic disagreements with Stockfish's evaluation (§10) are therefore not all errors — some are the measurable signature of valuing chess by geometry alone.
-</p>
-
-<h2>4. Emergent temperature and the phase structure</h2>
-<p>
-The one place a free parameter could hide is T. It is eliminated by prescribing, instead of a temperature, a <b>heat capacity</b> C and demanding the equilibrium fluctuation identity
-</p>
-<div class="eq">C = Var<sub>π</sub>(Q) / T² <span class="tag">(5)</span></div>
-<p>
-hold at every node — the same identity that relates energy fluctuations to heat capacity in a canonical ensemble. Since π itself depends on T, (5) is a fixed-point equation. Writing r(T)&nbsp;≡&nbsp;σ<sub>π</sub>(T)/T, the equation reads r(T)&nbsp;=&nbsp;√C, and the structure of r governs everything: r&nbsp;→&nbsp;0 as T&nbsp;→&nbsp;0 (the distribution freezes onto the best move, σ collapses exponentially) and r&nbsp;→&nbsp;0 as T&nbsp;→&nbsp;∞ (σ saturates at the spread of the move values while T grows), so r rises to a peak and falls. Each position therefore possesses an intrinsic <b>critical capacity</b>
-</p>
-<div class="eq">C* = max<sub>T</sub> Var<sub>π</sub>(Q)/T² <span class="tag">(6)</span></div>
-<p>— the largest heat capacity its move ensemble can sustain — and the solver distinguishes three phases:</p>
-<ol>
-<li><span class="phase">Subcritical</span> (C&nbsp;&lt;&nbsp;C*): the fixed point exists. Of the two crossings, the engine takes the one on the descending branch of r — the thermodynamically stable solution — located by geometric sweep and log-space bisection, solved to better than 1%. Here the dashboard shows C<sub>eff</sub>&nbsp;=&nbsp;C exactly.</li>
-<li><span class="phase">Supercritical</span> (C&nbsp;&gt;&nbsp;C*): no temperature satisfies (5). The demand is unphysical for this position, and T pins at the <b>spinodal</b> T̂&nbsp;=&nbsp;argmax&nbsp;r(T), the closest achievable equilibrium; the achieved capacity saturates at C<sub>eff</sub>&nbsp;=&nbsp;C*&nbsp;&lt;&nbsp;C. C thus acts as a capacity <em>demand</em> — an upper bound the position meets when it can.</li>
-<li><span class="phase">Frozen</span> (C*&nbsp;≈&nbsp;0): a single move dominates at every temperature — forced recaptures, mating sequences. T falls to a numerical floor (10<sup>−3</sup>, far below the ~1-unit evaluation resolution) and F&nbsp;→&nbsp;max&nbsp;Q: the minimax limit is recovered exactly where chess is genuinely forcing.</li>
-</ol>
 <div class="note">
-<b>Robustness against absorbing states.</b> The solver's search domain is set by a median-based (MAD) scale of the <em>bulk</em> of the Q distribution, never the full range. A mate score among quiet moves is an outlier of order 10<sup>5</sup>; allowing it to define the temperature scale would open a spurious high-temperature branch in which F values the node as a lukewarm mixture of "mate" and "quiet move." Physically, terminal states are absorbing, not thermal (§6); numerically, the MAD domain ensures they freeze the ensemble instead of heating it. A near-critical subtlety is handled explicitly: when the band where r&nbsp;≥&nbsp;√C is narrower than one sweep step, a peak refinement detects the crossing and recovers the exact solution rather than misclassifying the position as supercritical.
+<b>What was removed, and why.</b> The first edition added each piece's instantaneous blocker-aware mobility to the energy at full weight, making one square of reach worth half a pawn — a hidden hardcoded exchange rate between material and activity, roughly ten times larger than any calibrated engine uses. Match diagnosis against a pure-material oracle showed exactly the failure this predicts: moves that lost a knight and moves that kept material backed up with <em>identical</em> values, because routine mobility swings are the same magnitude as a minor piece's base. Mobility is real value, but it is not energy; it is optionality, and optionality is entropy (§3) — priced at temperature, as physics demands. When the engine's uncertainty is low, activity is nearly worthless against material; exactly as it should be.
 </div>
-<h3>4.1 The capacity schedule</h3>
+
+<h2>3. Entropy: optionality as Boltzmann counting</h2>
 <p>
-C is scaled by the material remaining on the board: the value-weighted material fraction maps linearly from C&nbsp;=&nbsp;2.0 (full board) down to C&nbsp;=&nbsp;0.6 (bare board), times a user multiplier (0.3–1.5). Larger C demands lower T: the crowded opening runs <em>cool and decisive</em> — and is typically supercritical, pinned at its own C*&nbsp;≈&nbsp;1 — while the emptying board relaxes the demand and lets the endgame run <em>hot and exploratory</em>, where the optionality term genuinely shapes play. Because pinning saturates gracefully, no setting of the slider can collapse the temperature by accident; the old failure mode ("keep C&nbsp;≤&nbsp;1.5 or T dies") is eliminated, and C<sub>eff</sub> on the dashboard reports which phase the position is in.
+Interior nodes get optionality for free — it is the T·S term of (1), propagated by the backup. Leaves need a static term, and here the model makes its cleanest statement. At the search horizon the engine has <em>no energy resolution</em> among the unsearched continuations: the correct ensemble over a side's moves is therefore uniform — maximum entropy — and its entropy is Boltzmann's counting formula S&nbsp;=&nbsp;ln&nbsp;W, with W the side's bare (pseudo-legal) move count. The leaf evaluation is
+</p>
+<div class="eq">U = material + T·(ln W<sub>us</sub> − ln W<sub>them</sub>) <span class="tag">(2)</span></div>
+<p>
+— side-symmetric by construction (no parity bias between odd and even search depths), bounded, logarithmic (the tenth extra move is worth far less than the second), and computable in a single board scan. A position in check contributes material only: passing is illegal there, the ensemble is not stationary, and a non-equilibrium state has no entropy to sell. Trapped pieces, open files, and centralization all still register — as counting, at temperature — but a piece of material can never be outbid by activity unless the bath is hot enough to license it, and the bath is only hot when the engine genuinely cannot tell its best moves apart (§4).
 </p>
 
-<h2>5. Local equilibrium: every node has its own temperature</h2>
+<h2>4. Temperature: the annealing residual</h2>
 <p>
-Equation (5) is solved independently at every interior node, so temperature is a <em>local</em> quantity — the tree is in local thermal equilibrium rather than global. A sharp tactical node sits cold within an otherwise warm search; a maneuvering node sits warm within a forcing line. This is deliberate: T measures the decision structure of a single position (how contested its move choice is at the demanded capacity), not a global property of the game. The graph of root temperature across a game is then a legitimate time series of a state variable, and its systematic drift — cool opening, warm middlegame, cooling endgame as C relaxes but spreads narrow — is one of the objects this engine exists to measure.
+There is no prescribed heat capacity, no material schedule, no slider. The search is an explicit annealing computation: iterative deepening is time, deepening is cooling, and the bath temperature is <em>measured</em>. Whenever the search revises a root value by looking deeper, the revision |ΔQ| is one sample of the engine's residual uncertainty about its own evaluations. The bath temperature for the next iteration is the σ-scale of that fluctuation ensemble,
+</p>
+<div class="eq">T ← √(T<sub>meas</sub>² + T₀²) ,&emsp; T<sub>meas</sub> = 1.2533 · ⟨ |Q<sup>(d)</sup> − Q<sup>(d−2)</sup>| ⟩<sub>π</sub> <span class="tag">(3)</span></div>
+<p>
+with three qualifications, each learned from a failure mode observed in play:
+</p>
+<ol>
+<li><b>Ensemble-weighted.</b> The average in (3) is Boltzmann-weighted by the current occupancies π. The revision of a move the distribution does not occupy is resolved knowledge, not residual fluctuation — an unweighted thermometer reads every refuted blunder as heat and boils.</li>
+<li><b>Same-parity.</b> Negamax-softmax values carry an alternating entropy ladder — every node adds +T·S for its mover — so values at adjacent depths differ by one uncompensated layer ~T·S̄. A thermometer comparing depth d to d−1 reads the ladder itself as fluctuation and feeds back T&nbsp;∝&nbsp;T: exponential runaway heating (observed: T&nbsp;=&nbsp;1.4&nbsp;→&nbsp;3.4&nbsp;→&nbsp;10.9&nbsp;→&nbsp;59.7 within one game). Samples therefore compare depth d with d−2 — same leaf parity, ladder cancelled identically. Depth 1 is compared against the static material baseline, so the first reading is the tactical volatility that quiescence uncovered; depth 2 has no clean partner and takes no reading.</li>
+<li><b>Zero-point floor.</b> The evaluation spectrum is quantized — reach comes in whole squares — and a quantized system's fluctuation cannot fall below its level spacing. T₀ is the minimal positive level spacing of the mobility spectrum, <em>computed from the geometry tables</em> (it evaluates to one square). This is the zero-point motion of the evaluation lattice: a converged search cannot distinguish values finer than one square of reach, so optionality retains exactly that much purchase and no more. Without the floor, quiet positions freeze completely and the engine drifts planlessly into repetition; with it, activity is always worth something — about half a pawn of purchase at most.</li>
+</ol>
+<p>
+T is held constant within one deepening iteration — one bath, one temperature, and the transposition table stays coherent — and updated (with damping) between iterations. Forced lines converge and freeze toward minimax; unresolved middlegames run warm; longer thinking time means a colder engine. Perfect play is the fully annealed T&nbsp;→&nbsp;0 ground state. The measured T is global for the whole search tree: a genuinely canonical ensemble, in contrast to the first edition's per-node temperatures, which scaled with each node's own value spread and thus made the engine <em>most</em> reckless exactly where the stakes were highest.
+</p>
+
+<h2>5. The phase structure, kept as pure measurement</h2>
+<p>
+The first edition's central discovery survives with its arbitrariness removed. Every position has an intrinsic heat-capacity curve — the Schottky anomaly of its move ensemble:
+</p>
+<div class="eq">C(T) = Var<sub>π</sub>(Q) / T² ,&emsp; C* = max<sub>T</sub> C(T) at T = T̂ <span class="tag">(4)</span></div>
+<p>
+C(T) vanishes at both ends (the distribution freezes onto the best move as T&nbsp;→&nbsp;0; σ saturates as T&nbsp;→&nbsp;∞) and peaks between. C* — the largest capacity the position's ensemble can sustain — is a parameter-free invariant of the position, and T̂ is its spinodal. Previously C was <em>demanded</em> and T solved for, which forced a choice of branch and a pinning rule; now the bath temperature arrives from the annealing measurement and the dashboard simply reports where it sits on the curve: <span class="phase">frozen</span> (forced positions), <span class="phase">cold</span> (ordered side, T&nbsp;&lt;&nbsp;T̂ — the engine resolves the position sharper than its intrinsic scale), <span class="phase">critical</span> (T&nbsp;≈&nbsp;T̂), or <span class="phase">hot</span> (disordered side). The peak search uses a robust median scale of the bulk of the Q distribution, so a mate outlier reads as frozen rather than defining a fake high-temperature branch.
 </p>
 
 <h2>6. Absorbing states: mate and repetition</h2>
 <p>
-Two kinds of position are terminal and must not be treated thermally.
+<b>Checkmate is a ground state, not an energy level.</b> No entropy may attach to a terminal outcome: whenever the best move is a forced win (or every move a forced loss) the backup is pure max&nbsp;Q, with no T&nbsp;ln&nbsp;Z term — otherwise "many ways to mate" would outscore the mate itself and the engine would shuffle checks forever (an observed pathology, now a regression test). Mate scores carry distance: each negation ticks them one unit toward zero, so mate-in-2 strictly outranks mate-in-4 and the scores stay node-relative, keeping transposition entries valid across paths. Mate-scored moves are also excluded from the thermometer ensemble (3): absorbing states carry distance ticks, not thermal fluctuation.
 </p>
 <p>
-<b>Checkmate is a ground state, not an energy level.</b> A mated position returns −10<sup>5</sup>; no entropy may attach to a terminal outcome. The backup rule therefore switches to pure minimax whenever the best move is a forced win (or every move a forced loss): F&nbsp;=&nbsp;max&nbsp;Q with no T&nbsp;ln&nbsp;Z term. Without this rule the softmax would award "many ways to mate" a free energy <em>above</em> the mate score itself — F&nbsp;=&nbsp;max&nbsp;Q&nbsp;+&nbsp;T&nbsp;ln&nbsp;Z&nbsp;&gt;&nbsp;mate — and the engine would prefer keeping mating options open to actually mating (an error the test suite now checks: during development it produced exactly this check-shuffling pathology). Mate scores also carry distance: every negation on the way up ticks the score one unit toward zero, so mate-in-2 strictly outranks mate-in-4, the engine converts won positions, and — because the scores stay node-relative — transposition-table entries remain valid across paths.
-</p>
-<p>
-<b>Repetition is an absorbing draw, F&nbsp;=&nbsp;0.</b> Any position recurring on the current search path scores zero, and the search is seeded with the hashes of every <em>played</em> position since the last irreversible move (capture or pawn push), so the engine also sees repetitions relative to the actual game: it avoids repetition when ahead and steers into it when lost. Zero is the natural draw value in this evaluation: U of (4) is antisymmetric between the sides, so 0 is exact material-mobility balance. Castling-rights changes need no special handling — rights are hashed, so superseded positions simply never match.
+<b>Repetition is an absorbing draw, F&nbsp;=&nbsp;0.</b> Any position recurring on the search path scores zero, and the search is seeded with the hashes of every played position since the last irreversible move, so the engine avoids repetition when ahead and steers into it when lost — in match play it repeatedly rescued lost games this way. Zero is exact by the antisymmetry of (2).
 </p>
 
-<h2>7. Quiescence as relaxation to local equilibrium</h2>
+<h2>7. Quiescence as relaxation; truncation as bath-width</h2>
 <p>
-Thermodynamic state variables are only meaningful for systems at (local) equilibrium, and a position with hanging pieces is not one: it is mid-collision. The engine therefore separates timescales. Fast degrees of freedom — captures, promotions, check evasions — are relaxed <em>deterministically</em> (alpha-beta at T&nbsp;=&nbsp;0, with MVV-LVA ordering and delta pruning) by a quiescence search until a quiet position is reached; only then is the static energy (4) evaluated and only quiet positions ever enter an ensemble. This mirrors the standard physical picture: collisions equilibrate fast modes long before the slow modes are sampled thermally. Inside quiescence the king ranks as the <em>last</em> attacker in capture ordering — its ordering value is its irreplaceability, not its (zero) exchange value.
+Thermodynamic state variables belong to (locally) equilibrated systems, and a position with hanging pieces is mid-collision. Captures, promotions, and check evasions are relaxed deterministically — alpha-beta at T&nbsp;=&nbsp;0 with MVV-LVA ordering and delta pruning whose margin includes the optionality swing one capture can cause (~T·Δln&nbsp;W) — and only quiet positions enter an ensemble.
+</p>
+<p>
+In the main search, alpha-beta cutoffs are unsound (every child contributes to Z) but contributions decay exponentially: at depth&nbsp;≥&nbsp;2 a shallow ranking pass orders the children, and only those within 3T of the best (capped at 16) are fully recursed; the tail keeps its shallow values as its ~1% share of Z. The truncation width is set by the <em>bath</em>: cold searches narrow toward best-line probing exactly where minimax is exact, hot searches keep many live branches. Two children are always fully resolved regardless of temperature — a one-level system yields no fluctuation sample (the thermometer would only ever confirm itself and freeze), and verifying the runner-up is precisely what catches a shallow misranking of the best move.
 </p>
 
-<h2>8. Partition-function truncation: the softmax analog of alpha-beta</h2>
+<h2>8. Chemical potential</h2>
 <p>
-Alpha-beta cutoffs are unsound here — every child contributes to Z — but contributions decay exponentially. At depth&nbsp;≥&nbsp;2 the engine runs a shallow ranking pass (depth&nbsp;−&nbsp;2) over all children, solves (5) on the shallow values to get a provisional T, and fully recurses only children within 3T of the best (capped at 16); the tail keeps its shallow values, contributing its (&lt;1%) share of Z at reduced accuracy rather than being discarded. The pruning width is thus <em>temperature-scaled</em>: cold, forcing nodes truncate to almost a single move — recovering alpha-beta-like efficiency exactly where minimax is exact — while hot nodes keep many live branches. Pruning aggressiveness is not a policy choice; it is read off the node's own thermodynamic state.
+With p<sub>P</sub> the Boltzmann weight of all moves originating from piece P, freezing P in place costs free energy
+</p>
+<div class="eq">μ<sub>P</sub> = −T ln(1 − p<sub>P</sub>) <span class="tag">(5)</span></div>
+<p>
+(the ideal-gas/independent-pieces limit). A piece with μ<sub>P</sub>&nbsp;≈&nbsp;0 is thermodynamically idle whatever its material worth; the piece carrying most of the ensemble weight is what the position is <em>about</em>. The dashboard renders μ for every mobile piece of the side to move.
 </p>
 
-<h2>9. Optionality at the leaves; parity symmetry</h2>
+<h2>9. The experimental record</h2>
 <p>
-Interior nodes get optionality for free — it is the T·S term of (2), propagated by the backup. Leaves need a static proxy, and the engine offers two, selected by <span class="mono">OPTIONALITY_MODE</span>:
+The redesign was driven by adversarial testing against two opponents: a deliberately naive alpha-beta engine whose evaluation is <em>pure classical material</em> (a material-truth oracle that punishes hung pieces and values nothing else), and the first-edition engine itself. Equal time per move, color-swapped pairs, small opening book for game diversity. The oracle exposed each hidden constant in turn:
 </p>
 <ul>
-<li><b>'xray'</b> (default): the real-mobility term of (4) stands in for leaf optionality. Cheap, side-symmetric, and in the same units as everything else.</li>
-<li><b>'thermo'</b>: the leaf's own moves are treated as microstates, and optionality is T·S of the Boltzmann distribution over their static values — the same thermodynamics as the rest of the engine, evaluated at the leaf. This resolves the conceptual wrinkle that a single position "has no ensemble": it does — the moves available from it.</li>
+<li><b>First edition vs oracle: lost 0–2 (+2 escapes), 22 blunders of ≥2.5♙.</b> Decomposition of the blunder positions showed material-losing and material-keeping moves backing up with equal values (the 1:1 mobility-energy rate), and temperatures of 7–9 in collapsing positions (per-node T scaling with the value spread).</li>
+<li><b>Material-only energy with root-measured T: still lost.</b> The thermometer read refuted moves as heat (fixed by ensemble weighting), read the entropy ladder as heat and ran away exponentially (fixed by same-parity sampling), and froze in quiet positions into planless repetition (fixed by the zero-point floor). Each fix is now load-bearing physics in §4.</li>
+<li><b>Final model vs oracle: no losses, fewer material blunders than the oracle itself commits.</b> The engine holds material against a dedicated material engine while playing for activity and optionality on top — the intended division of labor between energy and entropy.</li>
 </ul>
 <p>
-The thermo mode carries a symmetry obligation. Scoring only the mover's optionality would hand whoever happens to be on move at the leaf an entropy bonus, flipping sign with leaf parity and injecting a systematic odd/even-depth bias. The implementation therefore evaluates <em>both</em> ensembles — the opponent's via a null move (a pass: the exact formalization of "what could they do from here") — and scores the difference, TS<sub>us</sub>&nbsp;−&nbsp;TS<sub>them</sub>. In check there is no equilibrium optionality (passing is illegal; the ensemble is not stationary) and the term vanishes. In the mirror-symmetric starting position the symmetric optionality is zero to machine precision, which the test suite asserts.
+That a sequence of purely <em>physical</em> repairs — ensemble averaging, parity-clean thermometry, zero-point motion — was what turned a blundering engine into a sound one is itself the most encouraging evidence that the thermodynamic frame is doing real work here, rather than decorating a chess engine with vocabulary.
 </p>
 
-<h2>10. Chemical potential: which pieces carry the position</h2>
+<h2>10. The measurement apparatus</h2>
 <p>
-Let p<sub>P</sub>&nbsp;=&nbsp;Σ<sub>a from P</sub>&nbsp;π<sub>a</sub> be the Boltzmann weight of all moves originating from piece P. Removing P's moves from the partition function (holding the others fixed — an ideal-gas/independent-pieces approximation) changes the free energy by
-</p>
-<div class="eq">μ<sub>P</sub> = F − F<sub>−P</sub> = −T ln(1 − p<sub>P</sub>) <span class="tag">(7)</span></div>
-<p>
-the free-energy cost of freezing P in place: a per-piece activity measure in the same units as F. A piece with μ<sub>P</sub>&nbsp;≈&nbsp;0 is thermodynamically idle regardless of its material worth; a piece carrying most of the ensemble weight is, in a precise sense, the piece the position is <em>about</em>. The dashboard renders μ for every mobile piece of the side to move, sorted.
+The dashboard reports, per position: the material energies U<sub>w</sub>, U<sub>b</sub>; the measured bath temperature T and root entropy S; ⟨Q⟩, TS, and F; the Schottky readings C<sub>eff</sub>&nbsp;=&nbsp;C(T<sub>bath</sub>) and C* with the phase label; the move ensemble (Q<sub>a</sub>, π<sub>a</sub>); the chemical potentials; and time series of Eval, T, and S across the game. The headline Eval is everywhere the argmax-Q value in White-POV pawns — the energetic part alone, comparable across engines — while F carries the optionality term on its own row. Stockfish runs in a separate worker as an external reference thermometer and never influences play; the Δ(engine−SF) column measures where geometric-thermodynamic valuation diverges from conventional valuation. There is no temperature knob anywhere in the interface: T is a reading, not a setting. The one control that remains — thinking time — is physically meaningful: it is the annealing schedule, and a longer think is a colder engine.
 </p>
 
-<h2>11. The measurement apparatus</h2>
-<p>
-The engine is also an instrument, and its panels are its gauges: the state grid (U<sub>w</sub>, U<sub>b</sub>, T, S, ⟨Q⟩, TS, F, C demand vs C<sub>eff</sub> with phase annotation), the move-ensemble table (Q<sub>a</sub>, π<sub>a</sub>), the chemical potentials, and per-move time series of Eval, T, and S. Two conventions keep the numbers honest. First, the headline <b>Eval</b> is everywhere the value of the move actually played (argmax Q, in White-POV pawns) — the energetic part alone — while F, which adds the optionality term, is displayed separately; comparing F against a minimax engine would conflate the two. Second, <b>Stockfish never influences play</b>: it runs in its own worker as an external reference thermometer, and the Δ(engine−SF) column is a running measurement of where geometric-thermodynamic valuation diverges from conventional valuation — part noise, part the emergent exchange rates of §3, and occasionally the optionality-blindness of minimax itself.
-</p>
-
-<h2>12. What an airtight implementation might tell us</h2>
+<h2>11. What this might tell us about chess</h2>
 <ul>
-<li><b>C*(position) is a new invariant.</b> The critical capacity (6) is a parameter-free property of a position's move ensemble — how much evaluation fluctuation it can sustain. Its trajectory over master games (does it peak in complex middlegames? collapse in technique phases?) and its correlation with human notions of "sharpness" and practical difficulty are directly measurable with this engine.</li>
-<li><b>Phase geography of a game.</b> Openings here are typically pinned (supercritical), endgames subcritical, mates frozen. Where the transitions fall — and whether strong play systematically steers toward or away from the pinned phase — is an empirical question the dashboard now answers per move.</li>
-<li><b>Entropy as a playing style.</b> With the argmax convention fixed, the entire behavioral difference from minimax lives in the interior T·S terms. Games between this engine and its own T&nbsp;→&nbsp;0 limit isolate the value of optionality in chess — how many pawns a position of "many good moves" is actually worth.</li>
-<li><b>Geometric value theory.</b> The Δ(engine−SF) series quantifies how far pure board geometry lands from four centuries of empirical piece values — and in which position classes the gap closes.</li>
+<li><b>T(game) is now a real observable.</b> The bath temperature is the engine's measured self-uncertainty. Its trajectory across a game — where it spikes, how it decays with thinking time, how it correlates with human "sharpness" — is data about chess, not about a tuning choice.</li>
+<li><b>C*(position) is a parameter-free invariant</b>: the largest evaluation-fluctuation capacity a position's move ensemble can sustain. Mapping C* over master games (openings vs technique phases, calm vs sharp players) is a concrete experiment this instrument can run.</li>
+<li><b>The entropy ladder is a theorem about soft game values.</b> Boltzmann backups in zero-sum trees carry an alternating T·S̄ layer per ply; any analysis comparing soft values across depths (or any annealed self-play scheme) must sample at matched parity or read the ladder as signal. Discovered here as an engine bug; true of soft minimax generally.</li>
+<li><b>Optionality has a measurable exchange rate.</b> With energy purely material and entropy purely counting, the value of activity in units of pawns is T·Δln&nbsp;W — and T is measured. In this engine's games activity is worth of order half a pawn when uncertain and nearly nothing when resolved; whether human play implies a similar rate is an open, quantitative question.</li>
 </ul>
 
 <h2>Appendix: equation → implementation map</h2>
 <table class="appx">
 <tr><th>Object</th><th>Where it lives</th></tr>
-<tr><td>Boltzmann weights π<sub>a</sub>, S, F (eq. 1–3)</td><td><span class="mono">computeF()</span>, <span class="mono">computeThermodynamics()</span></td></tr>
-<tr><td>Self-consistent T, phases (eq. 5–6)</td><td><span class="mono">robustT()</span>, <span class="mono">_sigmaOverT()</span></td></tr>
-<tr><td>Static energy U (eq. 4), geometric bases</td><td><span class="mono">fast_real_u()</span>, <span class="mono">xrayMobility()</span>, <span class="mono">PIECE_BASE</span></td></tr>
-<tr><td>Capacity schedule C(material)</td><td><span class="mono">materialC()</span>, <span class="mono">C_OPEN</span>/<span class="mono">C_BARE</span></td></tr>
-<tr><td>Absorbing mates, distance ticking</td><td><span class="mono">tickMate()</span>, mate guard in <span class="mono">computeF()</span></td></tr>
-<tr><td>Repetition seeding from the played game</td><td><span class="mono">collectPastKeys()</span> → <span class="mono">PAST_KEYS</span></td></tr>
-<tr><td>Quiescence relaxation (§7)</td><td><span class="mono">quiesce()</span>, <span class="mono">staticEval()</span></td></tr>
-<tr><td>Partition-function truncation (§8)</td><td><span class="mono">thermoSearch()</span>, <span class="mono">BOLTZ_SIGMA</span>, <span class="mono">TRUNC_MAX</span></td></tr>
-<tr><td>Symmetric leaf optionality (§9)</td><td><span class="mono">leafOptionality()</span>, <span class="mono">fast_make_null()</span></td></tr>
-<tr><td>Chemical potential μ<sub>P</sub> (eq. 7)</td><td><span class="mono">computeChemicalPotentials()</span>, μ panel</td></tr>
-<tr><td>Reference thermometer</td><td><span class="mono">initStockfish()</span> et seq. (never influences play)</td></tr>
+<tr><td>Boltzmann weights, F backup (eq. 1)</td><td><span class="mono">computeF()</span>, <span class="mono">analyzeRoot()</span></td></tr>
+<tr><td>Geometric material bases (§2)</td><td><span class="mono">xrayMobility()</span>, <span class="mono">avgMobility()</span>, <span class="mono">PIECE_BASE</span>, <span class="mono">fast_raw_mat()</span></td></tr>
+<tr><td>S = ln W leaf optionality (eq. 2)</td><td><span class="mono">staticEval()</span>, <span class="mono">fast_mob_counts()</span></td></tr>
+<tr><td>Annealing thermometer (eq. 3)</td><td><span class="mono">annealRoot()</span> (weighted same-parity samples), <span class="mono">bathT</span>, <span class="mono">measT</span></td></tr>
+<tr><td>Zero-point quantum T₀</td><td><span class="mono">T_ZERO</span> (derived from the mobility spectrum)</td></tr>
+<tr><td>Schottky curve, C*, T̂, phase (eq. 4)</td><td><span class="mono">measureSchottky()</span>, <span class="mono">_sigmaOverT()</span></td></tr>
+<tr><td>Absorbing mates, distance ticking (§6)</td><td><span class="mono">tickMate()</span>, mate guards in <span class="mono">computeF()</span>/<span class="mono">analyzeRoot()</span></td></tr>
+<tr><td>Repetition seeding from the played game (§6)</td><td><span class="mono">collectPastKeys()</span> → <span class="mono">PAST_KEYS</span></td></tr>
+<tr><td>Quiescence relaxation, T-aware margin (§7)</td><td><span class="mono">quiesce()</span></td></tr>
+<tr><td>Bath-width truncation, top-2 rule (§7)</td><td><span class="mono">thermoSearch()</span>, <span class="mono">BOLTZ_SIGMA</span>, <span class="mono">TRUNC_MAX</span></td></tr>
+<tr><td>Chemical potential μ<sub>P</sub> (eq. 5)</td><td><span class="mono">computeChemicalPotentials()</span>, μ panel</td></tr>
+<tr><td>Reference thermometer (§10)</td><td><span class="mono">initStockfish()</span> et seq. (never influences play)</td></tr>
 </table>
 
 </body>
