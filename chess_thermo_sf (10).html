@@ -1347,6 +1347,7 @@ function fieldSample(mover, chi, taxed) {
 }
 
 function qStore(key, v, flag, qd, cen, chi, tax) {
+    if (searchAborted) return;   // aborted unwind: values are garbage, store nothing
     // Entry nodes only: interior capture-chain positions rarely transpose,
     // so storing them buys churn, not hits. Entry nodes (the quiet leaves
     // the main tree reaches by many move orders) are where the reuse lives.
@@ -1355,6 +1356,8 @@ function qStore(key, v, flag, qd, cen, chi, tax) {
 }
 
 function quiesce(g, alpha, beta, qd) {
+    if (searchAborted) return alpha;                  // unwinding: iteration will be discarded
+    if ((nodeCount & 2047) === 0 && performance.now() > hardDeadline) { searchAborted = true; return alpha; }
     nodeCount++;
     if (qd === undefined) qd = 24;
     const inCheck = g.fast_in_check();
@@ -1552,6 +1555,8 @@ function measureSchottky(Qs, n, T) {
 // earlier on the search path — or in the PLAYED GAME since the last
 // irreversible move (PAST_KEYS, seeded per search) — return 0 (draw).
 function thermoSearch(g, depth, pathKeys) {
+    if (searchAborted) return 0;                      // unwinding: iteration will be discarded
+    if ((nodeCount & 2047) === 0 && performance.now() > hardDeadline) { searchAborted = true; return 0; }
     nodeCount++;
 
     // Node hard limit: degrade gracefully
@@ -1575,7 +1580,7 @@ function thermoSearch(g, depth, pathKeys) {
     const n = moves.length;
     if (n === 0) {
         const v = g.fast_in_check() ? -CHECKMATE_SCORE : 0;
-        if (thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(key, v);
+        if (!searchAborted && thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(key, v);
         return v;
     }
 
@@ -1645,14 +1650,14 @@ function computeF(Qs, n, cacheKey) {
     // (F = maxQ + T·ln Z > mate) and the engine would shuffle checks
     // forever instead of converting.
     if (maxQ > MATE_NEAR || maxQ < -MATE_NEAR || !Number.isFinite(maxQ)) {
-        if (cacheKey && thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(cacheKey, maxQ);
+        if (cacheKey && !searchAborted && thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(cacheKey, maxQ);
         return maxQ;
     }
     // One bath, one temperature: F is evaluated at the global annealing T.
     let expSum = 0;
     for (let i = 0; i < n; i++) expSum += Math.exp((Qs[i] - maxQ) / bathT);
     const val = maxQ + bathT * Math.log(expSum);
-    if (cacheKey && thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(cacheKey, val);
+    if (cacheKey && !searchAborted && thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(cacheKey, val);
     return val;
 }
 
@@ -1769,6 +1774,13 @@ function tempoProbe(g, pathKeys) {
 // the first measured T is the tactical volatility quiescence uncovered.
 // Mate-scored moves are excluded from the ΔQ ensemble: absorbing states
 // carry distance ticks, not thermal fluctuation.
+// Hard preemption for the deepening loop: a single deep child subtree can
+// otherwise blow seconds past the deadline (iterations were only
+// preemptible between root children). Checked every 2048 nodes; a tripped
+// iteration is DISCARDED (the timedOut path), so no partial values leak.
+let hardDeadline = Infinity;
+let searchAborted = false;
+
 function annealRoot(g, opts) {
     const deadline = opts.deadline != null ? opts.deadline : Infinity;
     const maxDepth = opts.maxDepth != null ? opts.maxDepth : 64;
@@ -1779,6 +1791,8 @@ function annealRoot(g, opts) {
         : deadline;
     nodeCount = 0;
     measT = 0;
+    searchAborted = false;
+    hardDeadline = mainDeadline;
     taxTotal = 0; taxTaken = 0;
     fluxRootTurn = g.fast_turn();
     muSumUs = 0; muCntUs = 0; muSumThem = 0; muCntThem = 0; taxUs = 0; taxThem = 0;
@@ -1814,7 +1828,7 @@ function annealRoot(g, opts) {
     qCache.clear();
 
     for (let depth = 1; depth <= maxDepth; depth++) {
-
+        hardDeadline = depth === 1 ? Infinity : mainDeadline;
         const Qs = new Array(n);
         let timedOut = false;
 
@@ -1837,7 +1851,7 @@ function annealRoot(g, opts) {
                                tu: taxUs - t0, tt: taxThem - t1 };
             // Depth 1 always runs to completion (it is nearly free): a partial
             // first iteration would leave undefined values and an arbitrary move.
-            if (depth > 1 && performance.now() > mainDeadline) { timedOut = true; break; }
+            if (depth > 1 && (searchAborted || performance.now() > mainDeadline)) { timedOut = true; break; }
         }
         if (timedOut) break;
 
@@ -1899,7 +1913,7 @@ function annealRoot(g, opts) {
         // and a runaway bath (§4.1 failure mode: hot AND heating) means the
         // position is not equilibrating at any budget — moving is a quench,
         // and the quench is all there is.
-        if (opts.schedule && depth >= 3 && n > 1) {
+        if (opts.schedule && depth >= 2 && n > 1) {
             if (Math.abs(nq[0]) > MATE_NEAR) { result.stop = 'mate'; break; }
             const gap = nq[0] - nq[1];
             const jr = jhatRead();
@@ -1919,6 +1933,8 @@ function annealRoot(g, opts) {
         if (performance.now() > mainDeadline) break;
         if (nodeCount > NODE_HARD_LIMIT) break;
     }
+
+    hardDeadline = Infinity;   // deepening done; measurement stages run unpreempted
 
     // ── Susceptibility stage (optional; the experiment) ────
     // Mix each dominant root move's value with its taxed counterfactual:

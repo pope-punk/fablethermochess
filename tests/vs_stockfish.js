@@ -20,9 +20,10 @@ const ELO = parseInt(process.argv[2] || '1500');
 const ENGINE_MS = parseInt(process.argv[3] || '1000');
 const SF_MS = parseInt(process.argv[4] || '200');
 const OUT = process.argv[5] || path.join(__dirname, 'results', `vs_sf${ELO}.json`);
-const MODE = process.argv[6] || '';          // '', 'probe', 'flux', or 'measure'
+const MODE = process.argv[6] || '';          // '', 'probe', 'flux', 'measure', or 'schedule'
 const PROBE = MODE === 'probe';
-const FLUX = MODE === 'flux' || MODE === 'measure';   // 'measure': instrument on, Q-coupling off
+const SCHEDULE = MODE === 'schedule';        // measure + sigma_eff time management with banking
+const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE;
 
 const OPENINGS = [
   { name: 'Italian complex',       line: ['e4', 'e5', 'Nf3', 'Nc6'] },
@@ -78,6 +79,12 @@ async function playGame(sf, opening, engineIsWhite) {
   let keys = [g.fast_hash()];
   const moves = [];
   const trace = [];   // per engine move: thermodynamic state
+  // Time bank for schedule mode: moves the scheduler freezes early bank
+  // their remainder; hard positions may spend base + up to 3x base from
+  // the bank. With node-level preemption in the engine, spend tracks
+  // allowed within ~ms, so total game time tracks base * moves
+  // (equal-average A/B).
+  let bank = 0, engFirst = true;
 
   await sf.newGame();
   for (let ply = 0; ply < 300; ply++) {
@@ -85,8 +92,12 @@ async function playGame(sf, opening, engineIsWhite) {
     const engineToMove = (g.fast_turn() === 'w') === engineIsWhite;
     let san;
     if (engineToMove) {
-      const res = E._runAnalyze({ fen: g.fen(), timeLimit: ENGINE_MS, pastKeys: keys.slice(0, -1),
-                                  probe: PROBE, flux: MODE === 'measure' ? 'measure' : FLUX });
+      const allowed = SCHEDULE ? ENGINE_MS + Math.min(bank, 3 * ENGINE_MS) : ENGINE_MS;
+      const res = E._runAnalyze({ fen: g.fen(), timeLimit: allowed, pastKeys: keys.slice(0, -1),
+                                  probe: PROBE, schedule: SCHEDULE, newGame: SCHEDULE && engFirst,
+                                  flux: (MODE === 'measure' || SCHEDULE) ? 'measure' : FLUX });
+      engFirst = false;
+      if (SCHEDULE) bank = Math.max(0, bank + allowed - res.timeMs);
       san = res.san;
       if (res.thermo) {
         const t = res.thermo;
@@ -98,6 +109,12 @@ async function playGame(sf, opening, engineIsWhite) {
           rec.w = +(t.tax || 0).toFixed(3);
           rec.chi = (t.chi && t.chi[t.bestIdx] != null) ? +t.chi[t.bestIdx].toFixed(2) : null;
           rec.probed = t.probed;
+        }
+        if (SCHEDULE) {
+          rec.spentMs = res.timeMs;
+          rec.stop = t.stop || 'deadline';
+          if (t.sigma != null) { rec.sigma = +t.sigma.toFixed(2); rec.gapQ = +t.gap.toFixed(2); }
+          if (t.jhat) { rec.jhatJ = +t.jhat.J.toFixed(2); rec.jhatTc = +t.jhat.Tc.toFixed(2); }
         }
         if (FLUX && t.beta) {
           rec.beta = t.beta[t.bestIdx] != null ? +t.beta[t.bestIdx].toFixed(3) : null;
