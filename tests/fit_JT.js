@@ -73,13 +73,17 @@ function bootstrap(sample, M3, reps = 60) {
 // note). Moves hotter than TMAX carry no initiative information (all their
 // x = Δμ/2T collapse to 0) and are excluded, with the count reported.
 const TMAX = parseFloat(process.env.TMAX || '50');
+// Below the zero-point floor the root is mate-scored and the thermometer is
+// (correctly) off: T collapses to the numerical floor and readings are
+// absorbing-regime, not thermal. Domain of validity: TMIN ≤ T ≤ TMAX.
+const TMIN = parseFloat(process.env.TMIN || '0');
 let cutMoves = 0, cutReadings = 0, keptReadings = 0;
 const rungs = [];
 for (const rung of data.rungs) {
   const movesArr = [];
   for (const g of rung.games) for (const rec of g.trace) {
     if (!rec.triples || !rec.T || rec.T <= 0) continue;
-    if (rec.T > TMAX) { cutMoves++; cutReadings += rec.triples.length; continue; }
+    if (rec.T > TMAX || rec.T < TMIN) { cutMoves++; cutReadings += rec.triples.length; continue; }
     const pts = [];
     for (const q of rec.triples) {
       const [beta, dmu, ntax] = q;
