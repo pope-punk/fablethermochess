@@ -4,3 +4,8 @@ rung      moves  readings   ⟨T⟩      J     b      J·b/2T   (95% CI on J)
 1000ms      517    11706    3.33  13.70  0.60     1.23     [15.45 … 15.45]
 4000ms      233     5737    2.81   0.40  0.45     0.03     [0.00 … 2.00]
 15000ms     179     5010    3.29   1.70  0.52     0.13     [0.00 … 3.25]
+pooled     1509    32496    3.28   0.45  0.70     0.05     [0.00 … 2.00]
+
+T-binned fits (quantile bins over moves, pooled across rungs):
+T range        moves  readings   ⟨T⟩      J     b      J·b/2T   (95% CI on J)
+1.00–1.14       301     6726    1.06   0.00  0.70     0.00     [0.00 … 1.75]
