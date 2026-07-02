@@ -1,0 +1,5 @@
+=== CHAIN START 14:11:57 ===
+--- stage 1: oracle sanity (cur vs material oracle, 8 games, 500ms) ---
+   cur vs ref → 1/2 ( 61 plies, final mat 210 cp )
+   ref vs cur → 1/2 ( 153 plies, final mat 1800 cp )
+   cur vs ref → 1/2 ( 50 plies, final mat 700 cp )
