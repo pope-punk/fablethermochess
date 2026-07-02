@@ -51,11 +51,15 @@ function fit(sample) {
 }
 function bootstrap(sample, M3, reps = 60) {
   const Js = [], Bs = [];
+  // window scales with J so large-coupling fits are not pinned at the box
+  // edge (an edge-pinned CI like [x … x] is a boundary artifact, not an
+  // interval — earlier runs showed exactly that and are so annotated)
+  const halfJ = Math.max(1.75, 0.4 * M3.J), stepJ = Math.max(0.25, halfJ / 7);
   for (let r = 0; r < reps; r++) {
     const s = Array.from({ length: sample.length },
       () => sample[Math.floor(Math.random() * sample.length)]);
     let best = { J: M3.J, b: M3.b, mse: Infinity };
-    for (let J = Math.max(0, M3.J - 1.75); J <= M3.J + 1.75; J += 0.25)
+    for (let J = Math.max(0, M3.J - halfJ); J <= M3.J + halfJ; J += stepJ)
       for (let b = Math.max(0.3, M3.b - 0.12); b <= Math.min(1, M3.b + 0.12); b += 0.03) {
         const m = wsse(s, J, b);
         if (m < best.mse) best = { J, b, mse: m };
