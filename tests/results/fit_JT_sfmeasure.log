@@ -1,2 +1,9 @@
 robust cut at T > 50: dropped 42 moves / 894 readings (runaway tail), kept 14923 readings
 rung      moves  readings   ⟨T⟩      J     b      J·b/2T   (95% CI on J)
+1000ms      561    14923    2.89   2.30  0.80     0.32     [1.80 … 2.80]
+pooled      561    14923    2.89   2.30  0.80     0.32     [1.80 … 3.05]
+
+T-binned fits (quantile bins over moves, pooled across rungs):
+T range        moves  readings   ⟨T⟩      J     b      J·b/2T   (95% CI on J)
+1.00–1.11       112     3383    1.05   1.90  0.88     0.79     [1.15 … 2.40]
+1.12–1.38       112     2981    1.22   3.00  0.67     0.82     [1.50 … 4.25]
