@@ -1,7 +1,8 @@
 // A/B comparison of two vs_stockfish results files (e.g. probe off vs on).
 //   node ab_compare.js results/vs_sf1500.json results/vs_sf1500_probe.json
-const A = require(process.argv[2] || './results/vs_sf1500.json');
-const B = require(process.argv[3] || './results/vs_sf1500_probe.json');
+const path = require('path');
+const A = require(path.resolve(process.argv[2] || path.join(__dirname, 'results', 'vs_sf1500.json')));
+const B = require(path.resolve(process.argv[3] || path.join(__dirname, 'results', 'vs_sf1500_probe.json')));
 
 function stats(data) {
   const games = data.games;
