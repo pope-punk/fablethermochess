@@ -115,6 +115,7 @@ async function playGame(sf, opening, engineIsWhite) {
           rec.chi = (t.chi && t.chi[t.bestIdx] != null) ? +t.chi[t.bestIdx].toFixed(2) : null;
           rec.probed = t.probed;
         }
+        if (LEAFMU) { rec.kapRatio = +(t.kapRatio || 0).toFixed(3); rec.bite = +(t.bite || 0).toFixed(3); }
         if (SCHEDULE) {
           rec.spentMs = res.timeMs;
           rec.stop = t.stop || 'deadline';

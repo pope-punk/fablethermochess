@@ -1269,16 +1269,29 @@ let taxUs = 0, taxThem = 0;
 // ── Leaf tempo prior (channel 3: horizon priors) ────────────
 // The leaf already prices sub-horizon OPTIONALITY (T·lnW). This prices
 // sub-horizon INITIATIVE: a census leaf whose quiet stance was refuted
-// carries an unpaid obligation, and by the equation of state an
-// obligation compounds beyond the horizon with exchange energy J — its
-// uncounted future cost per quantum is J·b/2 = T̂c, the Curie
-// temperature of the initiative measured against THIS opponent. Like
-// the entropy term it stands in only for the unseen (applied at census
-// entries, dissolving as the search deepens past them), its coefficient
-// is measured (conservative lower edge; zero until the game supplies
-// evidence), and it is absorbing-guarded. Measurements always read RAW
-// values — the estimator must never eat its own prior.
-let LEAF_KAPPA = 0;
+// carries an unpaid obligation. First implementation priced it at the
+// windowed opponent T̂c and failed (5.5/12): the small-window estimate
+// spiked to ~1.7 pawns per leaf and produced contact-avoidant, drawish
+// play. The coefficient is now referenced to the STRUCTURAL J — the
+// rules' own share of initiative compounding. A forced reply comes
+// from a menu smaller by the constraint bite ⟨lnW_free − lnW_forced⟩,
+// so J_structure = T·bite, and the per-quantum charge J·b/2 becomes a
+// DIMENSIONLESS RATIO riding the live bath, exactly like the entropy
+// term beside it:
+//     charge = (b̂·bite/2) · T,   ratio < 1 by construction.
+// The bite is measured live: every in-check census node compares the
+// mover's pseudo-legal mobility against its actual evasion menu, with
+// the quiet legality gap (sampled at each search root) as baseline.
+// Raw values everywhere in caches and measurements, absorbing-guarded,
+// dissolving under deepening — the channel-3 guarantees unchanged.
+let LEAF_RATIO = 0;        // per-search dimensionless charge ratio (0 = off)
+let biteChkSum = 0, biteChkCnt = 0;    // in-check: ln(mobility) − ln(evasions)
+let biteBaseSum = 0, biteBaseCnt = 0;  // quiet roots: ln(mobility) − ln(legal)
+function biteReset() { biteChkSum = 0; biteChkCnt = 0; biteBaseSum = 0; biteBaseCnt = 0; }
+function biteEstimate() {
+    if (biteChkCnt < 12 || biteBaseCnt < 1) return 0;   // refills within the first search
+    return Math.max(0, biteChkSum / biteChkCnt - biteBaseSum / biteBaseCnt);
+}
 
 // ── Opponent thermometer: the running Ĵ estimator ──────────
 // How much does THIS opponent make obligations compound? Estimated by
@@ -1391,8 +1404,8 @@ function quiesce(g, alpha, beta, qd) {
     const hit = qCache.get(qKey);
     if (hit !== undefined && hit.qd >= qd) {
         // cache stores RAW values; the tempo prior applies on the way out
-        const hv = (LEAF_KAPPA && census && hit.cen && hit.tax && Math.abs(hit.v) < MATE_NEAR)
-            ? hit.v - LEAF_KAPPA : hit.v;
+        const hv = (LEAF_RATIO && census && hit.cen && hit.tax && Math.abs(hit.v) < MATE_NEAR)
+            ? hit.v - LEAF_RATIO * bathT : hit.v;
         if (hit.f === 0 || (hit.f === 1 && hv >= beta) || (hit.f === 2 && hv <= alpha)) {
             if (census && hit.cen) {
                 taxTotal++; if (hit.tax) taxTaken++;
@@ -1421,6 +1434,11 @@ function quiesce(g, alpha, beta, qd) {
 
     // In check: all evasions. Not in check: captures and promotions only.
     const moves = inCheck ? g.fast_moves() : g.fast_captures();
+    if (inCheck && census && moves.length > 0) {
+        const bmc = g.fast_mob_counts();
+        const bwf = (g.fast_turn() === 'w') ? bmc.mw : bmc.mb;
+        if (bwf > 0) { biteChkSum += Math.log(bwf) - Math.log(moves.length); biteChkCnt++; }
+    }
     if (moves.length === 0) {
         if (inCheck) { qStore(qKey, -CHECKMATE_SCORE, 0, qd, false); return -CHECKMATE_SCORE; }
         if (alpha === standPat) qStore(qKey, standPat, 0, qd, census, alpha - standPat, false);
@@ -1457,7 +1475,7 @@ function quiesce(g, alpha, beta, qd) {
                 else { chi = score - standPat; taxTotal++; taxTaken++; fieldSample(mover, chi, true); }
             }
             qStore(qKey, score, 1, qd, census, chi, true);
-            return (LEAF_KAPPA && census && Math.abs(score) < MATE_NEAR) ? score - LEAF_KAPPA : score;
+            return (LEAF_RATIO && census && Math.abs(score) < MATE_NEAR) ? score - LEAF_RATIO * bathT : score;
         }
         if (score > alpha) alpha = score;
     }
@@ -1474,7 +1492,7 @@ function quiesce(g, alpha, beta, qd) {
         }
     }
     qStore(qKey, alpha, alpha <= alphaOrig ? 2 : 0, qd, census, chi, taxed);
-    return (LEAF_KAPPA && census && taxed && Math.abs(alpha) < MATE_NEAR) ? alpha - LEAF_KAPPA : alpha;
+    return (LEAF_RATIO && census && taxed && Math.abs(alpha) < MATE_NEAR) ? alpha - LEAF_RATIO * bathT : alpha;
 }
 
 // ── Schottky measurement (dashboard instrument) ────────────
@@ -1814,7 +1832,6 @@ function annealRoot(g, opts) {
     measT = 0;
     searchAborted = false;
     hardDeadline = mainDeadline;
-    LEAF_KAPPA = opts.leafMu ? jhatRead().Tc : 0;
     taxTotal = 0; taxTaken = 0;
     fluxRootTurn = g.fast_turn();
     muSumUs = 0; muCntUs = 0; muSumThem = 0; muCntThem = 0; taxUs = 0; taxThem = 0;
@@ -1823,6 +1840,12 @@ function annealRoot(g, opts) {
     const moves = g.fast_moves();
     const n = moves.length;
     if (n === 0) return null;
+    if (!g.fast_in_check()) {
+        const bmc0 = g.fast_mob_counts();
+        const bwf0 = (g.fast_turn() === 'w') ? bmc0.mw : bmc0.mb;
+        if (bwf0 > 0) { biteBaseSum += Math.log(bwf0) - Math.log(n); biteBaseCnt++; }
+    }
+    LEAF_RATIO = opts.leafMu ? Math.min(1, 0.5 * jhatRead().b * biteEstimate()) : 0;
     // Test-only hook: seeded root-order shuffle, for the move-order
     // invariance battery. Play never sets this.
     if (opts.shuffleSeed) {
@@ -1837,7 +1860,8 @@ function annealRoot(g, opts) {
     g.fast_seed_acc();
     const pathKeys = new Set();
     const rootPosKey = g.fast_hash();
-    const result = { moves, Qs: null, T: bathT, depth: 0, anneal: [] };
+    const result = { moves, Qs: null, T: bathT, depth: 0, anneal: [],
+                     kapRatio: LEAF_RATIO, bite: biteEstimate() };
 
     // One fresh table per search. Entries computed at earlier (hotter)
     // iterations remain visible to later ones: annealing with hysteresis.
@@ -2148,7 +2172,8 @@ function analyzeRoot(g, opts) {
              beta: r.beta || null, dmu: r.dmu || null, mubar: r.mubar || null,
              ntax: r.ntax || null, nmu: r.nmu || null,
              stop: r.stop || null, sigma: r.sigma != null ? r.sigma : null,
-             gap: r.gap != null ? r.gap : null, TcHat: r.Tc != null ? r.Tc : null };
+             gap: r.gap != null ? r.gap : null, TcHat: r.Tc != null ? r.Tc : null,
+             kapRatio: r.kapRatio || 0, bite: r.bite || 0 };
 }
 
 // Unified analysis entry point. Runs identically on the main thread (sync
@@ -2156,7 +2181,7 @@ function analyzeRoot(g, opts) {
 // move to play and the dashboard state — they can never disagree.
 function _runAnalyze(msg) {
     PAST_KEYS = msg.pastKeys || [];       // played-game repetition keys (see collectPastKeys)
-    if (msg.newGame) jhatReset();         // the opponent thermometer is per-game state
+    if (msg.newGame) { jhatReset(); biteReset(); }   // per-game instrument state
     const g = new Chess(msg.fen);
     const out = { turn: g.turn(), fen: g.fen(), gameOver: g.game_over() };
     if (out.gameOver) return out;
