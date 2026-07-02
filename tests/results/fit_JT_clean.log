@@ -1,2 +1,6 @@
 robust cut at T > 50: dropped 182 moves / 2036 readings (runaway tail), kept 32496 readings
 rung      moves  readings   ⟨T⟩      J     b      J·b/2T   (95% CI on J)
+250ms       580    10043    3.43   1.85  0.88     0.24     [0.85 … 2.60]
+1000ms      517    11706    3.33  13.70  0.60     1.23     [15.45 … 15.45]
+4000ms      233     5737    2.81   0.40  0.45     0.03     [0.00 … 2.00]
+15000ms     179     5010    3.29   1.70  0.52     0.13     [0.00 … 3.25]
