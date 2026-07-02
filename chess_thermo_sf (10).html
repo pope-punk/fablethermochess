@@ -2331,11 +2331,16 @@ function makeHumanMove(from, to, promo) {
 // Runs the engine's reply: one job returns both the analysis of the position
 // the engine faces (graph point for the opponent's move) and the engine's move;
 // a second job produces the dashboard for the resulting position.
+let uiBank = 0;   // scheduler time bank: frozen decisions fund hard ones
 async function engineReply() {
     if (!thinking || game.game_over()) { thinking = false; return; }
     const gen = analysisGen;
-    const timeLimit = TIME_LIMITS[document.getElementById('difficulty').value];
-    const res = await analyzeAsync({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit });
+    const base = TIME_LIMITS[document.getElementById('difficulty').value];
+    const timeLimit = base + Math.min(uiBank, 3 * base);
+    const res = await analyzeAsync({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit,
+                                     flux: 'measure', schedule: true,
+                                     newGame: moveHistory.length < 2 });
+    if (res && res.timeMs != null) uiBank = Math.max(0, uiBank + timeLimit - res.timeMs);
     if (gen !== analysisGen) return;               // aborted by new game / undo / switch
     applyAnalysis(res, null);
     if (res.san) {
@@ -2378,7 +2383,7 @@ function showPromotion(from, to) {
 
 // ── Controls ───────────────────────────────────────────────
 function newGame() {
-    analysisGen++; thinking=false; game=new Chess();
+    analysisGen++; thinking=false; game=new Chess(); uiBank=0;
     selectedSq=null; legalTargets=[]; lastMoveSquares=null;
     moveHistory=[]; thermoCache.clear(); graphData=[];
     invalidateSf();
@@ -2552,12 +2557,24 @@ function renderThermoGrid(Uw, Ub, th, source) {
     // frozen / cold (ordered side) / critical / hot (disordered side).
     const phase = th.phase ? ' (' + th.phase + ')' : '';
 
+    // Opponent thermometer: the running Curie-Weiss self-coupling of the
+    // initiative measured against THIS opponent, with its duplicate-assay
+    // error bar, and the scheduler state it drives (sigma_eff vs gap).
+    const jh = th.jhat;
+    const jhStr = (jh && jh.se !== Infinity && jh.se != null)
+        ? fmt(jh.J,1) + '\u00B1' + fmt(jh.se,1) + ' (T\u0302c ' + fmt(jh.Tc,2) + ')'
+        : '\u2014 (unresolved)';
+    const schedStr = th.stop
+        ? th.stop + (th.sigma != null ? ' \u03C3=' + fmt(th.sigma,1) + '/' + fmt(th.gap,1) : '')
+        : (th.sigma != null ? '\u03C3=' + fmt(th.sigma,1) + ' gap=' + fmt(th.gap,1) : '\u2014');
+
     const rows = [
         ['U_w', fmt(Uw,1), 'U_b', fmt(Ub,1)],
         ['T (bath)', fmt(th.T,3), 'S', fmt(th.S,4)],
         ['\u27E8Q\u27E9', fmt(th.avgQ,4), 'TS', fmt(th.TS,4)],
         ['C_eff', fmt(th.Ceff,2), 'C*', fmt(th.Cstar,2)+phase],
         ['F=\u27E8Q\u27E9+TS', fmt(th.F,4), 'Eval', fmtCp(enginePawns)],
+        ['\u0134 opponent', jhStr, 'clock', schedStr],
         ['SF (d'+SF_DEPTH+')', sfStr, '\u0394 (eng\u2212SF)', deltaStr],
     ];
 
