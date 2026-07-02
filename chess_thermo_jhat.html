@@ -1285,6 +1285,13 @@ let taxUs = 0, taxThem = 0;
 // Raw values everywhere in caches and measurements, absorbing-guarded,
 // dissolving under deepening — the channel-3 guarantees unchanged.
 let LEAF_RATIO = 0;        // per-search dimensionless charge ratio (0 = off)
+// Gauge reference for the recentered charge: the damped census tax rate.
+// Charging (taxed − r̄) instead of taxed makes the term ZERO-MEAN within
+// each horizon-parity class by construction — the same gauge fix as
+// Φ = F − w(μ − μ̄) — so mixing resolved and tail leaves in one Z carries
+// no side-correlated offset (the diagnosed killer of the one-sided form).
+// Only the within-siblings contrast survives. −1 = not yet measured.
+let LEAF_TAXRATE = -1;
 let biteChkSum = 0, biteChkCnt = 0;    // in-check: ln(mobility) − ln(evasions)
 let biteBaseSum = 0, biteBaseCnt = 0;  // quiet roots: ln(mobility) − ln(legal)
 function biteReset() { biteChkSum = 0; biteChkCnt = 0; biteBaseSum = 0; biteBaseCnt = 0; }
@@ -1431,8 +1438,8 @@ function quiesce(g, alpha, beta, qd) {
     const hit = qCache.get(qKey);
     if (hit !== undefined && hit.qd >= qd) {
         // cache stores RAW values; the tempo prior applies on the way out
-        const hv = (LEAF_RATIO && census && hit.cen && hit.tax && Math.abs(hit.v) < MATE_NEAR)
-            ? hit.v - LEAF_RATIO * bathT : hit.v;
+        const hv = (LEAF_RATIO && census && hit.cen && Math.abs(hit.v) < MATE_NEAR)
+            ? hit.v - LEAF_RATIO * bathT * ((hit.tax ? 1 : 0) - LEAF_TAXRATE) : hit.v;
         if (hit.f === 0 || (hit.f === 1 && hv >= beta) || (hit.f === 2 && hv <= alpha)) {
             if (census && hit.cen) {
                 taxTotal++; if (hit.tax) taxTaken++;
@@ -1449,7 +1456,8 @@ function quiesce(g, alpha, beta, qd) {
         if (standPat >= beta) {     // banks the tempo: untaxed, cold μ sample
             if (census) { taxTotal++; fieldSample(mover, 0, false); }
             qStore(qKey, standPat, 1, qd, census, 0, false);
-            return standPat;
+            return (LEAF_RATIO && census && Math.abs(standPat) < MATE_NEAR)
+                ? standPat - LEAF_RATIO * bathT * (0 - LEAF_TAXRATE) : standPat;
         }
         if (standPat > alpha) alpha = standPat;
         if (qd <= 0) return standPat;                   // quiescence depth cap (quiet)
@@ -1502,7 +1510,8 @@ function quiesce(g, alpha, beta, qd) {
                 else { chi = score - standPat; taxTotal++; taxTaken++; fieldSample(mover, chi, true); }
             }
             qStore(qKey, score, 1, qd, census, chi, true);
-            return (LEAF_RATIO && census && Math.abs(score) < MATE_NEAR) ? score - LEAF_RATIO * bathT : score;
+            return (LEAF_RATIO && census && Math.abs(score) < MATE_NEAR)
+                ? score - LEAF_RATIO * bathT * (1 - LEAF_TAXRATE) : score;
         }
         if (score > alpha) alpha = score;
     }
@@ -1519,7 +1528,8 @@ function quiesce(g, alpha, beta, qd) {
         }
     }
     qStore(qKey, alpha, alpha <= alphaOrig ? 2 : 0, qd, census, chi, taxed);
-    return (LEAF_RATIO && census && taxed && Math.abs(alpha) < MATE_NEAR) ? alpha - LEAF_RATIO * bathT : alpha;
+    return (LEAF_RATIO && census && Math.abs(alpha) < MATE_NEAR)
+        ? alpha - LEAF_RATIO * bathT * ((taxed ? 1 : 0) - LEAF_TAXRATE) : alpha;
 }
 
 // ── Schottky measurement (dashboard instrument) ────────────
@@ -1872,7 +1882,8 @@ function annealRoot(g, opts) {
         const bwf0 = (g.fast_turn() === 'w') ? bmc0.mw : bmc0.mb;
         if (bwf0 > 0) { biteBaseSum += Math.log(bwf0) - Math.log(n); biteBaseCnt++; }
     }
-    LEAF_RATIO = opts.leafMu ? Math.min(1, 0.5 * jhatRead().b * biteEstimate()) : 0;
+    LEAF_RATIO = (opts.leafMu && LEAF_TAXRATE >= 0)
+        ? Math.min(1, 0.5 * jhatRead().b * biteEstimate()) : 0;
     // Test-only hook: seeded root-order shuffle, for the move-order
     // invariance battery. Play never sets this.
     if (opts.shuffleSeed) {
@@ -2020,6 +2031,10 @@ function annealRoot(g, opts) {
     }
 
     hardDeadline = Infinity;   // deepening done; measurement stages run unpreempted
+    if (taxTotal > 50) {       // update the gauge reference (damped, like the thermometer)
+        const r = taxTaken / taxTotal;
+        LEAF_TAXRATE = LEAF_TAXRATE < 0 ? r : 0.5 * (LEAF_TAXRATE + r);
+    }
 
     // ── Susceptibility stage (optional; the experiment) ────
     // Mix each dominant root move's value with its taxed counterfactual:
@@ -2208,7 +2223,7 @@ function analyzeRoot(g, opts) {
 // move to play and the dashboard state — they can never disagree.
 function _runAnalyze(msg) {
     PAST_KEYS = msg.pastKeys || [];       // played-game repetition keys (see collectPastKeys)
-    if (msg.newGame) { jhatReset(); biteReset(); }   // per-game instrument state
+    if (msg.newGame) { jhatReset(); biteReset(); LEAF_TAXRATE = -1; }   // per-game instrument state
     const g = new Chess(msg.fen);
     const out = { turn: g.turn(), fen: g.fen(), gameOver: g.game_over() };
     if (out.gameOver) return out;
