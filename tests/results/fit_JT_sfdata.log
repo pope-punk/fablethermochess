@@ -1,0 +1,2 @@
+robust cut at T > 50: dropped 41 moves / 350 readings (runaway tail), kept 12113 readings
+rung      moves  readings   ⟨T⟩      J     b      J·b/2T   (95% CI on J)
