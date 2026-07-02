@@ -189,14 +189,17 @@ label { font-size: 0.85em; }
         <button onclick="undoMove()">Undo</button>
         <button onclick="flipBoard()">Flip</button>
         <button onclick="switchSides()">Switch Sides</button>
-        <select id="difficulty">
-            <option value="easy">Easy (0.5 s)</option>
-            <option value="medium" selected>Medium (2 s)</option>
-            <option value="hard">Hard (8 s)</option>
-            <option value="max">Max (20 s)</option>
+        <select id="difficulty" title="Average thinking time per move. The scheduler redistributes it: obvious moves stop early and bank the remainder; close decisions may spend up to 4x this from the bank.">
+            <option value="easy">Easy (0.5 s/move avg)</option>
+            <option value="medium" selected>Medium (2 s/move avg)</option>
+            <option value="hard">Hard (8 s/move avg)</option>
+            <option value="max">Max (20 s/move avg)</option>
         </select>
         <!-- No temperature/capacity knob: T is measured by the annealing
-             search, not chosen. Longer thinking time = colder engine. -->
+             search, not chosen. Longer thinking time = colder engine.
+             Since the sigma_eff scheduler, this is a RATE, not a per-move
+             wall: each move credits the allowance to a clock; frozen
+             decisions bank their remainder; hard ones draw up to 3x extra. -->
     </div>
 </div>
 
