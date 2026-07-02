@@ -1004,6 +1004,22 @@ var Chess = function(fen) {
       }
       return { mw: mw, mb: mb };
     },
+    /* Null move (pass): flips the side to move and clears en passant,
+     * touching no pieces — the perturbation used by the tempo-
+     * susceptibility probe. Callers must pair make/undo and never pass
+     * while in check. */
+    fast_make_null: function() {
+      history.push({ move: null, kings: { b: kings.b, w: kings.w }, turn: turn,
+        castling: { b: castling.b, w: castling.w }, ep_square: ep_square,
+        half_moves: half_moves, move_number: move_number });
+      turn = swap_color(turn); ep_square = EMPTY;
+    },
+    fast_undo_null: function() {
+      var old = history.pop();
+      turn = old.turn; ep_square = old.ep_square;
+      kings = old.kings; castling = old.castling;
+      half_moves = old.half_moves; move_number = old.move_number;
+    },
     fast_in_check: function() { return in_check(); },
     fast_in_checkmate: function() { return in_checkmate(); },
     fast_turn: function() { return turn; },
@@ -1221,18 +1237,31 @@ function staticEval(g) {
 // meaningless. Alpha-beta at T = 0 (not Boltzmann): the fast tactical
 // degrees of freedom relax deterministically before the slow ones are
 // sampled thermally.
+// Tempo-tax frequency: the measured probability that a position taxes the
+// mover's tempo — the mover cannot just "bank" the static value because a
+// forcing continuation beats standing pat (or they are in check outright).
+// This is the mixing weight w of the susceptibility probe, counted over
+// every quiescence entry the search visits: a frequency read off the
+// engine's own experience of the game, chosen by no one.
+let taxTotal = 0, taxTaken = 0;
+
 function quiesce(g, alpha, beta, qd) {
     nodeCount++;
     if (qd === undefined) qd = 24;
     const inCheck = g.fast_in_check();
 
+    // The tax census counts only ENTRY nodes (qd === 24): the population of
+    // positions the search treats as quiet leaves. Interior quiescence nodes
+    // sit mid-capture-chain and are taxed almost by definition — counting
+    // them would answer a different question.
+    const census = qd === 24;
     let standPat = 0;
     if (!inCheck) {
         standPat = staticEval(g);   // material + T·(S_us − S_them) at bath T
-        if (standPat >= beta) return standPat;
+        if (standPat >= beta) { if (census) taxTotal++; return standPat; }   // banks the tempo: untaxed
         if (standPat > alpha) alpha = standPat;
         if (qd <= 0) return standPat;                   // quiescence depth cap (quiet)
-    }
+    } else if (census) { taxTotal++; taxTaken++; }      // in check: tempo already taxed
     if (inCheck && qd <= -8) return staticEval(g);      // bound runaway checking sequences
 
     // In check: all evasions. Not in check: captures and promotions only.
@@ -1262,10 +1291,11 @@ function quiesce(g, alpha, beta, qd) {
         g.fast_make(m);
         const score = -tickMate(quiesce(g, -beta, -alpha, qd - 1));
         g.fast_undo();
-        if (score >= beta) return score;
+        if (score >= beta) { if (census && !inCheck) { taxTotal++; taxTaken++; } return score; }
         if (score > alpha) alpha = score;
     }
 
+    if (census && !inCheck) { taxTotal++; if (alpha > standPat) taxTaken++; }
     return alpha;
 }
 
@@ -1511,6 +1541,46 @@ function computeChemicalPotentials(g, thermo) {
     return results;
 }
 
+// ── Tempo-susceptibility probe ─────────────────────────────
+// χ = ΔF under a passed tempo: a response function, measured the way
+// physics measures stiffness — perturb (give the opponent the move) and
+// let the system relax (their exploiting line is searched, so unsound
+// sacrifices refute themselves; no static threat-counting anywhere).
+//
+// g stands at the CHILD position (opponent to move) after a candidate
+// root move. For each opponent reply o1: if o1 gives check, the mover's
+// tempo was going to be spent anyway — the line relaxes normally through
+// quiescence. Otherwise the mover PASSES and the opponent gets one more
+// full-width ply (quiet threats included) plus quiescence. The opponent
+// picks their best exploit (T = 0: tactical truth belongs to the
+// relaxation, not the ensemble). Returns the taxed value from the root
+// mover's point of view.
+function tempoProbe(g, pathKeys) {
+    const replies = g.fast_moves();
+    if (replies.length === 0)
+        return g.fast_in_check() ? CHECKMATE_SCORE : 0;   // opponent already mated/stalled
+    let worst = Infinity;   // opponent minimizes the root mover's value
+    for (let i = 0; i < replies.length; i++) {
+        g.fast_make(replies[i]);
+        let v;
+        if (g.fast_in_check()) {
+            v = tickMate(quiesce(g, -Infinity, Infinity));   // my POV: forced anyway
+        } else {
+            // I pass; the opponent's exploitation relaxes through
+            // quiescence. The threat move is o1 itself; its execution is
+            // almost always forcing (a capture), which quiescence sees.
+            // Quiet-move mating nets are the one class this misses — the
+            // price of a probe cheap enough to cover the dominant set.
+            g.fast_make_null();
+            v = -tickMate(quiesce(g, -Infinity, Infinity));  // their POV after the pass: negate
+            g.fast_undo_null();
+        }
+        g.fast_undo();
+        if (v < worst) worst = v;
+    }
+    return worst;
+}
+
 // ── Annealed Iterative Deepening ───────────────────────────
 // The search is an explicit annealing process. Depth is time; after each
 // completed deepening iteration the bath temperature is re-MEASURED as
@@ -1532,8 +1602,14 @@ function computeChemicalPotentials(g, thermo) {
 function annealRoot(g, opts) {
     const deadline = opts.deadline != null ? opts.deadline : Infinity;
     const maxDepth = opts.maxDepth != null ? opts.maxDepth : 64;
+    // When probing, reserve a slice of the budget for the susceptibility
+    // stage so probe-on and probe-off runs use the same total time.
+    const mainDeadline = (opts.probe && Number.isFinite(deadline))
+        ? deadline - 0.15 * (deadline - performance.now())
+        : deadline;
     nodeCount = 0;
     measT = 0;
+    taxTotal = 0; taxTaken = 0;
     bathT = T_ZERO;                // zero-point: never colder than one quantum
 
     const moves = g.fast_moves();
@@ -1569,7 +1645,7 @@ function annealRoot(g, opts) {
             g.fast_undo();
             // Depth 1 always runs to completion (it is nearly free): a partial
             // first iteration would leave undefined values and an arbitrary move.
-            if (depth > 1 && performance.now() > deadline) { timedOut = true; break; }
+            if (depth > 1 && performance.now() > mainDeadline) { timedOut = true; break; }
         }
         if (timedOut) break;
 
@@ -1615,8 +1691,59 @@ function annealRoot(g, opts) {
         // schedule as it actually happened, for the dashboard).
         result.anneal.push({ d: depth, T: bathT, bestQ: nq[0] });
 
-        if (performance.now() > deadline) break;
+        if (performance.now() > mainDeadline) break;
         if (nodeCount > NODE_HARD_LIMIT) break;
+    }
+
+    // ── Susceptibility stage (optional; the experiment) ────
+    // Mix each dominant root move's value with its taxed counterfactual:
+    //     Q ← (1−w)·Q + w·V_taxed
+    // where w is the measured tempo-tax frequency from this very search's
+    // quiescence and V_taxed comes from tempoProbe. Only the dominant set
+    // (the same Boltzmann window the truncation uses) is probed; result.
+    // probed records how many, and move selection stays within that set.
+    if (opts.probe && result.Qs) {
+        const w = taxTotal > 0 ? taxTaken / taxTotal : 0;
+        result.w = w;
+        result.chi = new Array(n).fill(null);
+        result.probed = 0;
+        // A found forced win is an absorbing state, not a thermal one: a
+        // mating line genuinely owns its tempo and must not be taxed
+        // (taxing it would make the engine avoid its own mates).
+        if (w > 0 && result.Qs.length > 1 && result.Qs[0] < MATE_NEAR) {
+            // The deepening loop can overshoot its reserved deadline by up to
+            // one root subtree, starving the probes; give the probe stage its
+            // own slice measured from now so the dominant set gets covered.
+            const probeDeadline = Number.isFinite(deadline)
+                ? performance.now() + 0.15 * (opts.budgetMs || 1000)
+                : Infinity;
+            pathKeys.clear();
+            pathKeys.add(rootPosKey);
+            for (let k = 0; k < PAST_KEYS.length; k++) pathKeys.add(PAST_KEYS[k]);
+            const q0 = result.Qs[0];
+            for (let i = 0; i < n && i < TRUNC_MAX; i++) {
+                if (i > 0 && result.Qs[i] < q0 - BOLTZ_SIGMA * bathT) break;
+                if (i > 1 && performance.now() > probeDeadline) break;   // always probe the top two
+                if (Math.abs(result.Qs[i]) > MATE_NEAR) { result.probed++; continue; }  // absorbing: unmixed
+                g.fast_make(moves[i]);
+                const vt = tempoProbe(g, pathKeys);
+                g.fast_undo();
+                result.chi[i] = result.Qs[i] - vt;
+                result.probed++;
+            }
+            // χ decomposes into the universal price of one tempo (common to
+            // every move) plus move-specific brittleness. Only the EXCESS
+            // over the stiffest candidate is a safety signal; taxing the
+            // common part would just depress all probed values against the
+            // unprobed tail and bias the eval scale.
+            let chiMin = Infinity;
+            for (let i = 0; i < n; i++)
+                if (result.chi[i] != null && result.chi[i] < chiMin) chiMin = result.chi[i];
+            if (Number.isFinite(chiMin))
+                for (let i = 0; i < n; i++)
+                    if (result.chi[i] != null)
+                        result.Qs[i] -= w * (result.chi[i] - chiMin);
+        }
     }
 
     g.fast_end_acc();
@@ -1634,8 +1761,13 @@ function analyzeRoot(g, opts) {
     if (!r) return null;
     const Qs = r.Qs, n = Qs.length;
 
+    // With the susceptibility stage active, selection stays inside the
+    // probed (dominant) set: an unprobed tail move must not win the argmax
+    // merely because its brittleness was never measured.
+    const selN = (opts.probe && r.probed > 0) ? r.probed : n;
     let maxQ = Qs[0], bestIdx = 0;
-    for (let i = 1; i < n; i++) if (Qs[i] > maxQ) { maxQ = Qs[i]; bestIdx = i; }
+    for (let i = 1; i < selN; i++) if (Qs[i] > maxQ) { maxQ = Qs[i]; bestIdx = i; }
+    for (let i = selN; i < n; i++) if (Qs[i] > maxQ) maxQ = Qs[i];   // maxQ for π/F only
 
     // Absorbing-state root: a forced mate (for either side) freezes the
     // ensemble — the decision is deterministic. Mirrors computeF.
@@ -1668,7 +1800,8 @@ function analyzeRoot(g, opts) {
     return { T, F, S, avgQ, TS, probs, moves: moveNames, fromSqs, Qs, bestIdx,
              depth: r.depth, Ceff: schottky.Ceff, Cstar: schottky.Cstar,
              Tspin: schottky.Tspin, phase: schottky.phase,
-             curve: schottky.curve || [], anneal: r.anneal };
+             curve: schottky.curve || [], anneal: r.anneal,
+             tax: r.w, chi: r.chi || null, probed: r.probed || 0 };
 }
 
 // Unified analysis entry point. Runs identically on the main thread (sync
@@ -1682,7 +1815,7 @@ function _runAnalyze(msg) {
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
     const t0 = now();
     const th = analyzeRoot(g, msg.timeLimit != null
-        ? { deadline: now() + msg.timeLimit }
+        ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, budgetMs: msg.timeLimit }
         : { maxDepth: msg.dashDepth || 2 });
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
