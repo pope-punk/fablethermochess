@@ -11,3 +11,7 @@ Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)
   French                       engine as White → 1/2-1/2 (178 plies, draw (50-move/material), 117s)
   French                       engine as Black → 1/2-1/2 (107 plies, threefold repetition, 66s)
   English (reversed Sicilian)  engine as White → 0-1     (38 plies, checkmate, 21s)
+  English (reversed Sicilian)  engine as Black → 1/2-1/2 (166 plies, draw (50-move/material), 108s)
+
+FINAL SCORE vs Stockfish 1500: {"engine":3,"stockfish":4,"draws":5}
+results written to results/vs_sf1500_leafmu.json
