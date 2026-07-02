@@ -10,3 +10,8 @@ Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)
   King's Indian                engine as Black → 0-1     (92 plies, checkmate, 64s)
   French                       engine as White → 0-1     (54 plies, checkmate, 41s)
   French                       engine as Black → 1-0     (127 plies, checkmate, 119s)
+  English (reversed Sicilian)  engine as White → 1-0     (83 plies, checkmate, 59s)
+  English (reversed Sicilian)  engine as Black → 1/2-1/2 (168 plies, draw (50-move/material), 117s)
+
+FINAL SCORE vs Stockfish 1500: {"engine":6,"stockfish":3,"draws":3}
+results written to results/vs_sf1500_measure.json
