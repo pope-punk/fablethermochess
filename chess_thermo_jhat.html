@@ -1266,6 +1266,20 @@ let fluxRootTurn = 'w';
 let muSumUs = 0, muCntUs = 0, muSumThem = 0, muCntThem = 0;
 let taxUs = 0, taxThem = 0;
 
+// ── Leaf tempo prior (channel 3: horizon priors) ────────────
+// The leaf already prices sub-horizon OPTIONALITY (T·lnW). This prices
+// sub-horizon INITIATIVE: a census leaf whose quiet stance was refuted
+// carries an unpaid obligation, and by the equation of state an
+// obligation compounds beyond the horizon with exchange energy J — its
+// uncounted future cost per quantum is J·b/2 = T̂c, the Curie
+// temperature of the initiative measured against THIS opponent. Like
+// the entropy term it stands in only for the unseen (applied at census
+// entries, dissolving as the search deepens past them), its coefficient
+// is measured (conservative lower edge; zero until the game supplies
+// evidence), and it is absorbing-guarded. Measurements always read RAW
+// values — the estimator must never eat its own prior.
+let LEAF_KAPPA = 0;
+
 // ── Opponent thermometer: the running Ĵ estimator ──────────
 // How much does THIS opponent make obligations compound? Estimated by
 // running the validated offline methodology (fit_J.js: forward Curie–Weiss
@@ -1375,13 +1389,17 @@ function quiesce(g, alpha, beta, qd) {
     // stored census reading so the flux statistics keep their sampling.
     const qKey = g.fast_hash();
     const hit = qCache.get(qKey);
-    if (hit !== undefined && hit.qd >= qd &&
-        (hit.f === 0 || (hit.f === 1 && hit.v >= beta) || (hit.f === 2 && hit.v <= alpha))) {
-        if (census && hit.cen) {
-            taxTotal++; if (hit.tax) taxTaken++;
-            fieldSample(mover, hit.chi, hit.tax);
+    if (hit !== undefined && hit.qd >= qd) {
+        // cache stores RAW values; the tempo prior applies on the way out
+        const hv = (LEAF_KAPPA && census && hit.cen && hit.tax && Math.abs(hit.v) < MATE_NEAR)
+            ? hit.v - LEAF_KAPPA : hit.v;
+        if (hit.f === 0 || (hit.f === 1 && hv >= beta) || (hit.f === 2 && hv <= alpha)) {
+            if (census && hit.cen) {
+                taxTotal++; if (hit.tax) taxTaken++;
+                fieldSample(mover, hit.chi, hit.tax);
+            }
+            return hv;
         }
-        return hit.v;
     }
     const alphaOrig = alpha;
 
@@ -1439,7 +1457,7 @@ function quiesce(g, alpha, beta, qd) {
                 else { chi = score - standPat; taxTotal++; taxTaken++; fieldSample(mover, chi, true); }
             }
             qStore(qKey, score, 1, qd, census, chi, true);
-            return score;
+            return (LEAF_KAPPA && census && Math.abs(score) < MATE_NEAR) ? score - LEAF_KAPPA : score;
         }
         if (score > alpha) alpha = score;
     }
@@ -1456,7 +1474,7 @@ function quiesce(g, alpha, beta, qd) {
         }
     }
     qStore(qKey, alpha, alpha <= alphaOrig ? 2 : 0, qd, census, chi, taxed);
-    return alpha;
+    return (LEAF_KAPPA && census && taxed && Math.abs(alpha) < MATE_NEAR) ? alpha - LEAF_KAPPA : alpha;
 }
 
 // ── Schottky measurement (dashboard instrument) ────────────
@@ -1796,6 +1814,7 @@ function annealRoot(g, opts) {
     measT = 0;
     searchAborted = false;
     hardDeadline = mainDeadline;
+    LEAF_KAPPA = opts.leafMu ? jhatRead().Tc : 0;
     taxTotal = 0; taxTaken = 0;
     fluxRootTurn = g.fast_turn();
     muSumUs = 0; muCntUs = 0; muSumThem = 0; muCntThem = 0; taxUs = 0; taxThem = 0;
@@ -2145,8 +2164,10 @@ function _runAnalyze(msg) {
     const t0 = now();
     const th = analyzeRoot(g, msg.timeLimit != null
         ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: msg.flux || false,
-            budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule }
-        : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed });
+            budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
+            leafMu: !!msg.leafMu }
+        : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
+            leafMu: !!msg.leafMu });
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
