@@ -1263,6 +1263,72 @@ let fluxRootTurn = 'w';
 let muSumUs = 0, muCntUs = 0, muSumThem = 0, muCntThem = 0;
 let taxUs = 0, taxThem = 0;
 
+// ── Opponent thermometer: the running Ĵ estimator ──────────
+// How much does THIS opponent make obligations compound? Estimated by
+// running the validated offline methodology (fit_J.js: forward Curie–Weiss
+// fit, β = b·tanh((Δμ + Jβ)/2T), squared loss in β-space, each reading
+// keeping its own T and Δμ) on a sliding window of the game's own flux
+// readings. Every shortcut tried in place of the forward fit — raw
+// artanh inversion, delta-method bias corrections, binned-mean
+// linearization, intercept models — imported a bias that masqueraded as
+// J (the readings carry a point-of-view asymmetry and heterogeneous T
+// that only the per-reading forward model handles). The fit is a small
+// fixed grid over (J, b), a few ms per move; the error bar is split-half
+// disagreement (even vs odd moves — duplicate assays), so a window that
+// contradicts itself reports its own unreliability. The scheduler
+// consumes the conservative lower edge: an unresolved opponent is
+// budgeted as docile, never the reverse. No norm of play imported.
+const JH_WINDOW = 64;      // moves remembered (readings per move ≤ 8)
+const JH_PERMOVE = 8;
+let jhWin = [];            // [{pts: [[beta, dmu, T, w], …]}, …]
+function jhatReset() { jhWin = []; }
+function jhatUpdate(betas, dmus, ntaxs, T) {
+    if (!betas || !(T > 0) || T > 50) return;
+    const cand = [];
+    for (let i = 0; i < betas.length; i++) {
+        const beta = betas[i];
+        if (beta == null || !Number.isFinite(dmus[i])) continue;
+        const cnt = ntaxs ? ntaxs[i] || 1 : 1;
+        if (cnt < 4) continue;                 // a 3-count β is a coin flip
+        cand.push([beta, dmus[i], T, Math.min(cnt, 64)]);
+    }
+    if (!cand.length) return;
+    cand.sort((a, b2) => b2[3] - a[3]);        // keep the best-measured readings
+    jhWin.push({ pts: cand.slice(0, JH_PERMOVE) });
+    if (jhWin.length > JH_WINDOW) jhWin.shift();
+}
+function jhPredict(dmu, T, J, b) {
+    let x = Math.sign(dmu) * 0.5 * b || 0;
+    for (let it = 0; it < 24; it++) {
+        const nx = b * Math.tanh((dmu + J * x) / (2 * T));
+        if (Math.abs(nx - x) < 1e-7) return nx;
+        x = 0.5 * x + 0.5 * nx;
+    }
+    return x;
+}
+function jhFit(moves) {
+    let best = null;
+    for (let J = 0; J <= 10; J += 0.5) for (let b = 0.4; b <= 1.0001; b += 0.1) {
+        let sse = 0, W = 0;
+        for (const m of moves) for (const p of m.pts) {
+            const r = p[0] - jhPredict(p[1], p[2], J, b);
+            sse += p[3] * r * r; W += p[3];
+        }
+        const mse = sse / Math.max(1, W);
+        if (!best || mse < best.mse) best = { J, b, mse };
+    }
+    return best;
+}
+function jhatRead() {
+    if (jhWin.length < 12) return { J: 0, se: Infinity, b: 0.7, Tc: 0, n: jhWin.length };
+    const all = jhFit(jhWin);
+    const ev = jhFit(jhWin.filter((_, i) => i % 2 === 0));
+    const od = jhFit(jhWin.filter((_, i) => i % 2 === 1));
+    const se = Math.max(0.25, Math.abs(ev.J - od.J) / 2);   // duplicate-assay error bar
+    const Jlo = Math.max(0, all.J - 2 * se);
+    return { J: all.J, se, b: all.b, Tc: Jlo * all.b / 2, n: jhWin.length };
+}
+
 // ── Quiescence transposition table ──────────────────────────
 // Bounded-flag entries (0 exact, 1 lower bound, 2 upper bound) keyed by
 // position hash, tagged with remaining quiescence depth (an entry is
@@ -1817,6 +1883,39 @@ function annealRoot(g, opts) {
         // schedule as it actually happened, for the dashboard).
         result.anneal.push({ d: depth, T: bathT, bestQ: nq[0] });
 
+        // ── σ_eff scheduler: thinking time as the latent heat of decision ──
+        // A decision is safe when the uncertainty of the value gap between
+        // the top two moves is smaller than the gap itself. The uncertainty
+        // has a direct channel (the bath, T) and an initiative-mediated one:
+        // a price-reading error of order T mis-forecasts the initiative with
+        // Curie–Weiss gain χ = b̂/2(T−T̂c) and each unit of β is worth ~μ̄.
+        //     σ_eff = T·√(1 + (μ̄·b̂ / 2(T − T̂c))²)
+        // Stop when σ_eff < ΔQ₁₂ (the decision is frozen: bank the time) —
+        // near the opponent's Curie point the requirement tightens and the
+        // engine automatically spends its banked time exactly there. T̂c
+        // uses the LOWER confidence edge of Ĵ, so an unknown opponent is
+        // budgeted as docile until the game supplies evidence. Two guards:
+        // mate-scores schedule themselves (absorbing states are decisions),
+        // and a runaway bath (§4.1 failure mode: hot AND heating) means the
+        // position is not equilibrating at any budget — moving is a quench,
+        // and the quench is all there is.
+        if (opts.schedule && depth >= 3 && n > 1) {
+            if (Math.abs(nq[0]) > MATE_NEAR) { result.stop = 'mate'; break; }
+            const gap = nq[0] - nq[1];
+            const jr = jhatRead();
+            const cnt = muCntUs + muCntThem;
+            const mubar = cnt > 0 ? (muSumUs + muSumThem) / cnt : 0;
+            const chi = bathT > jr.Tc ? jr.b / (2 * (bathT - jr.Tc)) : Infinity;
+            const sigma = bathT * Math.sqrt(1 + (mubar * chi) * (mubar * chi));
+            result.sigma = sigma; result.gap = gap; result.Tc = jr.Tc;
+            if (sigma < gap) { result.stop = 'frozen'; break; }
+            const a = result.anneal;
+            if (bathT > 20 && a.length >= 3 &&
+                a[a.length - 1].T > a[a.length - 2].T && a[a.length - 2].T > a[a.length - 3].T) {
+                result.stop = 'runaway'; break;
+            }
+        }
+
         if (performance.now() > mainDeadline) break;
         if (nodeCount > NODE_HARD_LIMIT) break;
     }
@@ -1997,7 +2096,9 @@ function analyzeRoot(g, opts) {
              tax: r.w, chi: r.chi || null, mu_t: r.mu || null,
              probed: r.probed || 0, muTempo,
              beta: r.beta || null, dmu: r.dmu || null, mubar: r.mubar || null,
-             ntax: r.ntax || null, nmu: r.nmu || null };
+             ntax: r.ntax || null, nmu: r.nmu || null,
+             stop: r.stop || null, sigma: r.sigma != null ? r.sigma : null,
+             gap: r.gap != null ? r.gap : null, TcHat: r.Tc != null ? r.Tc : null };
 }
 
 // Unified analysis entry point. Runs identically on the main thread (sync
@@ -2005,6 +2106,7 @@ function analyzeRoot(g, opts) {
 // move to play and the dashboard state — they can never disagree.
 function _runAnalyze(msg) {
     PAST_KEYS = msg.pastKeys || [];       // played-game repetition keys (see collectPastKeys)
+    if (msg.newGame) jhatReset();         // the opponent thermometer is per-game state
     const g = new Chess(msg.fen);
     const out = { turn: g.turn(), fen: g.fen(), gameOver: g.game_over() };
     if (out.gameOver) return out;
@@ -2012,7 +2114,7 @@ function _runAnalyze(msg) {
     const t0 = now();
     const th = analyzeRoot(g, msg.timeLimit != null
         ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: msg.flux || false,
-            budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed }
+            budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed });
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
@@ -2022,6 +2124,11 @@ function _runAnalyze(msg) {
     const r = rawU(g);
     out.Uw = r.Uw; out.Ub = r.Ub;
     th.mu = computeChemicalPotentials(g, th);
+    // Feed the opponent thermometer — only on PLAYED searches (a dashboard
+    // re-analysis of the same position must not double-count the game),
+    // and only from flux readings taken this move.
+    if (msg.timeLimit != null && th.beta) jhatUpdate(th.beta, th.dmu, th.ntax, th.T);
+    th.jhat = jhatRead();
     out.thermo = th;
     return out;
 }
