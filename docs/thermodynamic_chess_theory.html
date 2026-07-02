@@ -126,16 +126,36 @@ Thermodynamic state variables belong to (locally) equilibrated systems, and a po
 In the main search, alpha-beta cutoffs are unsound (every child contributes to Z) but contributions decay exponentially: at depth&nbsp;≥&nbsp;2 a shallow ranking pass orders the children, and only those within 3T of the best (capped at 16) are fully recursed; the tail keeps its shallow values as its ~1% share of Z. The truncation width is set by the <em>bath</em>: cold searches narrow toward best-line probing exactly where minimax is exact, hot searches keep many live branches. Two children are always fully resolved regardless of temperature — a one-level system yields no fluctuation sample (the thermometer would only ever confirm itself and freeze), and verifying the runner-up is precisely what catches a shallow misranking of the best move.
 </p>
 
-<h2>8. Chemical potential</h2>
+<h2>8. Chemical potential: pieces, and the tempo as the (N+1)-th piece</h2>
 <p>
 With p<sub>P</sub> the Boltzmann weight of all moves originating from piece P, freezing P in place costs free energy
 </p>
 <div class="eq">μ<sub>P</sub> = −T ln(1 − p<sub>P</sub>) <span class="tag">(5)</span></div>
 <p>
-(the ideal-gas/independent-pieces limit). A piece with μ<sub>P</sub>&nbsp;≈&nbsp;0 is thermodynamically idle whatever its material worth; the piece carrying most of the ensemble weight is what the position is <em>about</em>. The dashboard renders μ for every mobile piece of the side to move.
+(the ideal-gas/independent-pieces limit). A piece with μ<sub>P</sub>&nbsp;≈&nbsp;0 is thermodynamically idle whatever its material worth; the piece carrying most of the ensemble weight is what the position is <em>about</em>.
+</p>
+<h3>8.1 The tempo</h3>
+<p>
+Apply (5) to the <em>tempo</em> — the piece whose moves are all of them — and the formula seems to diverge (p&nbsp;=&nbsp;1) until the ensemble is extended by the null move as a microstate, with energy Q<sub>pass</sub> equal to the relaxed value of passing. On Z′&nbsp;=&nbsp;Z&nbsp;+&nbsp;e<sup>Q<sub>pass</sub>/T</sup>, deleting the tempo's moves leaves exactly the pass, formula (5) applies verbatim, and it closes to
+</p>
+<div class="eq">μ<sub>tempo</sub> = −T ln π′<sub>pass</sub> = T · ln(1 + e<sup>χ̃/T</sup>) ,&emsp; χ̃ ≡ F − Q<sub>pass</sub> <span class="tag">(6)</span></div>
+<p>
+— a softplus, at the bath temperature, of the raw susceptibility reading χ̃ (§9). Every limit is chess: when the tempo genuinely matters (χ̃&nbsp;≫&nbsp;T), μ<sub>tempo</sub>&nbsp;→&nbsp;χ̃; in zugzwang (χ̃&nbsp;&lt;&nbsp;0) it goes smoothly to zero — the tempo of a player in zugzwang is a worthless particle, and no special case is needed; the crossover width is T itself. One formula now prices rook, queen, pawn, <em>and initiative</em>, and the dashboard's μ panel carries a tempo row accordingly.
 </p>
 
-<h2>9. The experimental record</h2>
+<h2>9. Prophylaxis as a response function: the grand potential</h2>
+<p>
+King safety and prophylaxis resisted every static formulation we tried: whether a threat is sound is not a counting fact but a search fact, and each attempted leaf term (attack maps, filtered check counts) was the standard hand-crafted evaluator being rederived in disguise. The model's own division of labor points elsewhere: measure it the way physics measures stiffness — perturb and relax. For each candidate move, the <em>tempo-susceptibility probe</em> gives the opponent their reply followed by a free tempo (a null move for the mover) and relaxes the result through quiescence, in which unsound sacrifices refute themselves. The reading χ̃&nbsp;=&nbsp;Q&nbsp;−&nbsp;V<sub>taxed</sub> feeds (6), and each candidate acquires a tempo chemical potential.
+</p>
+<p>
+The opponent is a <em>tempo reservoir</em>: their forcing moves annihilate the mover's tempi, with occupancy w measured as the fraction of quiet quiescence-entry positions whose stand-pat is refuted by a forcing line (in-check entries count as taxed). The evaluation is then the grand potential of the position under tempo exchange:
+</p>
+<div class="eq">Φ = F − w · (μ<sub>tempo</sub> − μ̄) <span class="tag">(7)</span></div>
+<p>
+with μ̄ the minimum over candidates. The subtraction is gauge fixing, not pragmatism: chemical potentials are defined only up to a reference, and only μ <em>differences</em> drive exchange — the stiffest candidate pays nothing, and the universal price of one tempo (common mode) cancels. The linear-in-w form is the quenched average over the reservoir's action, the correct choice for an adversary who chooses rather than samples. Absorbing states are exempt as always: a found mate owns its tempo and is never taxed. Three residues, named: Q<sub>pass</sub> is relaxed at T&nbsp;=&nbsp;0 (quiescence), so the probe inherits quiescence's blindness to quiet mating nets; only the dominant Boltzmann set is probed, and selection stays within it; χ is orthogonal information — negamax at any depth only ever evaluates trajectories where every threat is answered, so the forced-pass counterfactual appears in no ordinary search line at any depth.
+</p>
+
+<h2>10. The experimental record</h2>
 <p>
 The redesign was driven by adversarial testing against two opponents: a deliberately naive alpha-beta engine whose evaluation is <em>pure classical material</em> (a material-truth oracle that punishes hung pieces and values nothing else), and the first-edition engine itself. Equal time per move, color-swapped pairs, small opening book for game diversity. The oracle exposed each hidden constant in turn:
 </p>
@@ -149,7 +169,7 @@ The redesign was driven by adversarial testing against two opponents: a delibera
 That a sequence of purely <em>physical</em> repairs — ensemble averaging, parity-clean thermometry, zero-point motion — was what turned a blundering engine into a sound one is itself the most encouraging evidence that the thermodynamic frame is doing real work here, rather than decorating a chess engine with vocabulary.
 </p>
 
-<h2>10. The measurement apparatus</h2>
+<h2>11. The measurement apparatus</h2>
 <p>
 The dashboard reports, per position: the material energies U<sub>w</sub>, U<sub>b</sub>; the measured bath temperature T and root entropy S; ⟨Q⟩, TS, and F; the Schottky readings C<sub>eff</sub>&nbsp;=&nbsp;C(T<sub>bath</sub>) and C* with the phase label; the move ensemble (Q<sub>a</sub>, π<sub>a</sub>); the chemical potentials; and time series of Eval, T, S, TS, C<sub>eff</sub>, and C* across the game. Four dedicated instruments visualize the physics directly:
 </p>
@@ -163,7 +183,7 @@ The dashboard reports, per position: the material energies U<sub>w</sub>, U<sub>
 The headline Eval is everywhere the argmax-Q value in White-POV pawns — the energetic part alone, comparable across engines — while F carries the optionality term on its own row. Stockfish runs in a separate worker as an external reference thermometer and never influences play; the Δ(engine−SF) column measures where geometric-thermodynamic valuation diverges from conventional valuation. There is no temperature knob anywhere in the interface: T is a reading, not a setting. The one control that remains — thinking time — is physically meaningful: it is the annealing schedule, and a longer think is a colder engine.
 </p>
 
-<h2>11. What this might tell us about chess</h2>
+<h2>12. What this might tell us about chess</h2>
 <ul>
 <li><b>T(game) is now a real observable.</b> The bath temperature is the engine's measured self-uncertainty. Its trajectory across a game — where it spikes, how it decays with thinking time, how it correlates with human "sharpness" — is data about chess, not about a tuning choice.</li>
 <li><b>C*(position) is a parameter-free invariant</b>: the largest evaluation-fluctuation capacity a position's move ensemble can sustain. Mapping C* over master games (openings vs technique phases, calm vs sharp players) is a concrete experiment this instrument can run.</li>

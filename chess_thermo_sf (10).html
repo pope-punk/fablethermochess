@@ -1555,6 +1555,22 @@ function computeChemicalPotentials(g, thermo) {
 // picks their best exploit (T = 0: tactical truth belongs to the
 // relaxation, not the ensemble). Returns the taxed value from the root
 // mover's point of view.
+// Chemical potential of the tempo, in closed form. On the null-extended
+// ensemble Z′ = Z + e^{Q_pass/T}, the same formula that prices every piece
+// (μ_X = −T ln(1 − p_X)) applies to the tempo — the piece whose moves are
+// all of them — and simplifies exactly to a softplus of the raw probe
+// reading χ̃ = F − Q_pass at the bath temperature:
+//     μ_tempo = T · ln(1 + e^{χ̃/T})
+// Equal to χ̃ when the tempo genuinely matters; smoothly zero in zugzwang
+// (the tempo of a player in zugzwang is a worthless particle); crossover
+// width set by T itself.
+function softplusT(x) {
+    const r = x / bathT;
+    if (r > 30) return x;        // exact to double precision
+    if (r < -30) return 0;
+    return bathT * Math.log(1 + Math.exp(r));
+}
+
 function tempoProbe(g, pathKeys) {
     const replies = g.fast_moves();
     if (replies.length === 0)
@@ -1731,18 +1747,29 @@ function annealRoot(g, opts) {
                 result.chi[i] = result.Qs[i] - vt;
                 result.probed++;
             }
-            // χ decomposes into the universal price of one tempo (common to
-            // every move) plus move-specific brittleness. Only the EXCESS
-            // over the stiffest candidate is a safety signal; taxing the
-            // common part would just depress all probed values against the
-            // unprobed tail and bias the eval scale.
-            let chiMin = Infinity;
-            for (let i = 0; i < n; i++)
-                if (result.chi[i] != null && result.chi[i] < chiMin) chiMin = result.chi[i];
-            if (Number.isFinite(chiMin))
+            // The evaluation is the GRAND POTENTIAL of the position with
+            // respect to tempo exchange with the opponent-reservoir:
+            //     Φ = F − w · (μ_tempo − μ̄)
+            // where μ_tempo = T·softplus(χ̃/T) is each candidate's tempo
+            // chemical potential and μ̄ (the reservoir gauge) is the minimum
+            // over candidates: chemical potentials are defined only up to a
+            // reference, and only μ DIFFERENCES drive particle exchange —
+            // the stiffest move pays nothing. w is the measured reservoir
+            // occupancy (tempo-tax census), and the linear-in-w form is the
+            // quenched average, correct for an adversary who chooses rather
+            // than samples. Zugzwang needs no special case: softplus sends
+            // its μ to zero.
+            result.mu = new Array(n).fill(null);
+            let muMin = Infinity;
+            for (let i = 0; i < n; i++) {
+                if (result.chi[i] == null) continue;
+                result.mu[i] = softplusT(result.chi[i]);
+                if (result.mu[i] < muMin) muMin = result.mu[i];
+            }
+            if (Number.isFinite(muMin))
                 for (let i = 0; i < n; i++)
-                    if (result.chi[i] != null)
-                        result.Qs[i] -= w * (result.chi[i] - chiMin);
+                    if (result.mu[i] != null)
+                        result.Qs[i] -= w * (result.mu[i] - muMin);
         }
     }
 
@@ -1790,6 +1817,17 @@ function analyzeRoot(g, opts) {
 
     const schottky = measureSchottky(Qs, n, T);
 
+    // Chemical potential of the tempo at the root — the initiative,
+    // priced by the same formula as every piece. One null move plus a
+    // quiescent relaxation; not defined in check (passing is illegal).
+    let muTempo = null;
+    if (!g.fast_in_check() && Math.abs(F) < MATE_NEAR) {
+        g.fast_make_null();
+        const qPass = -tickMate(quiesce(g, -Infinity, Infinity));
+        g.fast_undo_null();
+        muTempo = softplusT(F - qPass);
+    }
+
     const moveNames = new Array(n);
     const fromSqs = new Array(n);
     for (let i = 0; i < n; i++) {
@@ -1801,7 +1839,8 @@ function analyzeRoot(g, opts) {
              depth: r.depth, Ceff: schottky.Ceff, Cstar: schottky.Cstar,
              Tspin: schottky.Tspin, phase: schottky.phase,
              curve: schottky.curve || [], anneal: r.anneal,
-             tax: r.w, chi: r.chi || null, probed: r.probed || 0 };
+             tax: r.w, chi: r.chi || null, mu_t: r.mu || null,
+             probed: r.probed || 0, muTempo };
 }
 
 // Unified analysis entry point. Runs identically on the main thread (sync
@@ -2345,9 +2384,19 @@ function renderMu(th, turn) {
 
     let maxMu = 0;
     for (let i = 0; i < th.mu.length; i++) if (th.mu[i].mu > maxMu) maxMu = th.mu[i].mu;
+    if (th.muTempo != null && th.muTempo > maxMu) maxMu = th.muTempo;
 
     let html = '<table class="prob-table"><tr><th>Piece</th><th style="text-align:right">μ (♙)</th>' +
                '<th style="text-align:right">p_P</th><th class="prob-bar-cell"></th></tr>';
+    // The tempo priced as a piece: the initiative, μ_tempo = T·softplus(χ̃/T)
+    // on the null-extended ensemble. Zero in zugzwang.
+    if (th.muTempo != null) {
+        const tw = maxMu > 0 ? Math.max(2, (th.muTempo / maxMu) * 100) : 2;
+        html += '<tr style="border-bottom:1px solid #2a2a3e"><td>⌛ tempo</td>' +
+                '<td style="text-align:right">' + fmt(th.muTempo / PAWN_XRAY, 3) + '</td>' +
+                '<td style="text-align:right">—</td>' +
+                '<td class="prob-bar-cell"><div class="prob-bar" style="width:' + tw.toFixed(1) + '%;background:linear-gradient(90deg,#e0a458,#c08838)"></div></td></tr>';
+    }
     for (let i = 0; i < th.mu.length; i++) {
         const x = th.mu[i];
         const barW = maxMu > 0 ? Math.max(2, (x.mu / maxMu) * 100) : 2;
