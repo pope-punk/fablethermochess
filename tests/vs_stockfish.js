@@ -20,7 +20,9 @@ const ELO = parseInt(process.argv[2] || '1500');
 const ENGINE_MS = parseInt(process.argv[3] || '1000');
 const SF_MS = parseInt(process.argv[4] || '200');
 const OUT = process.argv[5] || path.join(__dirname, 'results', `vs_sf${ELO}.json`);
-const PROBE = process.argv[6] === 'probe';   // enable the tempo-susceptibility stage
+const MODE = process.argv[6] || '';          // '', 'probe', or 'flux'
+const PROBE = MODE === 'probe';
+const FLUX = MODE === 'flux';
 
 const OPENINGS = [
   { name: 'Italian complex',       line: ['e4', 'e5', 'Nf3', 'Nc6'] },
@@ -83,7 +85,7 @@ async function playGame(sf, opening, engineIsWhite) {
     const engineToMove = (g.fast_turn() === 'w') === engineIsWhite;
     let san;
     if (engineToMove) {
-      const res = E._runAnalyze({ fen: g.fen(), timeLimit: ENGINE_MS, pastKeys: keys.slice(0, -1), probe: PROBE });
+      const res = E._runAnalyze({ fen: g.fen(), timeLimit: ENGINE_MS, pastKeys: keys.slice(0, -1), probe: PROBE, flux: FLUX });
       san = res.san;
       if (res.thermo) {
         const t = res.thermo;
@@ -95,6 +97,15 @@ async function playGame(sf, opening, engineIsWhite) {
           rec.w = +(t.tax || 0).toFixed(3);
           rec.chi = (t.chi && t.chi[t.bestIdx] != null) ? +t.chi[t.bestIdx].toFixed(2) : null;
           rec.probed = t.probed;
+        }
+        if (FLUX && t.beta) {
+          rec.beta = t.beta[t.bestIdx] != null ? +t.beta[t.bestIdx].toFixed(3) : null;
+          rec.dmu = t.dmu[t.bestIdx] != null ? +t.dmu[t.bestIdx].toFixed(3) : null;
+          // full pairs for the equation-of-state test: every candidate with a reading
+          rec.triples = [];
+          for (let i = 0; i < t.beta.length; i++)
+            if (t.beta[i] != null)
+              rec.triples.push([+t.beta[i].toFixed(3), +t.dmu[i].toFixed(3)]);
         }
         trace.push(rec);
       }
@@ -131,7 +142,7 @@ async function playGame(sf, opening, engineIsWhite) {
 
 (async () => {
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
-  console.log(`Gauntlet: engine (${ENGINE_MS} ms/move${PROBE ? ', susceptibility probe ON' : ''}) vs Stockfish 18 @ Elo ${ELO} (${SF_MS} ms/move)`);
+  console.log(`Gauntlet: engine (${ENGINE_MS} ms/move${PROBE ? ', susceptibility probe ON' : ''}${FLUX ? ', tempo-flux ON' : ''}) vs Stockfish 18 @ Elo ${ELO} (${SF_MS} ms/move)`);
   const sf = await makeSf();
   const games = [];
   const score = { engine: 0, stockfish: 0, draws: 0 };
@@ -148,7 +159,7 @@ async function playGame(sf, opening, engineIsWhite) {
       console.log(`  ${opening.name.padEnd(28)} engine as ${engineIsWhite ? 'White' : 'Black'} → ${gm.result.padEnd(7)} ` +
         `(${gm.plies} plies, ${gm.termination}, ${Math.round((Date.now() - t0) / 1000)}s)`);
       fs.writeFileSync(OUT, JSON.stringify({ elo: ELO, engineMs: ENGINE_MS, sfMs: SF_MS,
-        probe: PROBE, date: new Date().toISOString(), score, games }, null, 1));
+        probe: PROBE, flux: FLUX, date: new Date().toISOString(), score, games }, null, 1));
     }
   }
   console.log('\nFINAL SCORE vs Stockfish ' + ELO + ':', JSON.stringify(score));

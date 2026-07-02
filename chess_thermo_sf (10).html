@@ -1245,23 +1245,53 @@ function staticEval(g) {
 // engine's own experience of the game, chosen by no one.
 let taxTotal = 0, taxTaken = 0;
 
+// ── The μ field: local tempo chemical potential, measured for free ──
+// The quiescence stand-pat IS the null state: every quiescence entry
+// already computes the value of doing nothing versus the best forcing
+// continuation, so the local chemical potential of the tempo,
+//     μ̂_node = T·softplus(χ̃/T) − T·ln 2 ,   χ̃ = value − standPat,
+// falls out of numbers the search computes anyway. (The T·ln 2 gauge
+// subtracts the free-particle baseline: at χ̃ = 0 the pass ties the best
+// alternative, π_pass = ½, and the tempo carries only its option value.)
+// Samples are attributed to whichever side was the mover at the node,
+// relative to the search root: ⟨μ̂_us⟩ prices the forcing pressure ON us
+// in these futures, ⟨μ̂_them⟩ the pressure we generate. Mate-scale
+// readings are absorbing, not thermal, and are skipped. In-check nodes
+// (the pass state deleted outright) contribute the price actually
+// extracted: staticEval − evasion value.
+let fluxRootTurn = 'w';
+let muSumUs = 0, muCntUs = 0, muSumThem = 0, muCntThem = 0;
+let taxUs = 0, taxThem = 0;
+function fieldSample(mover, chi, taxed) {
+    if (chi > MATE_NEAR || chi < -MATE_NEAR) return;    // absorbing, not thermal
+    const mu = Math.max(0, softplusT(chi) - bathT * Math.LN2);
+    if (mover === fluxRootTurn) { muSumUs += mu; muCntUs++; if (taxed) taxUs++; }
+    else { muSumThem += mu; muCntThem++; if (taxed) taxThem++; }
+}
+
 function quiesce(g, alpha, beta, qd) {
     nodeCount++;
     if (qd === undefined) qd = 24;
     const inCheck = g.fast_in_check();
 
-    // The tax census counts only ENTRY nodes (qd === 24): the population of
-    // positions the search treats as quiet leaves. Interior quiescence nodes
-    // sit mid-capture-chain and are taxed almost by definition — counting
-    // them would answer a different question.
+    // The census reads only ENTRY nodes (qd === 24): the population of
+    // positions the search treats as quiet leaves. Interior quiescence
+    // nodes sit mid-capture-chain and are taxed almost by definition.
     const census = qd === 24;
-    let standPat = 0;
+    const mover = census ? g.fast_turn() : null;
+    let standPat = 0, sEvalCheck = 0;
     if (!inCheck) {
         standPat = staticEval(g);   // material + T·(S_us − S_them) at bath T
-        if (standPat >= beta) { if (census) taxTotal++; return standPat; }   // banks the tempo: untaxed
+        if (standPat >= beta) {     // banks the tempo: untaxed, cold μ sample
+            if (census) { taxTotal++; fieldSample(mover, 0, false); }
+            return standPat;
+        }
         if (standPat > alpha) alpha = standPat;
         if (qd <= 0) return standPat;                   // quiescence depth cap (quiet)
-    } else if (census) { taxTotal++; taxTaken++; }      // in check: tempo already taxed
+    } else if (census) {
+        taxTotal++; taxTaken++;                          // in check: tempo already taxed
+        sEvalCheck = staticEval(g);                      // reference for the price extracted
+    }
     if (inCheck && qd <= -8) return staticEval(g);      // bound runaway checking sequences
 
     // In check: all evasions. Not in check: captures and promotions only.
@@ -1291,11 +1321,25 @@ function quiesce(g, alpha, beta, qd) {
         g.fast_make(m);
         const score = -tickMate(quiesce(g, -beta, -alpha, qd - 1));
         g.fast_undo();
-        if (score >= beta) { if (census && !inCheck) { taxTotal++; taxTaken++; } return score; }
+        if (score >= beta) {
+            if (census) {
+                if (inCheck) fieldSample(mover, sEvalCheck - score, true);
+                else { taxTotal++; taxTaken++; fieldSample(mover, score - standPat, true); }
+            }
+            return score;
+        }
         if (score > alpha) alpha = score;
     }
 
-    if (census && !inCheck) { taxTotal++; if (alpha > standPat) taxTaken++; }
+    if (census) {
+        if (inCheck) fieldSample(mover, sEvalCheck - alpha, true);
+        else {
+            taxTotal++;
+            const taxed = alpha > standPat;
+            if (taxed) taxTaken++;
+            fieldSample(mover, alpha - standPat, taxed);
+        }
+    }
     return alpha;
 }
 
@@ -1626,6 +1670,8 @@ function annealRoot(g, opts) {
     nodeCount = 0;
     measT = 0;
     taxTotal = 0; taxTaken = 0;
+    fluxRootTurn = g.fast_turn();
+    muSumUs = 0; muCntUs = 0; muSumThem = 0; muCntThem = 0; taxUs = 0; taxThem = 0;
     bathT = T_ZERO;                // zero-point: never colder than one quantum
 
     const moves = g.fast_moves();
@@ -1655,10 +1701,18 @@ function annealRoot(g, opts) {
         for (let k = 0; k < PAST_KEYS.length; k++) pathKeys.add(PAST_KEYS[k]);
 
         for (let i = 0; i < n; i++) {
+            // μ-field snapshot: everything the census records while this
+            // child is searched belongs to this move's subtree — the
+            // search's own expansion policy is the importance weighting.
+            const s0 = muSumUs, c0 = muCntUs, s1 = muSumThem, c1 = muCntThem;
+            const t0 = taxUs, t1 = taxThem;
             g.fast_make(moves[i]);
             if (depth === 1) moves[i]._pq2 = -g.fast_raw_mat();   // static baseline (same parity as depth 1)
             Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys));
             g.fast_undo();
+            moves[i]._flux = { su: muSumUs - s0, cu: muCntUs - c0,
+                               st: muSumThem - s1, ct: muCntThem - c1,
+                               tu: taxUs - t0, tt: taxThem - t1 };
             // Depth 1 always runs to completion (it is nearly free): a partial
             // first iteration would leave undefined values and an arbitrary move.
             if (depth > 1 && performance.now() > mainDeadline) { timedOut = true; break; }
@@ -1773,6 +1827,38 @@ function annealRoot(g, opts) {
         }
     }
 
+    // ── Tempo-flux stage (measured at interior nodes, zero extra search) ──
+    // Each root move's subtree carried a measured μ field: ⟨μ̂_us⟩ (forcing
+    // pressure on us), ⟨μ̂_them⟩ (pressure we generate), and the 1-bit taxed
+    // counts. The signed flux β = (taxed_them − taxed_us)/total reads WHO
+    // owns the forcing future — exposure and ambition finally separated —
+    // and the value correction is flux × price, standard grand-canonical
+    // bookkeeping with both factors measured:
+    //     ΔQ = β · μ̄ ,  clamped to ±T (the resolution governor: a
+    // statistical signal may shade the degenerate band, never veto a
+    // resolved preference). Absorbing (mate-scored) moves stay unshaded.
+    if (opts.flux && result.Qs) {
+        result.beta = new Array(n).fill(null);
+        result.dmu = new Array(n).fill(null);
+        result.mubar = new Array(n).fill(null);
+        for (let i = 0; i < n; i++) {
+            const f = moves[i]._flux;
+            if (!f || (f.cu + f.ct) < 8) continue;       // too few samples to read
+            const muUs = f.cu ? f.su / f.cu : 0;
+            const muThem = f.ct ? f.st / f.ct : 0;
+            const totTax = f.tu + f.tt;
+            if (totTax < 4) continue;                    // a flux needs current to measure
+            const beta = (f.tt - f.tu) / totTax;
+            result.beta[i] = beta;
+            result.dmu[i] = muThem - muUs;
+            result.mubar[i] = 0.5 * (muUs + muThem);
+            if (Math.abs(result.Qs[i]) > MATE_NEAR) continue;
+            let dq = beta * result.mubar[i];
+            if (dq > bathT) dq = bathT; else if (dq < -bathT) dq = -bathT;
+            result.Qs[i] += dq;
+        }
+    }
+
     g.fast_end_acc();
     searchStats = { depth: result.depth, nodes: nodeCount };
     return result.Qs ? result : null;
@@ -1840,7 +1926,8 @@ function analyzeRoot(g, opts) {
              Tspin: schottky.Tspin, phase: schottky.phase,
              curve: schottky.curve || [], anneal: r.anneal,
              tax: r.w, chi: r.chi || null, mu_t: r.mu || null,
-             probed: r.probed || 0, muTempo };
+             probed: r.probed || 0, muTempo,
+             beta: r.beta || null, dmu: r.dmu || null, mubar: r.mubar || null };
 }
 
 // Unified analysis entry point. Runs identically on the main thread (sync
@@ -1854,8 +1941,8 @@ function _runAnalyze(msg) {
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
     const t0 = now();
     const th = analyzeRoot(g, msg.timeLimit != null
-        ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, budgetMs: msg.timeLimit }
-        : { maxDepth: msg.dashDepth || 2 });
+        ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: !!msg.flux, budgetMs: msg.timeLimit }
+        : { maxDepth: msg.dashDepth || 2, flux: !!msg.flux });
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
