@@ -24,7 +24,7 @@ function stats(data) {
     }
   }
   return {
-    label: (data.probe ? 'probe ON ' : 'probe OFF') + ' @ Elo ' + data.elo,
+    label: (data.probe ? 'probe ON ' : data.flux ? 'flux ON  ' : 'baseline ') + ' @ Elo ' + data.elo,
     score: `${pts} / ${games.length}  (W${data.score.engine} D${data.score.draws} L${data.score.stockfish})`,
     castles: castles + (castlePlies.length ? ` (plies ${castlePlies.join(', ')})` : ''),
     lossesByMate: lossByMate,
