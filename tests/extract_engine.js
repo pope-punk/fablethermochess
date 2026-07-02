@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const htmlPath = path.join(__dirname, '..', 'chess_thermo_sf (10).html');
+const htmlPath = path.join(__dirname, '..', 'chess_thermo_jhat.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
 const m = html.match(/<script id="td-engine">([\s\S]*?)<\/script>/);
 if (!m) { console.error('td-engine script not found in HTML'); process.exit(1); }
