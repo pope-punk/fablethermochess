@@ -1262,11 +1262,30 @@ let taxTotal = 0, taxTaken = 0;
 let fluxRootTurn = 'w';
 let muSumUs = 0, muCntUs = 0, muSumThem = 0, muCntThem = 0;
 let taxUs = 0, taxThem = 0;
+
+// ── Quiescence transposition table ──────────────────────────
+// Bounded-flag entries (0 exact, 1 lower bound, 2 upper bound) keyed by
+// position hash, tagged with remaining quiescence depth (an entry is
+// usable only if it was computed with at least as much depth as the
+// current node has). Entry nodes also store their census reading (μ̂,
+// taxed, mover) so a cache hit REPLAYS the field sample instead of
+// silently thinning the flux statistics. Cleared with the main table
+// once per search: annealing with hysteresis, same policy.
+const qCache = new Map();
+const Q_CACHE_MAX = 400000;
 function fieldSample(mover, chi, taxed) {
     if (chi > MATE_NEAR || chi < -MATE_NEAR) return;    // absorbing, not thermal
     const mu = Math.max(0, softplusT(chi) - bathT * Math.LN2);
     if (mover === fluxRootTurn) { muSumUs += mu; muCntUs++; if (taxed) taxUs++; }
     else { muSumThem += mu; muCntThem++; if (taxed) taxThem++; }
+}
+
+function qStore(key, v, flag, qd, cen, chi, tax) {
+    // Entry nodes only: interior capture-chain positions rarely transpose,
+    // so storing them buys churn, not hits. Entry nodes (the quiet leaves
+    // the main tree reaches by many move orders) are where the reuse lives.
+    if (qd === 24 && qCache.size < Q_CACHE_MAX)
+        qCache.set(key, { v, f: flag, qd, cen: !!cen, chi: chi || 0, tax: !!tax });
 }
 
 function quiesce(g, alpha, beta, qd) {
@@ -1279,11 +1298,27 @@ function quiesce(g, alpha, beta, qd) {
     // nodes sit mid-capture-chain and are taxed almost by definition.
     const census = qd === 24;
     const mover = census ? g.fast_turn() : null;
+
+    // Transposition probe. On a usable hit at an entry node, REPLAY the
+    // stored census reading so the flux statistics keep their sampling.
+    const qKey = g.fast_hash();
+    const hit = qCache.get(qKey);
+    if (hit !== undefined && hit.qd >= qd &&
+        (hit.f === 0 || (hit.f === 1 && hit.v >= beta) || (hit.f === 2 && hit.v <= alpha))) {
+        if (census && hit.cen) {
+            taxTotal++; if (hit.tax) taxTaken++;
+            fieldSample(mover, hit.chi, hit.tax);
+        }
+        return hit.v;
+    }
+    const alphaOrig = alpha;
+
     let standPat = 0, sEvalCheck = 0;
     if (!inCheck) {
         standPat = staticEval(g);   // material + T·(S_us − S_them) at bath T
         if (standPat >= beta) {     // banks the tempo: untaxed, cold μ sample
             if (census) { taxTotal++; fieldSample(mover, 0, false); }
+            qStore(qKey, standPat, 1, qd, census, 0, false);
             return standPat;
         }
         if (standPat > alpha) alpha = standPat;
@@ -1296,7 +1331,11 @@ function quiesce(g, alpha, beta, qd) {
 
     // In check: all evasions. Not in check: captures and promotions only.
     const moves = inCheck ? g.fast_moves() : g.fast_captures();
-    if (moves.length === 0) return inCheck ? -CHECKMATE_SCORE : alpha;
+    if (moves.length === 0) {
+        if (inCheck) { qStore(qKey, -CHECKMATE_SCORE, 0, qd, false); return -CHECKMATE_SCORE; }
+        if (alpha === standPat) qStore(qKey, standPat, 0, qd, census, alpha - standPat, false);
+        return alpha;
+    }
 
     // MVV-LVA ordering: most valuable victim, least valuable attacker first,
     // so the strongest captures produce beta cutoffs early. The king has no
@@ -1322,24 +1361,29 @@ function quiesce(g, alpha, beta, qd) {
         const score = -tickMate(quiesce(g, -beta, -alpha, qd - 1));
         g.fast_undo();
         if (score >= beta) {
+            let chi = 0;
             if (census) {
-                if (inCheck) fieldSample(mover, sEvalCheck - score, true);
-                else { taxTotal++; taxTaken++; fieldSample(mover, score - standPat, true); }
+                if (inCheck) { chi = sEvalCheck - score; fieldSample(mover, chi, true); }
+                else { chi = score - standPat; taxTotal++; taxTaken++; fieldSample(mover, chi, true); }
             }
+            qStore(qKey, score, 1, qd, census, chi, true);
             return score;
         }
         if (score > alpha) alpha = score;
     }
 
+    let chi = 0, taxed = false;
     if (census) {
-        if (inCheck) fieldSample(mover, sEvalCheck - alpha, true);
+        if (inCheck) { chi = sEvalCheck - alpha; taxed = true; fieldSample(mover, chi, true); }
         else {
             taxTotal++;
-            const taxed = alpha > standPat;
+            taxed = alpha > standPat;
+            chi = alpha - standPat;
             if (taxed) taxTaken++;
-            fieldSample(mover, alpha - standPat, taxed);
+            fieldSample(mover, chi, taxed);
         }
     }
+    qStore(qKey, alpha, alpha <= alphaOrig ? 2 : 0, qd, census, chi, taxed);
     return alpha;
 }
 
@@ -1677,6 +1721,16 @@ function annealRoot(g, opts) {
     const moves = g.fast_moves();
     const n = moves.length;
     if (n === 0) return null;
+    // Test-only hook: seeded root-order shuffle, for the move-order
+    // invariance battery. Play never sets this.
+    if (opts.shuffleSeed) {
+        let s = opts.shuffleSeed >>> 0;
+        const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+        for (let i = n - 1; i > 0; i--) {
+            const j = Math.floor(rnd() * (i + 1));
+            const t = moves[i]; moves[i] = moves[j]; moves[j] = t;
+        }
+    }
 
     g.fast_seed_acc();
     const pathKeys = new Set();
@@ -1689,7 +1743,9 @@ function annealRoot(g, opts) {
     // iteration; stale-T entries only ever inform the shallow ranking pass
     // and the negligible tail of Z, where their error is second-order —
     // and the depth they buy is worth far more than their bias costs.
+    // The quiescence table follows the same policy.
     thermoCache.clear();
+    qCache.clear();
 
     for (let depth = 1; depth <= maxDepth; depth++) {
 
@@ -1837,21 +1893,29 @@ function annealRoot(g, opts) {
     //     ΔQ = β · μ̄ ,  clamped to ±T (the resolution governor: a
     // statistical signal may shade the degenerate band, never veto a
     // resolved preference). Absorbing (mate-scored) moves stay unshaded.
+    // opts.flux: true = measure AND couple; 'measure' = instrument only
+    // (readings logged, values untouched — the mode the cooling scan uses).
     if (opts.flux && result.Qs) {
+        const couple = opts.flux === true;
         result.beta = new Array(n).fill(null);
         result.dmu = new Array(n).fill(null);
         result.mubar = new Array(n).fill(null);
+        result.ntax = new Array(n).fill(0);
+        result.nmu = new Array(n).fill(0);
         for (let i = 0; i < n; i++) {
             const f = moves[i]._flux;
-            if (!f || (f.cu + f.ct) < 8) continue;       // too few samples to read
+            if (!f) continue;
+            result.nmu[i] = f.cu + f.ct;
+            result.ntax[i] = f.tu + f.tt;
+            if (result.nmu[i] < 8) continue;             // too few samples to read
+            if (result.ntax[i] < 4) continue;            // a flux needs current to measure
             const muUs = f.cu ? f.su / f.cu : 0;
             const muThem = f.ct ? f.st / f.ct : 0;
-            const totTax = f.tu + f.tt;
-            if (totTax < 4) continue;                    // a flux needs current to measure
-            const beta = (f.tt - f.tu) / totTax;
+            const beta = (f.tt - f.tu) / result.ntax[i];
             result.beta[i] = beta;
             result.dmu[i] = muThem - muUs;
             result.mubar[i] = 0.5 * (muUs + muThem);
+            if (!couple) continue;
             if (Math.abs(result.Qs[i]) > MATE_NEAR) continue;
             let dq = beta * result.mubar[i];
             if (dq > bathT) dq = bathT; else if (dq < -bathT) dq = -bathT;
@@ -1904,14 +1968,19 @@ function analyzeRoot(g, opts) {
     const schottky = measureSchottky(Qs, n, T);
 
     // Chemical potential of the tempo at the root — the initiative,
-    // priced by the same formula as every piece. One null move plus a
-    // quiescent relaxation; not defined in check (passing is illegal).
+    // priced by the same formula as every piece. SAME-PARITY comparison:
+    // both terms are T = 0 quiescent relaxations one null apart, so the
+    // interior entropy ladder never enters and the T·S choice premium is
+    // excluded — this is the tactical tempo alone, stable under deepening.
+    // Not defined in check (passing is illegal).
     let muTempo = null;
     if (!g.fast_in_check() && Math.abs(F) < MATE_NEAR) {
+        const qHere = tickMate(quiesce(g, -Infinity, Infinity));
         g.fast_make_null();
         const qPass = -tickMate(quiesce(g, -Infinity, Infinity));
         g.fast_undo_null();
-        muTempo = softplusT(F - qPass);
+        if (Math.abs(qHere) < MATE_NEAR && Math.abs(qPass) < MATE_NEAR)
+            muTempo = softplusT(qHere - qPass);
     }
 
     const moveNames = new Array(n);
@@ -1927,7 +1996,8 @@ function analyzeRoot(g, opts) {
              curve: schottky.curve || [], anneal: r.anneal,
              tax: r.w, chi: r.chi || null, mu_t: r.mu || null,
              probed: r.probed || 0, muTempo,
-             beta: r.beta || null, dmu: r.dmu || null, mubar: r.mubar || null };
+             beta: r.beta || null, dmu: r.dmu || null, mubar: r.mubar || null,
+             ntax: r.ntax || null, nmu: r.nmu || null };
 }
 
 // Unified analysis entry point. Runs identically on the main thread (sync
@@ -1941,8 +2011,9 @@ function _runAnalyze(msg) {
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
     const t0 = now();
     const th = analyzeRoot(g, msg.timeLimit != null
-        ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: !!msg.flux, budgetMs: msg.timeLimit }
-        : { maxDepth: msg.dashDepth || 2, flux: !!msg.flux });
+        ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: msg.flux || false,
+            budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed }
+        : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed });
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
