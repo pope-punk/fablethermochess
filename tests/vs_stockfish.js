@@ -20,9 +20,9 @@ const ELO = parseInt(process.argv[2] || '1500');
 const ENGINE_MS = parseInt(process.argv[3] || '1000');
 const SF_MS = parseInt(process.argv[4] || '200');
 const OUT = process.argv[5] || path.join(__dirname, 'results', `vs_sf${ELO}.json`);
-const MODE = process.argv[6] || '';          // '', 'probe', or 'flux'
+const MODE = process.argv[6] || '';          // '', 'probe', 'flux', or 'measure'
 const PROBE = MODE === 'probe';
-const FLUX = MODE === 'flux';
+const FLUX = MODE === 'flux' || MODE === 'measure';   // 'measure': instrument on, Q-coupling off
 
 const OPENINGS = [
   { name: 'Italian complex',       line: ['e4', 'e5', 'Nf3', 'Nc6'] },
@@ -85,7 +85,8 @@ async function playGame(sf, opening, engineIsWhite) {
     const engineToMove = (g.fast_turn() === 'w') === engineIsWhite;
     let san;
     if (engineToMove) {
-      const res = E._runAnalyze({ fen: g.fen(), timeLimit: ENGINE_MS, pastKeys: keys.slice(0, -1), probe: PROBE, flux: FLUX });
+      const res = E._runAnalyze({ fen: g.fen(), timeLimit: ENGINE_MS, pastKeys: keys.slice(0, -1),
+                                  probe: PROBE, flux: MODE === 'measure' ? 'measure' : FLUX });
       san = res.san;
       if (res.thermo) {
         const t = res.thermo;
@@ -105,7 +106,9 @@ async function playGame(sf, opening, engineIsWhite) {
           rec.triples = [];
           for (let i = 0; i < t.beta.length; i++)
             if (t.beta[i] != null)
-              rec.triples.push([+t.beta[i].toFixed(3), +t.dmu[i].toFixed(3)]);
+              rec.triples.push(t.ntax
+                ? [+t.beta[i].toFixed(3), +t.dmu[i].toFixed(3), t.ntax[i], t.nmu[i]]
+                : [+t.beta[i].toFixed(3), +t.dmu[i].toFixed(3)]);
         }
         trace.push(rec);
       }
