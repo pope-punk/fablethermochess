@@ -1323,7 +1323,7 @@ function jhFit(moves) {
     return best;
 }
 function jhatRead() {
-    if (jhWin.length < 12) return { J: 0, se: Infinity, b: 0.7, Tc: 0, n: jhWin.length };
+    if (jhWin.length < 8) return { J: 0, se: Infinity, b: 0.7, Tc: 0, n: jhWin.length };
     const all = jhFit(jhWin);
     const ev = jhFit(jhWin.filter((_, i) => i % 2 === 0));
     const od = jhFit(jhWin.filter((_, i) => i % 2 === 1));
@@ -2143,10 +2143,11 @@ function _runAnalyze(msg) {
     const r = rawU(g);
     out.Uw = r.Uw; out.Ub = r.Ub;
     th.mu = computeChemicalPotentials(g, th);
-    // Feed the opponent thermometer — only on PLAYED searches (a dashboard
-    // re-analysis of the same position must not double-count the game),
-    // and only from flux readings taken this move.
-    if (msg.timeLimit != null && th.beta) jhatUpdate(th.beta, th.dmu, th.ntax, th.T);
+    // Feed the opponent thermometer on PLAYED searches, plus analyses the
+    // caller explicitly marks as once-per-game-move (the UI's post-move
+    // dashboard job) — but never unmarked dashboard recomputations, which
+    // would double-count the same position.
+    if ((msg.timeLimit != null || msg.feedJhat) && th.beta) jhatUpdate(th.beta, th.dmu, th.ntax, th.T);
     th.jhat = jhatRead();
     out.thermo = th;
     return out;
@@ -2335,6 +2336,7 @@ function makeHumanMove(from, to, promo) {
 // the engine faces (graph point for the opponent's move) and the engine's move;
 // a second job produces the dashboard for the resulting position.
 let uiBank = 0;   // scheduler time bank: frozen decisions fund hard ones
+let lastClock = null;   // last scheduled think: {stop, sigma, gap} for the grid
 async function engineReply() {
     if (!thinking || game.game_over()) { thinking = false; return; }
     const gen = analysisGen;
@@ -2344,6 +2346,9 @@ async function engineReply() {
                                      flux: 'measure', schedule: true,
                                      newGame: moveHistory.length < 2 });
     if (res && res.timeMs != null) uiBank = Math.max(0, uiBank + timeLimit - res.timeMs);
+    if (res && res.thermo) lastClock = { stop: res.thermo.stop || 'deadline',
+                                         sigma: res.thermo.sigma, gap: res.thermo.gap,
+                                         ms: res.timeMs };
     if (gen !== analysisGen) return;               // aborted by new game / undo / switch
     applyAnalysis(res, null);
     if (res.san) {
@@ -2354,7 +2359,8 @@ async function engineReply() {
     thinking = false;
     renderBoard();
     if (game.game_over()) { handleGameOver(); refreshDashboard(); return; }
-    const res2 = await analyzeAsync({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit: null, dashDepth: res.depth || 2 });
+    const res2 = await analyzeAsync({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit: null,
+                                      dashDepth: res.depth || 2, flux: 'measure', feedJhat: true });
     if (gen !== analysisGen) return;
     applyAnalysis(res2, { timeMs: res.timeMs, depth: res.depth });
     setStatus('Your move (' + (humanColor === 'w' ? 'White' : 'Black') + ') \u2014 depth ' +
@@ -2386,7 +2392,7 @@ function showPromotion(from, to) {
 
 // ── Controls ───────────────────────────────────────────────
 function newGame() {
-    analysisGen++; thinking=false; game=new Chess(); uiBank=0;
+    analysisGen++; thinking=false; game=new Chess(); uiBank=0; lastClock=null;
     selectedSq=null; legalTargets=[]; lastMoveSquares=null;
     moveHistory=[]; thermoCache.clear(); graphData=[];
     invalidateSf();
@@ -2566,10 +2572,13 @@ function renderThermoGrid(Uw, Ub, th, source) {
     const jh = th.jhat;
     const jhStr = (jh && jh.se !== Infinity && jh.se != null)
         ? fmt(jh.J,1) + '\u00B1' + fmt(jh.se,1) + ' (T\u0302c ' + fmt(jh.Tc,2) + ')'
-        : '\u2014 (unresolved)';
-    const schedStr = th.stop
-        ? th.stop + (th.sigma != null ? ' \u03C3=' + fmt(th.sigma,1) + '/' + fmt(th.gap,1) : '')
-        : (th.sigma != null ? '\u03C3=' + fmt(th.sigma,1) + ' gap=' + fmt(th.gap,1) : '\u2014');
+        : (jh && jh.n ? '\u2014 (' + jh.n + '/8 moves)' : '\u2014 (unresolved)');
+    const lc = (th.stop || th.sigma != null) ? { stop: th.stop || 'deadline', sigma: th.sigma, gap: th.gap, ms: null }
+             : (typeof lastClock !== 'undefined' ? lastClock : null);
+    const schedStr = lc
+        ? lc.stop + (lc.sigma != null ? ' \u03C3=' + fmt(lc.sigma,1) + '/' + fmt(lc.gap,1) : '') +
+          (lc.ms != null ? ' \u00B7 ' + (lc.ms/1000).toFixed(1) + 's' : '')
+        : '\u2014';
 
     const rows = [
         ['U_w', fmt(Uw,1), 'U_b', fmt(Ub,1)],
