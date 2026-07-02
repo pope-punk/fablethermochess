@@ -1917,7 +1917,18 @@ function annealRoot(g, opts) {
         // position is not equilibrating at any budget — moving is a quench,
         // and the quench is all there is.
         if (opts.schedule && depth >= 2 && n > 1) {
-            if (Math.abs(nq[0]) > MATE_NEAR) { result.stop = 'mate'; break; }
+            // A WINNING mate is a made decision: play it. A mate AGAINST us
+            // is not a scheduling event — the moves that differ only in how
+            // they lose still differ enormously in swindle value, and the
+            // repetition absorber needs search time to find its escapes.
+            if (nq[0] > MATE_NEAR) { result.stop = 'mate'; break; }
+            // The freeze criterion compares THERMAL quantities. A gap
+            // involving mate scores is absorbing, not thermal, and must not
+            // trip it (the first A/B moved in 90 ms in lost positions,
+            // exactly where the baseline's tenacious defense earned points).
+            if (Math.abs(nq[0]) > MATE_NEAR || Math.abs(nq[1]) > MATE_NEAR) {
+                // no freeze/runaway decisions on absorbing gaps
+            } else {
             const gap = nq[0] - nq[1];
             const jr = jhatRead();
             const cnt = muCntUs + muCntThem;
@@ -1930,6 +1941,7 @@ function annealRoot(g, opts) {
             if (bathT > 20 && a.length >= 3 &&
                 a[a.length - 1].T > a[a.length - 2].T && a[a.length - 2].T > a[a.length - 3].T) {
                 result.stop = 'runaway'; break;
+            }
             }
         }
 
@@ -2345,7 +2357,7 @@ async function engineReply() {
     const res = await analyzeAsync({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit,
                                      flux: 'measure', schedule: true,
                                      newGame: moveHistory.length < 2 });
-    if (res && res.timeMs != null) uiBank = Math.max(0, uiBank + timeLimit - res.timeMs);
+    if (res && res.timeMs != null) uiBank = Math.max(0, uiBank + base - res.timeMs);
     if (res && res.thermo) lastClock = { stop: res.thermo.stop || 'deadline',
                                          sigma: res.thermo.sigma, gap: res.thermo.gap,
                                          ms: res.timeMs };

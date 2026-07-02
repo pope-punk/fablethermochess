@@ -97,7 +97,10 @@ async function playGame(sf, opening, engineIsWhite) {
                                   probe: PROBE, schedule: SCHEDULE, newGame: SCHEDULE && engFirst,
                                   flux: (MODE === 'measure' || SCHEDULE) ? 'measure' : FLUX });
       engFirst = false;
-      if (SCHEDULE) bank = Math.max(0, bank + allowed - res.timeMs);
+      // income is BASE per move; a draw from the bank is real expenditure
+      // (the first A/B credited moves with their own draw — a perpetual
+      // motion machine that spent 2.4x base while claiming equal-average)
+      if (SCHEDULE) bank = Math.max(0, bank + ENGINE_MS - res.timeMs);
       san = res.san;
       if (res.thermo) {
         const t = res.thermo;
