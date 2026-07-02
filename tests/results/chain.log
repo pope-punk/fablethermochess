@@ -3,3 +3,56 @@
    cur vs ref → 1/2 ( 61 plies, final mat 210 cp )
    ref vs cur → 1/2 ( 153 plies, final mat 1800 cp )
    cur vs ref → 1/2 ( 50 plies, final mat 700 cp )
+   ref vs cur → 0-1 ( 170 plies, final mat -1400 cp )
+   cur vs ref → 1/2 ( 105 plies, final mat -300 cp )
+   ref vs cur → 1/2 ( 41 plies, final mat 810 cp )
+   cur vs ref → 1/2 ( 43 plies, final mat -100 cp )
+   ref vs cur → 1/2 ( 98 plies, final mat 300 cp )
+
+SCORE: {"cur":1,"ref":0,"draws":7}
+BLUNDERS (>=250cp lost in 2 plies): {"cur":20,"ref":17}
+blunder positions saved: 37
+=== stage 1 done 14:18:22 ===
+--- stage 2: SF-1500 rebaseline (12 games, 1000ms) ---
+Gauntlet: engine (1000 ms/move) vs Stockfish 18 @ Elo 1500 (200 ms/move)
+Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)
+  Italian complex              engine as White → 0-1     (54 plies, checkmate, 55s)
+  Italian complex              engine as Black → 1-0     (69 plies, checkmate, 47s)
+  Queen's Gambit Declined      engine as White → 1-0     (95 plies, checkmate, 64s)
+  Queen's Gambit Declined      engine as Black → 1-0     (101 plies, checkmate, 76s)
+  Sicilian (Najdorf setup)     engine as White → 1-0     (73 plies, checkmate, 51s)
+  Sicilian (Najdorf setup)     engine as Black → 0-1     (74 plies, checkmate, 52s)
+  King's Indian                engine as White → 1/2-1/2 (141 plies, draw (50-move/material), 100s)
+  King's Indian                engine as Black → 0-1     (66 plies, checkmate, 44s)
+  French                       engine as White → 1-0     (73 plies, checkmate, 58s)
+  French                       engine as Black → 1/2-1/2 (212 plies, threefold repetition, 206s)
+  English (reversed Sicilian)  engine as White → 0-1     (92 plies, checkmate, 81s)
+  English (reversed Sicilian)  engine as Black → 0-1     (92 plies, checkmate, 62s)
+
+FINAL SCORE vs Stockfish 1500: {"engine":6,"stockfish":4,"draws":2}
+results written to results/vs_sf1500_v3.json
+=== stage 2 done 14:33:18 ===
+--- stage 3: cooling scan (self-play, 4 rungs) ---
+
+── rung 250 ms/move · 6 self-play games ──
+  Italian complex              1-0     151 plies · ⟨T⟩=125.02 · 2423 readings · 53s
+  Queen's Gambit Declined      1/2-1/2   9 plies · ⟨T⟩=1.30 · 195 readings · 3s
+  Sicilian (Najdorf setup)     1/2-1/2 240 plies · ⟨T⟩=3.41 · 3153 readings · 73s
+  King's Indian                0-1      40 plies · ⟨T⟩=1.72 · 887 readings · 16s
+  French                       0-1     110 plies · ⟨T⟩=19.97 · 2342 readings · 41s
+  English (reversed Sicilian)  0-1      80 plies · ⟨T⟩=2.40 · 1621 readings · 27s
+
+── rung 1000 ms/move · 5 self-play games ──
+  Italian complex              0-1     130 plies · ⟨T⟩=8.68 · 2848 readings · 172s
+  Queen's Gambit Declined      1-0     207 plies · ⟨T⟩=133.72 · 3930 readings · 280s
+  Sicilian (Najdorf setup)     0-1      84 plies · ⟨T⟩=5.93 · 1965 readings · 102s
+  King's Indian                0-1      60 plies · ⟨T⟩=2.58 · 1510 readings · 83s
+  French                       0-1      78 plies · ⟨T⟩=1.64 · 2037 readings · 107s
+
+── rung 4000 ms/move · 3 self-play games ──
+  Italian complex              1-0      75 plies · ⟨T⟩=9.18 · 1891 readings · 386s
+  Queen's Gambit Declined      1-0      83 plies · ⟨T⟩=2.34 · 2114 readings · 420s
+  Sicilian (Najdorf setup)     0-1     118 plies · ⟨T⟩=2432.54 · 2389 readings · 608s
+
+── rung 15000 ms/move · 2 self-play games ──
+  Italian complex              1-0      99 plies · ⟨T⟩=2.72 · 2563 readings · 1745s
