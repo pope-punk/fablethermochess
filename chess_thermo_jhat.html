@@ -1350,13 +1350,40 @@ function jhFit(moves) {
     return best;
 }
 function jhatRead() {
-    if (jhWin.length < 8) return { J: 0, se: Infinity, b: 0.7, Tc: 0, n: jhWin.length };
-    const all = jhFit(jhWin);
-    const ev = jhFit(jhWin.filter((_, i) => i % 2 === 0));
-    const od = jhFit(jhWin.filter((_, i) => i % 2 === 1));
-    const se = Math.max(0.25, Math.abs(ev.J - od.J) / 2);   // duplicate-assay error bar
-    const Jlo = Math.max(0, all.J - 2 * se);
-    return { J: all.J, se, b: all.b, Tc: Jlo * all.b / 2, n: jhWin.length };
+    // Bayesian, thresholdless: the prior is the STRUCTURAL reference
+    // J_s = bite · T̄ (bite measured live; T̄ the precision-weighted mean
+    // temperature of the window's own readings, since J_structure ∝ T and
+    // a constant-J fit sees the coupling at the weighted temperature), with
+    // prior width J_s itself — opponent deviations are of order the
+    // reference: skilled defense sits below it, punishing attack above.
+    // Evidence enters as the windowed forward fit with its split-half
+    // error bar; the posterior is the precision blend. There is no waiting
+    // period: pre-evidence the posterior IS the structural value with
+    // structural-sized uncertainty, and the scheduler's conservative 2σ
+    // lower edge (an explicit convention, kept) makes early T̂c ≈ 0 emerge
+    // from posterior width rather than from a move count.
+    let Tw = 0, Ww = 0;
+    for (const m of jhWin) for (const pt of m.pts) { Tw += pt[3] * pt[2]; Ww += pt[3]; }
+    const Js = Ww > 0 ? biteEstimate() * (Tw / Ww) : 0;
+    let Jfit = null, se = Infinity, bfit = 0.7;
+    if (jhWin.length >= 2) {
+        const all = jhFit(jhWin);
+        const ev = jhFit(jhWin.filter((_, i) => i % 2 === 0));
+        const od = jhFit(jhWin.filter((_, i) => i % 2 === 1));
+        Jfit = all.J; bfit = all.b;
+        se = Math.max(0.25, Math.abs(ev.J - od.J) / 2);   // duplicate-assay error bar
+    }
+    if (!(Js > 0.1)) {   // no structural reading yet (first search of the game)
+        if (Jfit == null) return { J: 0, se: Infinity, b: bfit, Tc: 0, n: jhWin.length };
+        const Jlo0 = Math.max(0, Jfit - 2 * se);
+        return { J: Jfit, se, b: bfit, Tc: Jlo0 * bfit / 2, n: jhWin.length };
+    }
+    const wPrior = 1 / (Js * Js);
+    const wFit = Jfit != null && se < Infinity ? 1 / (se * se) : 0;
+    const J = (wFit * (Jfit || 0) + wPrior * Js) / (wFit + wPrior);
+    const sd = Math.sqrt(1 / (wFit + wPrior));
+    const Jlo = Math.max(0, J - 2 * sd);
+    return { J, se: sd, b: bfit, Tc: Jlo * bfit / 2, n: jhWin.length, Js };
 }
 
 // ── Quiescence transposition table ──────────────────────────
@@ -2629,8 +2656,9 @@ function renderThermoGrid(Uw, Ub, th, source) {
     // error bar, and the scheduler state it drives (sigma_eff vs gap).
     const jh = th.jhat;
     const jhStr = (jh && jh.se !== Infinity && jh.se != null)
-        ? fmt(jh.J,1) + '\u00B1' + fmt(jh.se,1) + ' (T\u0302c ' + fmt(jh.Tc,2) + ')'
-        : (jh && jh.n ? '\u2014 (' + jh.n + '/8 moves)' : '\u2014 (unresolved)');
+        ? fmt(jh.J,1) + '\u00B1' + fmt(jh.se,1) + ' (T\u0302c ' + fmt(jh.Tc,2) + ')' +
+          (jh.Js != null && (jh.n||0) < 8 ? ' \u00B7prior' : '')
+        : '\u2014 (no reading)';
     const lc = (th.stop || th.sigma != null) ? { stop: th.stop || 'deadline', sigma: th.sigma, gap: th.gap, ms: null }
              : (typeof lastClock !== 'undefined' ? lastClock : null);
     const schedStr = lc
