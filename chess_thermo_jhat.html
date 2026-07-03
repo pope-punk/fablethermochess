@@ -195,6 +195,11 @@ label { font-size: 0.85em; }
             <option value="hard">Hard (8 s/move avg)</option>
             <option value="max">Max (20 s/move avg)</option>
         </select>
+        <select id="effmode" title="Choice-premium entropy: nominal S counts every move as a hedge; S_eff merges moves that share a best reply (one refutation = one option). Experimental — measured readings shown in the dashboard either way.">
+            <option value="off" selected>S: nominal</option>
+            <option value="us">S_eff (our nodes)</option>
+            <option value="both">S_eff (both sides)</option>
+        </select>
         <!-- No temperature/capacity knob: T is measured by the annealing
              search, not chosen. Longer thinking time = colder engine.
              Since the sigma_eff scheduler, this is a RATE, not a per-move
@@ -1225,6 +1230,16 @@ function rawU(g) { return g.fast_raw_mat_split(); }
 let LEAF_T_OVERRIDE = 0;   // laboratory knob: price leaf optionality at a
                            // counterfactual temperature while the search
                            // runs at the bath. Test-only, like pinT.
+// ── Effective-entropy premium (the fourth edition's first experiment) ──
+// When on, computeF merges children that share a best reply: options with
+// one refutation are ONE microstate (a correlated block hedges nothing),
+// so Z_eff = Σ_groups e^{Q_g/T} with Q_g the block's best member. Reply
+// tags are written by each child's own search (the argmax it already
+// computes); a parallel cache keeps tags alive across TT hits. Off by
+// default everywhere; the UI build enables it for interactive testing.
+let EFF_PREMIUM = false;
+const replyCache = new Map();
+
 let THEM_T_OVERRIDE = 0;   // laboratory knob: run the OPPONENT'S interior
                            // ensembles (their softmax + their choice
                            // premium) at a counterfactual temperature.
@@ -1658,7 +1673,13 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
     // packs exactly into a double — no string allocation per node)
     const key = posKey * 128 + depth;
     const cached = thermoCache.get(key);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) {
+        if (tagMove !== undefined) {
+            const rk = replyCache.get(key);
+            if (rk !== undefined) tagMove._reply = rk;
+        }
+        return cached;
+    }
 
     const moves = g.fast_moves();
     const n = moves.length;
@@ -1692,7 +1713,7 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
         pathKeys.add(posKey);
         for (let i = 0; i < n; i++) {
             g.fast_make(moves[i]);
-            quickQs[i] = -tickMate(thermoSearch(g, depth - 2, pathKeys));
+            quickQs[i] = -tickMate(thermoSearch(g, depth - 2, pathKeys, moves[i]));
             g.fast_undo();
         }
 
@@ -1712,7 +1733,7 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
             // shallow misranking of the best move.
             if (r > 1 && quickQs[i] < threshold) break;   // past the dominant set
             g.fast_make(moves[i]);
-            Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys));
+            Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys, moves[i]));
             g.fast_undo();
             // (no thermometer sample here: depth−1 vs depth−2 is a
             // cross-parity pair — it would read the entropy ladder)
@@ -1725,13 +1746,16 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
     // moves sharing a refutation are one hedge, not two — the effective
     // multiplicity of the root ensemble is the entropy of the induced
     // reply partition, computed in analyzeRoot. Measurement only.
-    if (tagMove !== undefined && n > 0) {
+    if (n > 0) {
         let am = 0;
         for (let i = 1; i < n; i++) if (Qs[i] > Qs[am]) am = i;
-        tagMove._reply = moves[am].from * 128 + moves[am].to;
+        const rk = moves[am].from * 128 + moves[am].to;
+        if (tagMove !== undefined) tagMove._reply = rk;
+        if (replyCache.size < THERMO_CACHE_MAX) replyCache.set(key, rk);
     }
     return computeF(Qs, n, key,
-        (THEM_T_OVERRIDE > 0 && g.fast_turn() !== fluxRootTurn) ? THEM_T_OVERRIDE : 0);
+        (THEM_T_OVERRIDE > 0 && g.fast_turn() !== fluxRootTurn) ? THEM_T_OVERRIDE : 0,
+        moves, g.fast_turn() === fluxRootTurn);
 }
 
 function computeF(Qs, n, cacheKey) {
@@ -1750,9 +1774,27 @@ function computeF(Qs, n, cacheKey) {
     }
     // One bath, one temperature: F is evaluated at the global annealing T.
     const Tn = (arguments.length > 3 && arguments[3] > 0) ? arguments[3] : bathT;
-    let expSum = 0;
-    for (let i = 0; i < n; i++) expSum += Math.exp((Qs[i] - maxQ) / Tn);
-    const val = maxQ + Tn * Math.log(expSum);
+    const mv = arguments.length > 4 ? arguments[4] : null;
+    let val;
+    const effHere = EFF_PREMIUM === true ||
+        (EFF_PREMIUM === 'us' && arguments.length > 5 && arguments[5]);
+    if (effHere && mv) {
+        // effective multiplicity: one microstate per DISTINCT best reply
+        // (untagged children stay singletons — conservative)
+        const gmax = new Map();
+        for (let i = 0; i < n; i++) {
+            const k = mv[i] && mv[i]._reply !== undefined ? mv[i]._reply : -1 - i;
+            const cur = gmax.get(k);
+            if (cur === undefined || Qs[i] > cur) gmax.set(k, Qs[i]);
+        }
+        let expSum = 0;
+        for (const qg of gmax.values()) expSum += Math.exp((qg - maxQ) / Tn);
+        val = maxQ + Tn * Math.log(expSum);
+    } else {
+        let expSum = 0;
+        for (let i = 0; i < n; i++) expSum += Math.exp((Qs[i] - maxQ) / Tn);
+        val = maxQ + Tn * Math.log(expSum);
+    }
     if (cacheKey && !searchAborted && thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(cacheKey, val);
     return val;
 }
@@ -1938,6 +1980,8 @@ function annealRoot(g, opts) {
     // The quiescence table follows the same policy.
     thermoCache.clear();
     qCache.clear();
+    replyCache.clear();
+    EFF_PREMIUM = opts.effS === 'us' ? 'us' : !!opts.effS;
 
     for (let depth = 1; depth <= maxDepth; depth++) {
         hardDeadline = depth === 1 ? Infinity : mainDeadline;
@@ -2304,9 +2348,11 @@ function _runAnalyze(msg) {
     const th = analyzeRoot(g, msg.timeLimit != null
         ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: msg.flux || false,
             budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
-            leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT }
+            leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
+            effS: msg.effS }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
-            leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT });
+            leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
+            effS: msg.effS });
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
@@ -2485,7 +2531,8 @@ async function refreshDashboard() {
         renderSchottky(null); renderAnneal(null); renderGraph();
         return;
     }
-    const res = await analyzeAsync({ fen, pastKeys: collectPastKeys(), timeLimit: null, dashDepth: (searchStats.depth > 0 ? searchStats.depth : 2) });
+    const res = await analyzeAsync({ fen, pastKeys: collectPastKeys(), timeLimit: null,
+        dashDepth: (searchStats.depth > 0 ? searchStats.depth : 2), effS: effMode() });
     if (gen !== analysisGen || game.fen() !== fen) return;   // stale
     applyAnalysis(res, null);
 }
@@ -2507,6 +2554,10 @@ function makeHumanMove(from, to, promo) {
 // Runs the engine's reply: one job returns both the analysis of the position
 // the engine faces (graph point for the opponent's move) and the engine's move;
 // a second job produces the dashboard for the resulting position.
+function effMode() {
+    const v = document.getElementById('effmode');
+    return v && v.value === 'both' ? true : (v && v.value === 'us' ? 'us' : undefined);
+}
 let uiBank = 0;   // scheduler time bank: frozen decisions fund hard ones
 let lastClock = null;   // last scheduled think: {stop, sigma, gap} for the grid
 async function engineReply() {
@@ -2515,7 +2566,7 @@ async function engineReply() {
     const base = TIME_LIMITS[document.getElementById('difficulty').value];
     const timeLimit = base + Math.min(uiBank, 3 * base);
     const res = await analyzeAsync({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit,
-                                     flux: 'measure', schedule: true,
+                                     flux: 'measure', schedule: true, effS: effMode(),
                                      newGame: moveHistory.length < 2 });
     if (res && res.timeMs != null) uiBank = Math.max(0, uiBank + base - res.timeMs);
     if (res && res.thermo) lastClock = { stop: res.thermo.stop || 'deadline',
@@ -2532,7 +2583,8 @@ async function engineReply() {
     renderBoard();
     if (game.game_over()) { handleGameOver(); refreshDashboard(); return; }
     const res2 = await analyzeAsync({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit: null,
-                                      dashDepth: res.depth || 2, flux: 'measure', feedJhat: true });
+                                      dashDepth: res.depth || 2, flux: 'measure', feedJhat: true,
+                                      effS: effMode() });
     if (gen !== analysisGen) return;
     applyAnalysis(res2, { timeMs: res.timeMs, depth: res.depth });
     setStatus('Your move (' + (humanColor === 'w' ? 'White' : 'Black') + ') \u2014 depth ' +
@@ -2759,6 +2811,8 @@ function renderThermoGrid(Uw, Ub, th, source) {
         ['\u27E8Q\u27E9', fmt(th.avgQ,4), 'TS', fmt(th.TS,4)],
         ['C_eff', fmt(th.Ceff,2), 'C*', fmt(th.Cstar,2)+phase],
         ['F=\u27E8Q\u27E9+TS', fmt(th.F,4), 'Eval', fmtCp(enginePawns)],
+        ['S_reply (n_eff)', th.replyS != null ? fmt(th.replyS,2) + ' (' + fmt(Math.exp(th.replyS),1) + ')' : '\u2014',
+         '\u0394S overcount', th.replyS != null ? fmt(th.S - th.replyS,2) : '\u2014'],
         ['\u0134 opponent', jhStr, 'clock', schedStr],
         ['SF (d'+SF_DEPTH+')', sfStr, '\u0394 (eng\u2212SF)', deltaStr],
     ];
