@@ -1222,6 +1222,14 @@ function rawU(g) { return g.fast_raw_mat_split(); }
 // diminishing returns in raw mobility — and computable in a single board
 // scan. A position in check has no equilibrium optionality (the ensemble
 // is not stationary): material only.
+let LEAF_T_OVERRIDE = 0;   // laboratory knob: price leaf optionality at a
+                           // counterfactual temperature while the search
+                           // runs at the bath. Test-only, like pinT.
+let THEM_T_OVERRIDE = 0;   // laboratory knob: run the OPPONENT'S interior
+                           // ensembles (their softmax + their choice
+                           // premium) at a counterfactual temperature.
+                           // Test-only. The us/them decomposition of the
+                           // interior term.
 function staticEval(g) {
     const base = g.fast_raw_mat();
     if (bathT <= T_FLOOR) return base;     // frozen bath: optionality is worthless
@@ -1230,7 +1238,7 @@ function staticEval(g) {
     const opt = (g.fast_turn() === 'w')
         ? Math.log(c.mw + 1) - Math.log(c.mb + 1)
         : Math.log(c.mb + 1) - Math.log(c.mw + 1);
-    return base + bathT * opt;
+    return base + (LEAF_T_OVERRIDE > 0 ? LEAF_T_OVERRIDE : bathT) * opt;
 }
 
 // ── Quiescence Search ──────────────────────────────────────
@@ -1712,7 +1720,8 @@ function thermoSearch(g, depth, pathKeys) {
         pathKeys.delete(posKey);
     }
 
-    return computeF(Qs, n, key);
+    return computeF(Qs, n, key,
+        (THEM_T_OVERRIDE > 0 && g.fast_turn() !== fluxRootTurn) ? THEM_T_OVERRIDE : 0);
 }
 
 function computeF(Qs, n, cacheKey) {
@@ -1730,9 +1739,10 @@ function computeF(Qs, n, cacheKey) {
         return maxQ;
     }
     // One bath, one temperature: F is evaluated at the global annealing T.
+    const Tn = (arguments.length > 3 && arguments[3] > 0) ? arguments[3] : bathT;
     let expSum = 0;
-    for (let i = 0; i < n; i++) expSum += Math.exp((Qs[i] - maxQ) / bathT);
-    const val = maxQ + bathT * Math.log(expSum);
+    for (let i = 0; i < n; i++) expSum += Math.exp((Qs[i] - maxQ) / Tn);
+    const val = maxQ + Tn * Math.log(expSum);
     if (cacheKey && !searchAborted && thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(cacheKey, val);
     return val;
 }
@@ -1891,6 +1901,8 @@ function annealRoot(g, opts) {
     // temperature control in play; this is an instrument.
     const pinned = opts.pinT > 0;
     if (pinned) bathT = opts.pinT;
+    LEAF_T_OVERRIDE = opts.leafT > 0 ? opts.leafT : 0;
+    THEM_T_OVERRIDE = opts.themT > 0 ? opts.themT : 0;
     // seeded root-order shuffle, for the move-order invariance battery
     if (opts.shuffleSeed) {
         let s = opts.shuffleSeed >>> 0;
@@ -2238,9 +2250,9 @@ function _runAnalyze(msg) {
     const th = analyzeRoot(g, msg.timeLimit != null
         ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: msg.flux || false,
             budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
-            leafMu: !!msg.leafMu, pinT: msg.pinT }
+            leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
-            leafMu: !!msg.leafMu, pinT: msg.pinT });
+            leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT });
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
