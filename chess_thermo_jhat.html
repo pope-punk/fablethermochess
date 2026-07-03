@@ -1638,7 +1638,7 @@ function measureSchottky(Qs, n, T) {
 // Draw detection via pathKeys: if the current position has appeared
 // earlier on the search path — or in the PLAYED GAME since the last
 // irreversible move (PAST_KEYS, seeded per search) — return 0 (draw).
-function thermoSearch(g, depth, pathKeys) {
+function thermoSearch(g, depth, pathKeys, tagMove) {
     if (searchAborted) return 0;                      // unwinding: iteration will be discarded
     if ((nodeCount & 2047) === 0 && performance.now() > hardDeadline) { searchAborted = true; return 0; }
     nodeCount++;
@@ -1720,6 +1720,16 @@ function thermoSearch(g, depth, pathKeys) {
         pathKeys.delete(posKey);
     }
 
+    // Reply tagging for the redundancy instrument: when this node is a
+    // root child (tagMove set), record the opponent's best reply. Root
+    // moves sharing a refutation are one hedge, not two — the effective
+    // multiplicity of the root ensemble is the entropy of the induced
+    // reply partition, computed in analyzeRoot. Measurement only.
+    if (tagMove !== undefined && n > 0) {
+        let am = 0;
+        for (let i = 1; i < n; i++) if (Qs[i] > Qs[am]) am = i;
+        tagMove._reply = moves[am].from * 128 + moves[am].to;
+    }
     return computeF(Qs, n, key,
         (THEM_T_OVERRIDE > 0 && g.fast_turn() !== fluxRootTurn) ? THEM_T_OVERRIDE : 0);
 }
@@ -1946,7 +1956,7 @@ function annealRoot(g, opts) {
             const t0 = taxUs, t1 = taxThem;
             g.fast_make(moves[i]);
             if (depth === 1) moves[i]._pq2 = -g.fast_raw_mat();   // static baseline (same parity as depth 1)
-            Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys));
+            Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys, moves[i]));
             g.fast_undo();
             moves[i]._flux = { su: muSumUs - s0, cu: muCntUs - c0,
                                st: muSumThem - s1, ct: muCntThem - c1,
@@ -1982,6 +1992,35 @@ function annealRoot(g, opts) {
                 }
             }
         }
+        // ── Revision-covariance instrument (measurement only) ──
+        // The same same-parity revision vectors the thermometer takes
+        // magnitudes of, read for their CO-MOVEMENT: the Boltzmann-weighted
+        // common-mode fraction ĉ = ⟨r⟩²_π / ⟨r²⟩_π over occupied moves.
+        // Correlated hedges (thirty replies that are all fine iff the
+        // opponent declines one killer move) revise together: ĉ → 1, one
+        // effective option. Independent options: ĉ → 1/n_eff. This is the
+        // nominal-vs-effective multiplicity of the ensemble, measured from
+        // the search's own deepening — nothing is priced by hand, and
+        // nothing here feeds back into values.
+        if (depth !== 2) {
+            let maxQc = -Infinity;
+            for (let i = 0; i < n; i++)
+                if (Math.abs(Qs[i]) < MATE_NEAR && Qs[i] > maxQc) maxQc = Qs[i];
+            if (Number.isFinite(maxQc)) {
+                let wS = 0, m1 = 0, m2 = 0, cnt = 0;
+                for (let i = 0; i < n; i++) {
+                    if (Math.abs(Qs[i]) > MATE_NEAR || Math.abs(moves[i]._pq2) > MATE_NEAR) continue;
+                    const w = Math.exp((Qs[i] - maxQc) / bathT);
+                    const r = Qs[i] - moves[i]._pq2;
+                    wS += w; m1 += w * r; m2 += w * r * r; cnt++;
+                }
+                if (cnt >= 3 && wS > 0 && m2 > 1e-9) {
+                    const c = Math.min(1, (m1 * m1) / (wS * m2));
+                    result.covC = result.covC == null ? c : 0.5 * (result.covC + c);
+                    result._lastC = c;
+                }
+            }
+        }
         for (let i = 0; i < n; i++) { moves[i]._pq2 = moves[i]._pq; moves[i]._pq = Qs[i]; }
 
         // Reorder moves (and values) best-first for the next iteration.
@@ -1997,7 +2036,8 @@ function annealRoot(g, opts) {
         result.depth = depth;
         // Cooling trace: one point per completed iteration (the annealing
         // schedule as it actually happened, for the dashboard).
-        result.anneal.push({ d: depth, T: bathT, bestQ: nq[0] });
+        result.anneal.push({ d: depth, T: bathT, bestQ: nq[0],
+                             c: result._lastC != null ? +result._lastC.toFixed(3) : null });
 
         // ── σ_eff scheduler: thinking time as the latent heat of decision ──
         // A decision is safe when the uncertainty of the value gap between
@@ -2233,7 +2273,21 @@ function analyzeRoot(g, opts) {
              ntax: r.ntax || null, nmu: r.nmu || null,
              stop: r.stop || null, sigma: r.sigma != null ? r.sigma : null,
              gap: r.gap != null ? r.gap : null, TcHat: r.Tc != null ? r.Tc : null,
-             kapRatio: r.kapRatio || 0, bite: r.bite || 0 };
+             kapRatio: r.kapRatio || 0, bite: r.bite || 0,
+             covC: r.covC != null ? r.covC : null,
+             effS: r.covC != null ? Math.max(0, S + Math.log(Math.max(1e-6, 1 - r.covC))) : null,
+             replyS: (() => {
+                 // effective multiplicity: entropy of the opponent-reply
+                 // partition. Moves sharing a best reply share a fate.
+                 const gw = new Map();
+                 for (let i = 0; i < n; i++) {
+                     const k = r.moves[i]._reply !== undefined ? r.moves[i]._reply : ('u' + i);
+                     gw.set(k, (gw.get(k) || 0) + probs[i]);
+                 }
+                 let sr = 0;
+                 for (const w of gw.values()) if (w > 1e-15) sr -= w * Math.log(w);
+                 return sr;
+             })() };
 }
 
 // Unified analysis entry point. Runs identically on the main thread (sync
