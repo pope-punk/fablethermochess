@@ -1884,8 +1884,14 @@ function annealRoot(g, opts) {
     }
     LEAF_RATIO = (opts.leafMu && LEAF_TAXRATE >= 0)
         ? Math.min(1, 0.5 * jhatRead().b * biteEstimate()) : 0;
-    // Test-only hook: seeded root-order shuffle, for the move-order
-    // invariance battery. Play never sets this.
+    // Test-only hooks. Play never sets these.
+    // pinT: pin the bath to a counterfactual temperature for the whole
+    // search (thermometer disabled) — the laboratory's external-field
+    // knob, for measuring how decisions depend on T. There is still no
+    // temperature control in play; this is an instrument.
+    const pinned = opts.pinT > 0;
+    if (pinned) bathT = opts.pinT;
+    // seeded root-order shuffle, for the move-order invariance battery
     if (opts.shuffleSeed) {
         let s = opts.shuffleSeed >>> 0;
         const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
@@ -1946,7 +1952,7 @@ function annealRoot(g, opts) {
         // register. (Same-parity: depth d vs d−2, or depth 1 vs the static
         // material baseline. Depth 2 has no clean partner.) Damped across
         // iterations, riding on the zero-point quantum.
-        if (depth !== 2) {
+        if (depth !== 2 && !pinned) {
             let maxQ = -Infinity;
             for (let i = 0; i < n; i++)
                 if (Math.abs(Qs[i]) < MATE_NEAR && Qs[i] > maxQ) maxQ = Qs[i];
@@ -2232,9 +2238,9 @@ function _runAnalyze(msg) {
     const th = analyzeRoot(g, msg.timeLimit != null
         ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: msg.flux || false,
             budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
-            leafMu: !!msg.leafMu }
+            leafMu: !!msg.leafMu, pinT: msg.pinT }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
-            leafMu: !!msg.leafMu });
+            leafMu: !!msg.leafMu, pinT: msg.pinT });
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
