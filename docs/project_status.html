@@ -104,6 +104,10 @@ d2–d4 in middlegames where alpha-beta reaches d8+.</div>
 <div class="item prob"><b class="k">J is hard to pin down.</b> A 64-move window carries ±1.75 of error by
 information-theoretic necessity; supercritical fits are unidentifiable (the bistable branch fits anything).
 The estimator is honest about this, but per-game opponent reads stay coarse.</div>
+<div class="item prob"><b class="k">Engine doesn't castle.</b> Prophylactic moves are never made for threats beyond
+evaluation horizon. We are hoping to find enough information about "good play" baked into the structure of the search tree
+itself that behaviors like this can made to emerge through improvement of the physical metahpor rather than hardcoded
+strategic insights.</div>
 
 <h2>4 · Everything we've tried that hasn't worked</h2>
 <p class="small">Committed, autopsied, and kept — the graveyard is load-bearing: three of the four constitutional
