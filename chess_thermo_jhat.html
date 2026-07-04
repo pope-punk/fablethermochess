@@ -1,0 +1,3272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chess Thermodynamics Engine</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0f0f1a;
+    color: #e0e0e0;
+    min-height: 100vh;
+}
+#app {
+    display: flex;
+    max-width: 1400px;
+    margin: 0 auto;
+    gap: 24px;
+    padding: 20px;
+    align-items: flex-start;
+}
+#left-panel { flex: 0 0 auto; }
+#right-panel {
+    flex: 1;
+    min-width: 310px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+}
+h1 { font-size: 1.4em; margin-bottom: 10px; color: #7ec8e3; }
+h2 {
+    font-size: 1.05em;
+    margin: 14px 0 6px;
+    color: #7ec8e3;
+    border-bottom: 1px solid #2a2a3e;
+    padding-bottom: 4px;
+}
+.h2-sub {
+    font-size: 0.75em;
+    color: #666;
+    font-weight: normal;
+    display: block;
+    margin-top: 2px;
+}
+#status {
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: #16213e;
+    border-radius: 6px;
+    font-size: 0.9em;
+    min-height: 36px;
+}
+#board-container {
+    display: inline-block;
+    border: 2px solid #3a3a5e;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.board-row { display: flex; }
+.cell {
+    width: 68px; height: 68px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 46px; cursor: pointer; user-select: none;
+    position: relative; transition: opacity 0.1s;
+    color: #1a1a1a; text-shadow: 0 0 2px rgba(0,0,0,0.3);
+}
+.light { background: #f0d9b5; }
+.dark { background: #b58863; }
+.cell:hover { opacity: 0.88; }
+.cell.selected { box-shadow: inset 0 0 0 3.5px #3355dd; }
+.cell.legal-dot::after {
+    content: ''; position: absolute;
+    width: 20px; height: 20px;
+    background: rgba(0,0,0,0.22); border-radius: 50%;
+    top: 50%; left: 50%; transform: translate(-50%,-50%);
+    pointer-events: none;
+}
+.cell.legal-capture { box-shadow: inset 0 0 0 4px rgba(0,0,0,0.22); }
+.light.last-move { background: #cdd26a; }
+.dark.last-move { background: #aaa23a; }
+.light.last-move.selected { background: #cdd26a; box-shadow: inset 0 0 0 3.5px #3355dd; }
+.dark.last-move.selected { background: #aaa23a; box-shadow: inset 0 0 0 3.5px #3355dd; }
+.coord-label { font-size: 10px; position: absolute; pointer-events: none; font-weight: 600; }
+.file-label { bottom: 2px; right: 4px; }
+.rank-label { top: 2px; left: 4px; }
+.light .coord-label { color: #b58863; }
+.dark .coord-label { color: #f0d9b5; }
+#controls {
+    margin-top: 10px; display: flex; gap: 8px;
+    flex-wrap: wrap; align-items: center;
+}
+button, select {
+    padding: 6px 12px; background: #16213e; color: #e0e0e0;
+    border: 1px solid #3a3a5e; border-radius: 5px;
+    cursor: pointer; font-size: 0.85em; font-family: inherit;
+}
+button:hover { background: #1e3050; }
+select:focus, button:focus { outline: 1px solid #7ec8e3; }
+input[type="range"] {
+    width: 80px; vertical-align: middle; accent-color: #7ec8e3;
+    cursor: pointer; margin: 0 4px;
+}
+#heatCapVal { font-family: 'Consolas','Menlo',monospace; font-size: 0.85em; color: #7ec8e3; min-width: 2em; display: inline-block; }
+label { font-size: 0.85em; }
+#move-list {
+    margin-top: 10px; padding: 8px 10px;
+    background: #16213e; border-radius: 6px;
+    font-family: 'Consolas','Menlo',monospace; font-size: 0.84em;
+    max-height: 110px; overflow-y: auto;
+    line-height: 1.7; word-wrap: break-word;
+}
+.dash-section {
+    background: #16213e; border-radius: 6px;
+    padding: 10px 12px; margin-bottom: 8px;
+}
+.dash-grid {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr;
+    gap: 3px 10px;
+    font-family: 'Consolas','Menlo',monospace; font-size: 0.84em;
+    align-items: baseline;
+}
+.dash-label { color: #999; white-space: nowrap; }
+.dash-value { color: #7ec8e3; text-align: right; font-variant-numeric: tabular-nums; }
+.prob-table {
+    width: 100%; border-collapse: collapse;
+    font-family: 'Consolas','Menlo',monospace; font-size: 0.8em;
+}
+.prob-table th {
+    text-align: left; color: #888; padding: 2px 6px;
+    border-bottom: 1px solid #2a2a3e; font-weight: normal;
+}
+.prob-table td { padding: 2px 6px; }
+.prob-bar-cell { width: 35%; }
+.prob-bar {
+    height: 13px;
+    background: linear-gradient(90deg, #7ec8e3, #5ba3c0);
+    border-radius: 2px; min-width: 2px;
+}
+.best-move-row td { color: #c8e37e; }
+#promotion-modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); z-index: 100;
+    align-items: center; justify-content: center;
+}
+#promotion-modal.active { display: flex; }
+.promo-choices {
+    display: flex; gap: 10px; background: #16213e;
+    padding: 18px; border-radius: 10px; border: 2px solid #7ec8e3;
+}
+.promo-piece {
+    width: 68px; height: 68px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 50px; cursor: pointer;
+    background: #f0d9b5; border-radius: 6px; transition: transform 0.1s;
+}
+.promo-piece:hover { transform: scale(1.08); background: #e0c9a5; }
+.graph-controls {
+    display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
+}
+.graph-controls select { padding: 3px 8px; font-size: 0.8em; }
+#graph-canvas { width: 100%; height: 170px; display: block; }
+.inst-canvas { width: 100%; height: 130px; display: block; }
+.inst-canvas-sm { width: 100%; height: 90px; display: block; }
+.mu-halo {
+    position: absolute; border-radius: 50%;
+    width: 82%; height: 82%; top: 9%; left: 9%;
+    pointer-events: none;
+}
+@media (max-width: 960px) {
+    #app { flex-direction: column; align-items: center; }
+    #right-panel { min-width: unset; width: 100%; max-width: 560px; max-height: unset; }
+}
+@media (max-width: 600px) {
+    .cell { width: 48px; height: 48px; font-size: 32px; }
+    #app { padding: 10px; gap: 12px; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+<div id="left-panel">
+    <h1>&#9812; Chess Thermodynamics</h1>
+    <div id="status">Your move (White)</div>
+    <div id="board-container"><div id="board"></div></div>
+    <div id="controls">
+        <button onclick="newGame()">New Game</button>
+        <button onclick="undoMove()">Undo</button>
+        <button onclick="flipBoard()">Flip</button>
+        <button onclick="switchSides()">Switch Sides</button>
+        <select id="difficulty" title="Average thinking time per move. The scheduler redistributes it: obvious moves stop early and bank the remainder; close decisions may spend up to 4x this from the bank.">
+            <option value="easy">Easy (0.5 s/move avg)</option>
+            <option value="medium" selected>Medium (2 s/move avg)</option>
+            <option value="hard">Hard (8 s/move avg)</option>
+            <option value="max">Max (20 s/move avg)</option>
+        </select>
+        <select id="effmode" title="Choice-premium entropy: nominal S counts every move as a hedge; S_eff merges moves that share a best reply (one refutation = one option). Experimental — measured readings shown in the dashboard either way.">
+            <option value="off" selected>S: nominal</option>
+            <option value="us">S_eff (our nodes)</option>
+            <option value="both">S_eff (both sides)</option>
+        </select>
+        <!-- No temperature/capacity knob: T is measured by the annealing
+             search, not chosen. Longer thinking time = colder engine.
+             Since the sigma_eff scheduler, this is a RATE, not a per-move
+             wall: each move credits the allowance to a clock; frozen
+             decisions bank their remainder; hard ones draw up to 3x extra. -->
+    </div>
+</div>
+
+<div id="right-panel">
+    <h2>Thermodynamic State
+        <span class="h2-sub">Q = &minus;E convention; F maximized</span>
+    </h2>
+    <div id="dash-thermo" class="dash-section"><div class="dash-grid" id="thermo-grid"></div></div>
+
+    <h2>Capacity Curve C(T)
+        <span class="h2-sub">The position's Schottky anomaly; marker = measured bath T</span>
+    </h2>
+    <div class="dash-section"><canvas id="schottky-canvas" class="inst-canvas"></canvas></div>
+
+    <h2>Annealing
+        <span class="h2-sub">Cooling schedule of this search: bath T per deepening iteration</span>
+    </h2>
+    <div class="dash-section"><canvas id="anneal-canvas" class="inst-canvas-sm"></canvas></div>
+
+    <h2>Move History
+        <span class="h2-sub">Per-move thermodynamic state &amp; Stockfish comparison</span>
+    </h2>
+    <div id="dash-movehistory" class="dash-section" style="max-height:240px;overflow-y:auto"></div>
+
+    <h2>Evaluation Weights &pi;<sub>a</sub>
+        <span class="h2-sub">Engine plays argmax Q; weights show competitive moves</span>
+    </h2>
+    <div id="dash-moves" class="dash-section" style="max-height:320px;overflow-y:auto"></div>
+
+    <h2>Chemical Potential &mu;<sub>P</sub>
+        <span class="h2-sub">&mu;<sub>P</sub> = &minus;T ln(1 &minus; p<sub>P</sub>): free-energy cost of freezing piece P
+            &nbsp;&middot;&nbsp;<label style="cursor:pointer"><input type="checkbox" id="muOverlay" onchange="toggleMuOverlay(this.checked)"> show on board</label>
+        </span>
+    </h2>
+    <div id="dash-mu" class="dash-section" style="max-height:220px;overflow-y:auto"></div>
+
+    <h2>History</h2>
+    <div class="dash-section">
+        <div class="graph-controls">
+            <select id="graphVar" onchange="renderGraph()">
+                <option value="eval" selected>Eval (&pawn;)</option>
+                <option value="T">T (bath)</option>
+                <option value="S">S</option>
+                <option value="TS">TS (optionality, &pawn;&middot;2)</option>
+                <option value="Ceff">C_eff</option>
+                <option value="Cstar">C* (critical capacity)</option>
+            </select>
+            <span class="h2-sub" style="display:inline;margin-left:6px">phase strip below: frozen&nbsp;/ cold&nbsp;/ critical&nbsp;/ hot</span>
+        </div>
+        <canvas id="graph-canvas"></canvas>
+    </div>
+</div>
+</div>
+
+<div id="promotion-modal"><div class="promo-choices" id="promo-choices"></div></div>
+
+<script id="td-engine">
+/* ================================================================
+ * chess.js v0.10.3 (c) Jeff Hlywa, BSD license
+ * Modified: castling[us]=0 (was ''), fast_hash, generate_captures
+ * ================================================================ */
+var Chess = function(fen) {
+  var BLACK = 'b', WHITE = 'w', EMPTY = -1;
+  var PAWN = 'p', KNIGHT = 'n', BISHOP = 'b', ROOK = 'r', QUEEN = 'q', KING = 'k';
+  var SYMBOLS = 'pnbrqkPNBRQK';
+  var DEFAULT_POSITION = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  var POSSIBLE_RESULTS = ['1-0', '0-1', '1/2-1/2', '*'];
+  var PAWN_OFFSETS = { b: [16, 32, 17, 15], w: [-16, -32, -17, -15] };
+  var PIECE_OFFSETS = {
+    n: [-18, -33, -31, -14, 18, 33, 31, 14],
+    b: [-17, -15, 17, 15], r: [-16, 1, 16, -1],
+    q: [-17, -16, -15, 1, 17, 16, 15, -1],
+    k: [-17, -16, -15, 1, 17, 16, 15, -1]
+  };
+  var ATTACKS = [
+    20, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0,20, 0,
+     0,20, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0,20, 0, 0,
+     0, 0,20, 0, 0, 0, 0, 24, 0, 0, 0, 0,20, 0, 0, 0,
+     0, 0, 0,20, 0, 0, 0, 24, 0, 0, 0,20, 0, 0, 0, 0,
+     0, 0, 0, 0,20, 0, 0, 24, 0, 0,20, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0,20, 2, 24, 2,20, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 2,53, 56,53, 2, 0, 0, 0, 0, 0, 0,
+    24,24,24,24,24,24,56,  0,56,24,24,24,24,24,24, 0,
+     0, 0, 0, 0, 0, 2,53, 56,53, 2, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0,20, 2, 24, 2,20, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0,20, 0, 0, 24, 0, 0,20, 0, 0, 0, 0, 0,
+     0, 0, 0,20, 0, 0, 0, 24, 0, 0, 0,20, 0, 0, 0, 0,
+     0, 0,20, 0, 0, 0, 0, 24, 0, 0, 0, 0,20, 0, 0, 0,
+     0,20, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0,20, 0, 0,
+    20, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0,20
+  ];
+  var RAYS = [
+     17,  0,  0,  0,  0,  0,  0, 16,  0,  0,  0,  0,  0,  0, 15, 0,
+      0, 17,  0,  0,  0,  0,  0, 16,  0,  0,  0,  0,  0, 15,  0, 0,
+      0,  0, 17,  0,  0,  0,  0, 16,  0,  0,  0,  0, 15,  0,  0, 0,
+      0,  0,  0, 17,  0,  0,  0, 16,  0,  0,  0, 15,  0,  0,  0, 0,
+      0,  0,  0,  0, 17,  0,  0, 16,  0,  0, 15,  0,  0,  0,  0, 0,
+      0,  0,  0,  0,  0, 17,  0, 16,  0, 15,  0,  0,  0,  0,  0, 0,
+      0,  0,  0,  0,  0,  0, 17, 16, 15,  0,  0,  0,  0,  0,  0, 0,
+      1,  1,  1,  1,  1,  1,  1,  0, -1, -1, -1,-1, -1, -1, -1, 0,
+      0,  0,  0,  0,  0,  0,-15,-16,-17,  0,  0,  0,  0,  0,  0, 0,
+      0,  0,  0,  0,  0,-15,  0,-16,  0,-17,  0,  0,  0,  0,  0, 0,
+      0,  0,  0,  0,-15,  0,  0,-16,  0,  0,-17,  0,  0,  0,  0, 0,
+      0,  0,  0,-15,  0,  0,  0,-16,  0,  0,  0,-17,  0,  0,  0, 0,
+      0,  0,-15,  0,  0,  0,  0,-16,  0,  0,  0,  0,-17,  0,  0, 0,
+      0,-15,  0,  0,  0,  0,  0,-16,  0,  0,  0,  0,  0,-17,  0, 0,
+    -15,  0,  0,  0,  0,  0,  0,-16,  0,  0,  0,  0,  0,  0,-17
+  ];
+  var SHIFTS = { p: 0, n: 1, b: 2, r: 3, q: 4, k: 5 };
+  var FLAGS = { NORMAL:'n', CAPTURE:'c', BIG_PAWN:'b', EP_CAPTURE:'e', PROMOTION:'p', KSIDE_CASTLE:'k', QSIDE_CASTLE:'q' };
+  var BITS = { NORMAL:1, CAPTURE:2, BIG_PAWN:4, EP_CAPTURE:8, PROMOTION:16, KSIDE_CASTLE:32, QSIDE_CASTLE:64 };
+  var RANK_1=7, RANK_2=6, RANK_7=1, RANK_8=0;
+  var SQUARES = {
+    a8:0,b8:1,c8:2,d8:3,e8:4,f8:5,g8:6,h8:7,
+    a7:16,b7:17,c7:18,d7:19,e7:20,f7:21,g7:22,h7:23,
+    a6:32,b6:33,c6:34,d6:35,e6:36,f6:37,g6:38,h6:39,
+    a5:48,b5:49,c5:50,d5:51,e5:52,f5:53,g5:54,h5:55,
+    a4:64,b4:65,c4:66,d4:67,e4:68,f4:69,g4:70,h4:71,
+    a3:80,b3:81,c3:82,d3:83,e3:84,f3:85,g3:86,h3:87,
+    a2:96,b2:97,c2:98,d2:99,e2:100,f2:101,g2:102,h2:103,
+    a1:112,b1:113,c1:114,d1:115,e1:116,f1:117,g1:118,h1:119
+  };
+  var ROOKS = {
+    w: [{square:SQUARES.a1,flag:BITS.QSIDE_CASTLE},{square:SQUARES.h1,flag:BITS.KSIDE_CASTLE}],
+    b: [{square:SQUARES.a8,flag:BITS.QSIDE_CASTLE},{square:SQUARES.h8,flag:BITS.KSIDE_CASTLE}]
+  };
+  var board = new Array(128);
+  var accMw = 0, accMb = 0, accActive = false;   // search-scoped material accumulator
+  var kings = { w: EMPTY, b: EMPTY };
+  var turn = WHITE;
+  var castling = { w: 0, b: 0 };
+  var ep_square = EMPTY;
+  var half_moves = 0;
+  var move_number = 1;
+  var history = [];
+  var header = {};
+  if (typeof fen === 'undefined') load(DEFAULT_POSITION); else load(fen);
+
+  function clear(keep_headers) {
+    if (typeof keep_headers === 'undefined') keep_headers = false;
+    board = new Array(128); kings = { w: EMPTY, b: EMPTY };
+    turn = WHITE; castling = { w: 0, b: 0 }; ep_square = EMPTY;
+    half_moves = 0; move_number = 1; history = [];
+    if (!keep_headers) header = {};
+    update_setup(generate_fen());
+  }
+  function reset() { load(DEFAULT_POSITION); }
+  function load(fen, keep_headers) {
+    if (typeof keep_headers === 'undefined') keep_headers = false;
+    var tokens = fen.split(/\s+/); var position = tokens[0]; var square = 0;
+    if (!validate_fen(fen).valid) return false;
+    clear(keep_headers);
+    for (var i = 0; i < position.length; i++) {
+      var piece = position.charAt(i);
+      if (piece === '/') { square += 8; }
+      else if (is_digit(piece)) { square += parseInt(piece, 10); }
+      else {
+        var color = piece < 'a' ? WHITE : BLACK;
+        put({ type: piece.toLowerCase(), color: color }, algebraic(square)); square++;
+      }
+    }
+    turn = tokens[1];
+    if (tokens[2].indexOf('K') > -1) castling.w |= BITS.KSIDE_CASTLE;
+    if (tokens[2].indexOf('Q') > -1) castling.w |= BITS.QSIDE_CASTLE;
+    if (tokens[2].indexOf('k') > -1) castling.b |= BITS.KSIDE_CASTLE;
+    if (tokens[2].indexOf('q') > -1) castling.b |= BITS.QSIDE_CASTLE;
+    ep_square = tokens[3] === '-' ? EMPTY : SQUARES[tokens[3]];
+    half_moves = parseInt(tokens[4], 10); move_number = parseInt(tokens[5], 10);
+    update_setup(generate_fen()); return true;
+  }
+  function validate_fen(fen) {
+    var errors = { 0:'No errors.', 1:'FEN string must contain six space-delimited fields.',
+      2:'6th field (move number) must be a positive integer.',
+      3:'5th field (half move counter) must be a non-negative integer.',
+      4:'4th field (en-passant square) is invalid.', 5:'3rd field (castling availability) is invalid.',
+      6:'2nd field (side to move) is invalid.',
+      7:"1st field (piece positions) does not contain 8 '/'-delimited rows.",
+      8:'1st field (piece positions) is invalid [consecutive numbers].',
+      9:'1st field (piece positions) is invalid [invalid piece].',
+      10:'1st field (piece positions) is invalid [row too large].',
+      11:'Illegal en-passant square' };
+    var tokens = fen.split(/\s+/);
+    if (tokens.length !== 6) return { valid:false, error_number:1, error:errors[1] };
+    if (isNaN(tokens[5]) || parseInt(tokens[5],10) <= 0) return { valid:false, error_number:2, error:errors[2] };
+    if (isNaN(tokens[4]) || parseInt(tokens[4],10) < 0) return { valid:false, error_number:3, error:errors[3] };
+    if (!/^(-|[abcdefgh][36])$/.test(tokens[3])) return { valid:false, error_number:4, error:errors[4] };
+    if (!/^(KQ?k?q?|Qk?q?|kq?|q|-)$/.test(tokens[2])) return { valid:false, error_number:5, error:errors[5] };
+    if (!/^(w|b)$/.test(tokens[1])) return { valid:false, error_number:6, error:errors[6] };
+    var rows = tokens[0].split('/');
+    if (rows.length !== 8) return { valid:false, error_number:7, error:errors[7] };
+    for (var i = 0; i < rows.length; i++) {
+      var sum_fields = 0, previous_was_number = false;
+      for (var k = 0; k < rows[i].length; k++) {
+        if (!isNaN(rows[i][k])) {
+          if (previous_was_number) return { valid:false, error_number:8, error:errors[8] };
+          sum_fields += parseInt(rows[i][k],10); previous_was_number = true;
+        } else {
+          if (!/^[prnbqkPRNBQK]$/.test(rows[i][k])) return { valid:false, error_number:9, error:errors[9] };
+          sum_fields += 1; previous_was_number = false;
+        }
+      }
+      if (sum_fields !== 8) return { valid:false, error_number:10, error:errors[10] };
+    }
+    if ((tokens[3][1]=='3' && tokens[1]=='w') || (tokens[3][1]=='6' && tokens[1]=='b'))
+      return { valid:false, error_number:11, error:errors[11] };
+    return { valid:true, error_number:0, error:errors[0] };
+  }
+  function generate_fen() {
+    var empty = 0, fen = '';
+    for (var i = SQUARES.a8; i <= SQUARES.h1; i++) {
+      if (board[i] == null) { empty++; }
+      else { if (empty > 0) { fen += empty; empty = 0; }
+        var color = board[i].color; var piece = board[i].type;
+        fen += color === WHITE ? piece.toUpperCase() : piece.toLowerCase();
+      }
+      if ((i + 1) & 0x88) { if (empty > 0) { fen += empty; }
+        if (i !== SQUARES.h1) fen += '/'; empty = 0; i += 8;
+      }
+    }
+    var cflags = '';
+    if (castling[WHITE] & BITS.KSIDE_CASTLE) cflags += 'K';
+    if (castling[WHITE] & BITS.QSIDE_CASTLE) cflags += 'Q';
+    if (castling[BLACK] & BITS.KSIDE_CASTLE) cflags += 'k';
+    if (castling[BLACK] & BITS.QSIDE_CASTLE) cflags += 'q';
+    cflags = cflags || '-';
+    var epflags = ep_square === EMPTY ? '-' : algebraic(ep_square);
+    return [fen, turn, cflags, epflags, half_moves, move_number].join(' ');
+  }
+  function set_header(args) {
+    for (var i = 0; i < args.length; i += 2)
+      if (typeof args[i]==='string' && typeof args[i+1]==='string') header[args[i]] = args[i+1];
+    return header;
+  }
+  function update_setup(fen) {
+    if (history.length > 0) return;
+    if (fen !== DEFAULT_POSITION) { header['SetUp']='1'; header['FEN']=fen; }
+    else { delete header['SetUp']; delete header['FEN']; }
+  }
+  function get(square) {
+    var piece = board[SQUARES[square]];
+    return piece ? { type:piece.type, color:piece.color } : null;
+  }
+  function put(piece, square) {
+    if (!('type' in piece && 'color' in piece)) return false;
+    if (SYMBOLS.indexOf(piece.type.toLowerCase()) === -1) return false;
+    if (!(square in SQUARES)) return false;
+    var sq = SQUARES[square];
+    if (piece.type == KING && !(kings[piece.color] == EMPTY || kings[piece.color] == sq)) return false;
+    board[sq] = { type:piece.type, color:piece.color };
+    if (piece.type === KING) kings[piece.color] = sq;
+    update_setup(generate_fen()); return true;
+  }
+  function remove(square) {
+    var piece = get(square); board[SQUARES[square]] = null;
+    if (piece && piece.type === KING) kings[piece.color] = EMPTY;
+    update_setup(generate_fen()); return piece;
+  }
+  function build_move(board, from, to, flags, promotion) {
+    var move = { color:turn, from:from, to:to, flags:flags, piece:board[from].type };
+    if (promotion) { move.flags |= BITS.PROMOTION; move.promotion = promotion; }
+    if (board[to]) move.captured = board[to].type;
+    else if (flags & BITS.EP_CAPTURE) move.captured = PAWN;
+    return move;
+  }
+  function generate_moves(options) {
+    function add_move(board, moves, from, to, flags) {
+      if (board[from].type === PAWN && (rank(to) === RANK_8 || rank(to) === RANK_1)) {
+        var pieces = [QUEEN, ROOK, BISHOP, KNIGHT];
+        for (var i = 0, len = pieces.length; i < len; i++) moves.push(build_move(board, from, to, flags, pieces[i]));
+      } else { moves.push(build_move(board, from, to, flags)); }
+    }
+    var moves = [], us = turn, them = swap_color(us);
+    var second_rank = { b: RANK_7, w: RANK_2 };
+    var first_sq = SQUARES.a8, last_sq = SQUARES.h1, single_square = false;
+    var legal = typeof options !== 'undefined' && 'legal' in options ? options.legal : true;
+    if (typeof options !== 'undefined' && 'square' in options) {
+      if (options.square in SQUARES) { first_sq = last_sq = SQUARES[options.square]; single_square = true; }
+      else return [];
+    }
+    for (var i = first_sq; i <= last_sq; i++) {
+      if (i & 0x88) { i += 7; continue; }
+      var piece = board[i];
+      if (piece == null || piece.color !== us) continue;
+      if (piece.type === PAWN) {
+        var square = i + PAWN_OFFSETS[us][0];
+        if (board[square] == null) {
+          add_move(board, moves, i, square, BITS.NORMAL);
+          square = i + PAWN_OFFSETS[us][1];
+          if (second_rank[us] === rank(i) && board[square] == null)
+            add_move(board, moves, i, square, BITS.BIG_PAWN);
+        }
+        for (var j = 2; j < 4; j++) {
+          square = i + PAWN_OFFSETS[us][j];
+          if (square & 0x88) continue;
+          if (board[square] != null && board[square].color === them) add_move(board, moves, i, square, BITS.CAPTURE);
+          else if (square === ep_square) add_move(board, moves, i, ep_square, BITS.EP_CAPTURE);
+        }
+      } else {
+        for (var j = 0, len = PIECE_OFFSETS[piece.type].length; j < len; j++) {
+          var offset = PIECE_OFFSETS[piece.type][j]; var square = i;
+          while (true) {
+            square += offset; if (square & 0x88) break;
+            if (board[square] == null) { add_move(board, moves, i, square, BITS.NORMAL); }
+            else { if (board[square].color === us) break; add_move(board, moves, i, square, BITS.CAPTURE); break; }
+            if (piece.type === 'n' || piece.type === 'k') break;
+          }
+        }
+      }
+    }
+    if (!single_square || last_sq === kings[us]) {
+      if (castling[us] & BITS.KSIDE_CASTLE) {
+        var castling_from = kings[us], castling_to = castling_from + 2;
+        if (board[castling_from+1]==null && board[castling_to]==null &&
+            !attacked(them,kings[us]) && !attacked(them,castling_from+1) && !attacked(them,castling_to))
+          add_move(board, moves, kings[us], castling_to, BITS.KSIDE_CASTLE);
+      }
+      if (castling[us] & BITS.QSIDE_CASTLE) {
+        var castling_from = kings[us], castling_to = castling_from - 2;
+        if (board[castling_from-1]==null && board[castling_from-2]==null && board[castling_from-3]==null &&
+            !attacked(them,kings[us]) && !attacked(them,castling_from-1) && !attacked(them,castling_to))
+          add_move(board, moves, kings[us], castling_to, BITS.QSIDE_CASTLE);
+      }
+    }
+    if (!legal) return moves;
+    return legality_filter(moves);
+  }
+  function generate_captures() {
+    var moves = [], us = turn, them = swap_color(us);
+    for (var i = SQUARES.a8; i <= SQUARES.h1; i++) {
+      if (i & 0x88) { i += 7; continue; }
+      var piece = board[i];
+      if (piece == null || piece.color !== us) continue;
+      if (piece.type === PAWN) {
+        for (var j = 2; j < 4; j++) {
+          var square = i + PAWN_OFFSETS[us][j];
+          if (square & 0x88) continue;
+          if (board[square] != null && board[square].color === them) {
+            if (rank(square) === RANK_8 || rank(square) === RANK_1) {
+              moves.push(build_move(board, i, square, BITS.CAPTURE, QUEEN));
+              moves.push(build_move(board, i, square, BITS.CAPTURE, ROOK));
+              moves.push(build_move(board, i, square, BITS.CAPTURE, BISHOP));
+              moves.push(build_move(board, i, square, BITS.CAPTURE, KNIGHT));
+            } else { moves.push(build_move(board, i, square, BITS.CAPTURE)); }
+          } else if (square === ep_square) {
+            moves.push(build_move(board, i, ep_square, BITS.EP_CAPTURE));
+          }
+        }
+        var push_sq = i + PAWN_OFFSETS[us][0];
+        if (!(push_sq & 0x88) && board[push_sq] == null &&
+            (rank(push_sq) === RANK_8 || rank(push_sq) === RANK_1)) {
+          moves.push(build_move(board, i, push_sq, BITS.NORMAL, QUEEN));
+          moves.push(build_move(board, i, push_sq, BITS.NORMAL, KNIGHT));
+        }
+      } else {
+        for (var j = 0, len = PIECE_OFFSETS[piece.type].length; j < len; j++) {
+          var offset = PIECE_OFFSETS[piece.type][j]; var square = i;
+          while (true) {
+            square += offset; if (square & 0x88) break;
+            if (board[square] == null) { if (piece.type==='n'||piece.type==='k') break; continue; }
+            if (board[square].color === us) break;
+            moves.push(build_move(board, i, square, BITS.CAPTURE)); break;
+          }
+        }
+      }
+    }
+    return legality_filter(moves);
+  }
+  function move_to_san(move, sloppy) {
+    var output = '';
+    if (move.flags & BITS.KSIDE_CASTLE) { output = 'O-O'; }
+    else if (move.flags & BITS.QSIDE_CASTLE) { output = 'O-O-O'; }
+    else {
+      var disambiguator = get_disambiguator(move, sloppy);
+      if (move.piece !== PAWN) output += move.piece.toUpperCase() + disambiguator;
+      if (move.flags & (BITS.CAPTURE | BITS.EP_CAPTURE)) {
+        if (move.piece === PAWN) output += algebraic(move.from)[0];
+        output += 'x';
+      }
+      output += algebraic(move.to);
+      if (move.flags & BITS.PROMOTION) output += '=' + move.promotion.toUpperCase();
+    }
+    make_move(move);
+    if (in_check()) { if (in_checkmate()) output += '#'; else output += '+'; }
+    undo_move();
+    return output;
+  }
+  function stripped_san(move) { return move.replace(/=/, '').replace(/[+#]?[?!]*$/, ''); }
+  function attacked(color, square) {
+    for (var i = SQUARES.a8; i <= SQUARES.h1; i++) {
+      if (i & 0x88) { i += 7; continue; }
+      if (board[i] == null || board[i].color !== color) continue;
+      var piece = board[i]; var difference = i - square; var index = difference + 119;
+      if (ATTACKS[index] & (1 << SHIFTS[piece.type])) {
+        if (piece.type === PAWN) {
+          if (difference > 0) { if (piece.color === WHITE) return true; }
+          else { if (piece.color === BLACK) return true; }
+          continue;
+        }
+        if (piece.type === 'n' || piece.type === 'k') return true;
+        var offset = RAYS[index]; var j = i + offset; var blocked = false;
+        while (j !== square) { if (board[j] != null) { blocked = true; break; } j += offset; }
+        if (!blocked) return true;
+      }
+    }
+    return false;
+  }
+  function king_attacked(color) { return attacked(swap_color(color), kings[color]); }
+  function in_check() { return king_attacked(turn); }
+
+  // Pin/checker-based legality filter. Precomputes checkers and pinned pieces
+  // once per node, then tests each pseudo-legal move in O(1). King moves and
+  // en-passant captures (the only cases with subtle discovered-check behaviour)
+  // fall back to the proven make/undo test. Returns the identical legal-move
+  // set the make/undo filter would, in the same order — verified exhaustively.
+  function legality_filter(moves) {
+    var us = turn, them = swap_color(us), ksq = kings[us];
+    var qoff = PIECE_OFFSETS.q, noff = PIECE_OFFSETS.n;
+
+    // --- checkers (and block squares for a single sliding checker) ---
+    var checkers = [];
+    var sliderChecker = -1, sliderBlocks = null;
+    for (var k = 0; k < 8; k++) {
+      var s = ksq + noff[k];
+      if (!(s & 0x88)) { var p = board[s]; if (p && p.color === them && p.type === KNIGHT) checkers.push(s); }
+    }
+    var pca = ksq - PAWN_OFFSETS[them][2], pcb = ksq - PAWN_OFFSETS[them][3];
+    if (!(pca & 0x88)) { var p = board[pca]; if (p && p.color === them && p.type === PAWN) checkers.push(pca); }
+    if (!(pcb & 0x88)) { var p = board[pcb]; if (p && p.color === them && p.type === PAWN) checkers.push(pcb); }
+    for (var d = 0; d < 8; d++) {
+      var off = qoff[d], diag = (off === 17 || off === -17 || off === 15 || off === -15);
+      var s = ksq + off, between = [];
+      while (!(s & 0x88)) {
+        var p = board[s];
+        if (p) {
+          if (p.color === them && (p.type === QUEEN || (diag ? p.type === BISHOP : p.type === ROOK))) {
+            checkers.push(s);
+            if (sliderChecker === -1) { sliderChecker = s; sliderBlocks = between; }
+            else sliderChecker = -2;
+          }
+          break;
+        }
+        between.push(s); s += off;
+      }
+    }
+    var numCheckers = checkers.length;
+    var resolveSet = null;
+    if (numCheckers === 1) {
+      resolveSet = new Set(); resolveSet.add(checkers[0]);
+      if (sliderChecker >= 0 && sliderBlocks) for (var b = 0; b < sliderBlocks.length; b++) resolveSet.add(sliderBlocks[b]);
+    }
+
+    // --- pins: friendly piece that is the sole blocker between king and an enemy slider ---
+    var pinned = null;
+    for (var d = 0; d < 8; d++) {
+      var off = qoff[d], diag = (off === 17 || off === -17 || off === 15 || off === -15);
+      var s = ksq + off, seg = [], firstFriendly = -1;
+      while (!(s & 0x88)) {
+        var p = board[s];
+        if (p) {
+          if (firstFriendly === -1) {
+            if (p.color === us) { firstFriendly = s; seg.push(s); } else break;
+          } else {
+            if (p.color === them && (p.type === QUEEN || (diag ? p.type === BISHOP : p.type === ROOK))) {
+              seg.push(s); if (!pinned) pinned = {}; pinned[firstFriendly] = new Set(seg);
+            }
+            break;
+          }
+        } else seg.push(s);
+        s += off;
+      }
+    }
+
+    // --- filter ---
+    var out = [];
+    for (var m = 0; m < moves.length; m++) {
+      var mv = moves[m];
+      if (mv.piece === KING || (mv.flags & BITS.EP_CAPTURE)) {
+        make_move(mv); if (!king_attacked(us)) out.push(mv); undo_move(); continue;
+      }
+      if (numCheckers >= 2) continue;
+      if (numCheckers === 1 && !resolveSet.has(mv.to)) continue;
+      if (pinned) { var pa = pinned[mv.from]; if (pa && !pa.has(mv.to)) continue; }
+      out.push(mv);
+    }
+    return out;
+  }
+  function in_checkmate() { return in_check() && generate_moves().length === 0; }
+  function in_stalemate() { return !in_check() && generate_moves().length === 0; }
+  function insufficient_material() {
+    var pieces = {}, bishops = [], num_pieces = 0, sq_color = 0;
+    for (var i = SQUARES.a8; i <= SQUARES.h1; i++) {
+      sq_color = (sq_color + 1) % 2; if (i & 0x88) { i += 7; continue; }
+      var piece = board[i];
+      if (piece) { pieces[piece.type] = piece.type in pieces ? pieces[piece.type]+1 : 1;
+        if (piece.type === BISHOP) bishops.push(sq_color); num_pieces++;
+      }
+    }
+    if (num_pieces === 2) return true;
+    if (num_pieces === 3 && (pieces[BISHOP] === 1 || pieces[KNIGHT] === 1)) return true;
+    if (num_pieces === pieces[BISHOP] + 2) {
+      var sum = 0, len = bishops.length;
+      for (var i = 0; i < len; i++) sum += bishops[i];
+      if (sum === 0 || sum === len) return true;
+    }
+    return false;
+  }
+  function in_threefold_repetition() {
+    var moves = [], positions = {}, repetition = false;
+    while (true) { var move = undo_move(); if (!move) break; moves.push(move); }
+    while (true) {
+      var fen = generate_fen().split(' ').slice(0,4).join(' ');
+      positions[fen] = fen in positions ? positions[fen]+1 : 1;
+      if (positions[fen] >= 3) repetition = true;
+      if (!moves.length) break; make_move(moves.pop());
+    }
+    return repetition;
+  }
+  function push(move) {
+    history.push({ move:move, kings:{b:kings.b,w:kings.w}, turn:turn,
+      castling:{b:castling.b,w:castling.w}, ep_square:ep_square,
+      half_moves:half_moves, move_number:move_number });
+  }
+  function make_move(move) {
+    var us = turn, them = swap_color(us); push(move);
+    board[move.to] = board[move.from]; board[move.from] = null;
+    if (move.flags & BITS.EP_CAPTURE) {
+      if (turn === BLACK) board[move.to - 16] = null; else board[move.to + 16] = null;
+    }
+    if (move.flags & BITS.PROMOTION) board[move.to] = { type:move.promotion, color:us };
+    if (board[move.to].type === KING) {
+      kings[board[move.to].color] = move.to;
+      if (move.flags & BITS.KSIDE_CASTLE) {
+        var castling_to = move.to-1, castling_from = move.to+1;
+        board[castling_to] = board[castling_from]; board[castling_from] = null;
+      } else if (move.flags & BITS.QSIDE_CASTLE) {
+        var castling_to = move.to+1, castling_from = move.to-2;
+        board[castling_to] = board[castling_from]; board[castling_from] = null;
+      }
+      /* FIX: was castling[us] = '' (string); now numeric 0 */
+      castling[us] = 0;
+    }
+    if (castling[us]) {
+      for (var i = 0, len = ROOKS[us].length; i < len; i++) {
+        if (move.from === ROOKS[us][i].square && castling[us] & ROOKS[us][i].flag)
+          { castling[us] ^= ROOKS[us][i].flag; break; }
+      }
+    }
+    if (castling[them]) {
+      for (var i = 0, len = ROOKS[them].length; i < len; i++) {
+        if (move.to === ROOKS[them][i].square && castling[them] & ROOKS[them][i].flag)
+          { castling[them] ^= ROOKS[them][i].flag; break; }
+      }
+    }
+    if (move.flags & BITS.BIG_PAWN) {
+      if (turn === 'b') ep_square = move.to - 16; else ep_square = move.to + 16;
+    } else { ep_square = EMPTY; }
+    if (move.piece === PAWN) half_moves = 0;
+    else if (move.flags & (BITS.CAPTURE | BITS.EP_CAPTURE)) half_moves = 0;
+    else half_moves++;
+    if (turn === BLACK) move_number++;
+    turn = swap_color(turn);
+  }
+  function undo_move() {
+    var old = history.pop(); if (old == null) return null;
+    var move = old.move; kings = old.kings; turn = old.turn; castling = old.castling;
+    ep_square = old.ep_square; half_moves = old.half_moves; move_number = old.move_number;
+    var us = turn, them = swap_color(turn);
+    board[move.from] = board[move.to]; board[move.from].type = move.piece; board[move.to] = null;
+    if (move.flags & BITS.CAPTURE) board[move.to] = { type:move.captured, color:them };
+    else if (move.flags & BITS.EP_CAPTURE) {
+      var index; if (us === BLACK) index = move.to - 16; else index = move.to + 16;
+      board[index] = { type:PAWN, color:them };
+    }
+    if (move.flags & (BITS.KSIDE_CASTLE | BITS.QSIDE_CASTLE)) {
+      var castling_to, castling_from;
+      if (move.flags & BITS.KSIDE_CASTLE) { castling_to = move.to+1; castling_from = move.to-1; }
+      else if (move.flags & BITS.QSIDE_CASTLE) { castling_to = move.to-2; castling_from = move.to+1; }
+      board[castling_to] = board[castling_from]; board[castling_from] = null;
+    }
+    return move;
+  }
+  // ── Search-scoped incremental material accumulator ────────
+  // Maintained ONLY through fast_make/fast_undo (search moves), never
+  // through the internal make_move/undo_move that legality probing uses.
+  // Material moves only on captures and promotions: O(1) per searched move.
+  function applyEvalDelta(move, sign) {
+    var us = move.color, them = swap_color(us);
+    if (move.flags & BITS.PROMOTION) {
+      var d = PIECE_BASE[move.promotion] - PIECE_BASE.p;
+      if (us === WHITE) accMw += sign * d; else accMb += sign * d;
+    }
+    if (move.captured) {
+      if (them === WHITE) accMw -= sign * PIECE_BASE[move.captured];
+      else accMb -= sign * PIECE_BASE[move.captured];
+    }
+  }
+  function get_disambiguator(move, sloppy) {
+    var moves = generate_moves({legal:!sloppy});
+    var from = move.from, to = move.to, piece = move.piece;
+    var ambiguities = 0, same_rank = 0, same_file = 0;
+    for (var i = 0, len = moves.length; i < len; i++) {
+      var ambig_from = moves[i].from, ambig_to = moves[i].to, ambig_piece = moves[i].piece;
+      if (piece === ambig_piece && from !== ambig_from && to === ambig_to) {
+        ambiguities++;
+        if (rank(from) === rank(ambig_from)) same_rank++;
+        if (file(from) === file(ambig_from)) same_file++;
+      }
+    }
+    if (ambiguities > 0) {
+      if (same_rank > 0 && same_file > 0) return algebraic(from);
+      else if (same_file > 0) return algebraic(from).charAt(1);
+      else return algebraic(from).charAt(0);
+    }
+    return '';
+  }
+  function move_from_san(move, sloppy) {
+    var clean_move = stripped_san(move);
+    if (sloppy) {
+      var matches = clean_move.match(/([pnbrqkPNBRQK])?([a-h][1-8])x?-?([a-h][1-8])([qrbnQRBN])?/);
+      if (matches) { var piece=matches[1], from=matches[2], to=matches[3], promotion=matches[4]; }
+    }
+    var moves = generate_moves();
+    for (var i = 0, len = moves.length; i < len; i++) {
+      if (clean_move === stripped_san(move_to_san(moves[i])) ||
+          (sloppy && clean_move === stripped_san(move_to_san(moves[i], true)))) return moves[i];
+      else if (matches && (!piece || piece.toLowerCase()==moves[i].piece) &&
+               SQUARES[from]==moves[i].from && SQUARES[to]==moves[i].to &&
+               (!promotion || promotion.toLowerCase()==moves[i].promotion)) return moves[i];
+    }
+    return null;
+  }
+  function rank(i) { return i >> 4; }
+  function file(i) { return i & 15; }
+  function algebraic(i) { var f=file(i), r=rank(i); return 'abcdefgh'.substring(f,f+1)+'87654321'.substring(r,r+1); }
+  function swap_color(c) { return c === WHITE ? BLACK : WHITE; }
+  function is_digit(c) { return '0123456789'.indexOf(c) !== -1; }
+  function make_pretty(ugly_move) {
+    var move = clone(ugly_move); move.san = move_to_san(move, false);
+    move.to = algebraic(move.to); move.from = algebraic(move.from);
+    var flags = '';
+    for (var flag in BITS) { if (BITS[flag] & move.flags) flags += FLAGS[flag]; }
+    move.flags = flags; return move;
+  }
+  function clone(obj) {
+    var dupe = obj instanceof Array ? [] : {};
+    for (var property in obj) { if (typeof property === 'object') dupe[property]=clone(obj[property]); else dupe[property]=obj[property]; }
+    return dupe;
+  }
+  function trim(str) { return str.replace(/^\s+|\s+$/g, ''); }
+
+  return {
+    WHITE:WHITE, BLACK:BLACK, PAWN:PAWN, KNIGHT:KNIGHT, BISHOP:BISHOP, ROOK:ROOK, QUEEN:QUEEN, KING:KING,
+    SQUARES: (function() { var keys=[]; for (var i=SQUARES.a8; i<=SQUARES.h1; i++) { if(i&0x88){i+=7;continue;} keys.push(algebraic(i)); } return keys; })(),
+    FLAGS: FLAGS,
+    load: function(fen) { return load(fen); },
+    reset: function() { return reset(); },
+    moves: function(options) {
+      var ugly_moves = generate_moves(options), moves = [];
+      for (var i=0,len=ugly_moves.length;i<len;i++) {
+        if (typeof options!=='undefined' && 'verbose' in options && options.verbose) moves.push(make_pretty(ugly_moves[i]));
+        else moves.push(move_to_san(ugly_moves[i], false));
+      }
+      return moves;
+    },
+    in_check: function() { return in_check(); },
+    in_checkmate: function() { return in_checkmate(); },
+    in_stalemate: function() { return in_stalemate(); },
+    in_draw: function() { return half_moves>=100||in_stalemate()||insufficient_material()||in_threefold_repetition(); },
+    insufficient_material: function() { return insufficient_material(); },
+    in_threefold_repetition: function() { return in_threefold_repetition(); },
+    game_over: function() { return half_moves>=100||in_checkmate()||in_stalemate()||insufficient_material()||in_threefold_repetition(); },
+    validate_fen: function(fen) { return validate_fen(fen); },
+    fen: function() { return generate_fen(); },
+    board: function() {
+      var output=[], row=[];
+      for (var i=SQUARES.a8;i<=SQUARES.h1;i++) {
+        if (board[i]==null) row.push(null); else row.push({type:board[i].type,color:board[i].color});
+        if ((i+1)&0x88) { output.push(row); row=[]; i+=8; }
+      }
+      return output;
+    },
+    header: function() { return set_header(arguments); },
+    ascii: function() {
+      var s='   +------------------------+\n';
+      for (var i=SQUARES.a8;i<=SQUARES.h1;i++) {
+        if (file(i)===0) s+=' '+'87654321'[rank(i)]+' |';
+        if (board[i]==null) s+=' . ';
+        else { var piece=board[i].type,color=board[i].color; s+=' '+(color===WHITE?piece.toUpperCase():piece.toLowerCase())+' '; }
+        if ((i+1)&0x88) { s+='|\n'; i+=8; }
+      }
+      s+='   +------------------------+\n     a  b  c  d  e  f  g  h\n'; return s;
+    },
+    turn: function() { return turn; },
+    move: function(move, options) {
+      var sloppy = typeof options!=='undefined' && 'sloppy' in options ? options.sloppy : false;
+      var move_obj = null;
+      if (typeof move === 'string') { move_obj = move_from_san(move, sloppy); }
+      else if (typeof move === 'object') {
+        var moves = generate_moves();
+        for (var i=0,len=moves.length;i<len;i++) {
+          if (move.from===algebraic(moves[i].from) && move.to===algebraic(moves[i].to) &&
+              (!('promotion' in moves[i]) || move.promotion===moves[i].promotion))
+            { move_obj=moves[i]; break; }
+        }
+      }
+      if (!move_obj) return null;
+      var pretty_move = make_pretty(move_obj); make_move(move_obj); return pretty_move;
+    },
+    undo: function() { var move=undo_move(); return move ? make_pretty(move) : null; },
+    clear: function() { return clear(); },
+    put: function(piece,square) { return put(piece,square); },
+    get: function(square) { return get(square); },
+    remove: function(square) { return remove(square); },
+    square_color: function(square) {
+      if (square in SQUARES) { var sq_0x88=SQUARES[square]; return (rank(sq_0x88)+file(sq_0x88))%2===0?'light':'dark'; }
+      return null;
+    },
+    history: function(options) {
+      var reversed_history=[], move_history=[];
+      var verbose = typeof options!=='undefined' && 'verbose' in options && options.verbose;
+      while (history.length > 0) reversed_history.push(undo_move());
+      while (reversed_history.length > 0) {
+        var move = reversed_history.pop();
+        if (verbose) move_history.push(make_pretty(move)); else move_history.push(move_to_san(move));
+        make_move(move);
+      }
+      return move_history;
+    },
+    /* ── Fast paths for engine ───────────────────────── */
+    fast_moves: function() { return generate_moves(); },
+    fast_captures: function() { return generate_captures(); },
+    fast_make: function(m) { make_move(m); if (accActive) applyEvalDelta(m, 1); },
+    fast_undo: function() {
+      if (accActive && history.length) { var mv = history[history.length-1].move; undo_move(); applyEvalDelta(mv, -1); }
+      else { undo_move(); }
+    },
+    fast_seed_acc: function() {
+      var mw=0, mb=0;
+      for (var i=SQUARES.a8; i<=SQUARES.h1; i++) {
+        if (i&0x88) { i+=7; continue; }
+        var p=board[i]; if (p==null) continue;
+        if (p.color===WHITE) mw+=PIECE_BASE[p.type]; else mb+=PIECE_BASE[p.type];
+      }
+      accMw=mw; accMb=mb; accActive=true;
+    },
+    fast_end_acc: function() { accActive=false; },
+    /* Material only (geometric bases), mover-relative / split */
+    fast_raw_mat: function() {
+      if (accActive) return (turn===WHITE) ? accMw-accMb : accMb-accMw;
+      var Mw=0, Mb=0;
+      for (var i=SQUARES.a8; i<=SQUARES.h1; i++) {
+        if (i&0x88) { i+=7; continue; }
+        var p=board[i]; if (p==null) continue;
+        if (p.color===WHITE) Mw+=PIECE_BASE[p.type]; else Mb+=PIECE_BASE[p.type];
+      }
+      return (turn===WHITE) ? Mw-Mb : Mb-Mw;
+    },
+    fast_raw_mat_split: function() {
+      if (accActive) return { Uw:accMw, Ub:accMb };
+      var Mw=0, Mb=0;
+      for (var i=SQUARES.a8; i<=SQUARES.h1; i++) {
+        if (i&0x88) { i+=7; continue; }
+        var p=board[i]; if (p==null) continue;
+        if (p.color===WHITE) Mw+=PIECE_BASE[p.type]; else Mb+=PIECE_BASE[p.type];
+      }
+      return { Uw:Mw, Ub:Mb };
+    },
+    /* Pseudo-legal move counts per side, one board scan, no allocation:
+     * the microstate count W of each side's bare move ensemble. */
+    fast_mob_counts: function() {
+      var mw = 0, mb = 0, NOFF = PIECE_OFFSETS.n, KOFF = PIECE_OFFSETS.k;
+      for (var i = SQUARES.a8; i <= SQUARES.h1; i++) {
+        if (i & 0x88) { i += 7; continue; }
+        var p = board[i]; if (p == null) continue;
+        var t = p.type, cnt = 0, k, off, sq;
+        if (t === 'p') {
+          var fwd = (p.color === WHITE) ? -16 : 16;
+          sq = i + fwd;
+          if (!(sq & 0x88) && board[sq] == null) {
+            cnt++;
+            var startRank = (p.color === WHITE) ? 6 : 1;
+            if (rank(i) === startRank && board[sq + fwd] == null) cnt++;
+          }
+          for (k = -1; k <= 1; k += 2) {
+            sq = i + fwd + k;
+            if (!(sq & 0x88) && board[sq] != null && board[sq].color !== p.color) cnt++;
+          }
+        } else if (t === 'n' || t === 'k') {
+          var offs = (t === 'n') ? NOFF : KOFF;
+          for (k = 0; k < 8; k++) {
+            sq = i + offs[k];
+            if (!(sq & 0x88) && (board[sq] == null || board[sq].color !== p.color)) cnt++;
+          }
+        } else {
+          var dirs = PIECE_OFFSETS[t];
+          for (k = 0; k < dirs.length; k++) {
+            off = dirs[k]; sq = i + off;
+            while (!(sq & 0x88)) {
+              if (board[sq] == null) { cnt++; sq += off; }
+              else { if (board[sq].color !== p.color) cnt++; break; }
+            }
+          }
+        }
+        if (p.color === WHITE) mw += cnt; else mb += cnt;
+      }
+      return { mw: mw, mb: mb };
+    },
+    /* Null move (pass): flips the side to move and clears en passant,
+     * touching no pieces — the perturbation used by the tempo-
+     * susceptibility probe. Callers must pair make/undo and never pass
+     * while in check. */
+    fast_make_null: function() {
+      history.push({ move: null, kings: { b: kings.b, w: kings.w }, turn: turn,
+        castling: { b: castling.b, w: castling.w }, ep_square: ep_square,
+        half_moves: half_moves, move_number: move_number });
+      turn = swap_color(turn); ep_square = EMPTY;
+    },
+    fast_undo_null: function() {
+      var old = history.pop();
+      turn = old.turn; ep_square = old.ep_square;
+      kings = old.kings; castling = old.castling;
+      half_moves = old.half_moves; move_number = old.move_number;
+    },
+    fast_in_check: function() { return in_check(); },
+    fast_in_checkmate: function() { return in_checkmate(); },
+    fast_turn: function() { return turn; },
+    fast_to_san: function(m) { return move_to_san(m); },
+    fast_algebraic: function(i) { return algebraic(i); },
+    /* 32-bit FNV-1a hash: no string allocation, O(64) integer arithmetic */
+    fast_hash: function() {
+      var h = (turn === WHITE) ? 0x811c9dc5 : 0x050c5d1f;
+      for (var i=SQUARES.a8; i<=SQUARES.h1; i++) {
+        if (i&0x88) { i+=7; continue; }
+        var p=board[i];
+        var v = p ? (p.color===WHITE ? 0 : 6) + SHIFTS[p.type] + 1 : 0;
+        h = Math.imul(h ^ v, 0x01000193);
+      }
+      h = Math.imul(h ^ ((castling.w << 4) | castling.b), 0x01000193);
+      h = Math.imul(h ^ (ep_square + 2), 0x01000193);
+      return h | 0;
+    }
+  };
+};
+
+/* ================================================================
+ * ENGINE — Thermodynamic Search
+ * ================================================================ */
+
+// ── Constants ──────────────────────────────────────────────
+const T_FLOOR = 1e-3;   // Numerical guard only, well below the engine's eval
+                        // resolution (~1 unit). It lets T fall to its true
+                        // self-consistent value — including the T→0 ground
+                        // state of a forced position — instead of clamping at
+                        // an arbitrary fixed temperature. Not a physical floor.
+const PAWN_XRAY = 2;   // pawn base = 2 internal units (avg pawn moves); also the display divisor
+const CHECKMATE_SCORE = 100000;
+const MATE_NEAR = CHECKMATE_SCORE - 4096;   // scores beyond this encode mate distance
+// Mate-distance ticking: every negation on the way up the tree pulls a mate
+// score one unit toward zero, so a mate in 2 outscores a mate in 4 and the
+// engine converts won positions instead of shuffling. Scores stay
+// node-relative, which keeps transposition-table entries valid across paths.
+function tickMate(v) { return v > MATE_NEAR ? v - 1 : (v < -MATE_NEAR ? v + 1 : v); }
+const TIME_LIMITS = { easy:500, medium:2000, hard:8000, max:20000 };
+const MATE_SENTINEL = 9999;   // Stockfish mate score, stored in pawn-equivalent units
+const SF_DEPTH = 12;          // Stockfish search depth for the reference evaluation
+const BOLTZ_SIGMA = 3;
+const TRUNC_MAX = 16;   // hard cap on children fully recursed per node (partition truncation)
+const NODE_HARD_LIMIT = 5000000;
+const DELTA_MARGIN = 2 * PAWN_XRAY;   // ~2 pawns; quiescence delta-pruning safety margin (new eval scale)
+const PIECE_CHAR = {
+    wk:'♔',wq:'♕',wr:'♖',wb:'♗',wn:'♘',wp:'♙',
+    bk:'♚',bq:'♛',br:'♜',bb:'♝',bn:'♞',bp:'♟'
+};
+const PIECE_NAME = { p:'Pawn', n:'Knight', b:'Bishop', r:'Rook', q:'Queen' };
+
+// ── Derived piece geometry & material base ─────────────────
+// X-ray mobility: squares a piece sweeps on an empty board (blocker-agnostic),
+// a pure function of type and square — which is why it precomputes.
+function xrayMobility(type, file, rank) {
+    switch (type) {
+        case 'r': return 14;
+        case 'b': return Math.min(file,rank)+Math.min(7-file,rank)+Math.min(file,7-rank)+Math.min(7-file,7-rank);
+        case 'q': return 14+Math.min(file,rank)+Math.min(7-file,rank)+Math.min(file,7-rank)+Math.min(7-file,7-rank);
+        case 'n': { let c=0; for (const [df,dr] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) if (file+df>=0&&file+df<=7&&rank+dr>=0&&rank+dr<=7) c++; return c; }
+        // king & pawn carry no mobility term in U:
+        //   king: walking it into the open is rewarded with no safety offset;
+        //   pawn: its x-ray mobility is enemy-dependent, and a start-rank push
+        //         bonus penalised advancing — both dropped.
+        default: return 0;
+    }
+}
+function avgMobility(type) { let s = 0; for (let r=0;r<8;r++) for (let f=0;f<8;f++) s += xrayMobility(type,f,r); return s/64; }
+
+// Material base is DERIVED from geometry, not imported as a point count:
+//   base = sqrt(mean x-ray mobility).
+// Per-square mobility is then added on top, so mobility is the dominant term and
+// a centralized piece outvalues a cornered one of the same type. The sqrt keeps
+// the base a modest anchor rather than double-counting mobility.
+//   pawn: mobility is enemy-dependent and disregarded in U, so base is fixed at
+//         sqrt(2) (its ~2 typical moves) with no per-square term.
+//   king: never traded, and cancels in U (both sides always have one), so base 0.
+const PIECE_BASE = {};
+for (const type of ['p','n','b','r','q','k']) {
+    const a = (type === 'p') ? 2 : avgMobility(type);
+    PIECE_BASE[type]  = (type === 'k') ? 0 : a;   // base = x-ray value itself (was sqrt): squares the material term so it dominates mobility
+}
+
+// ── Temperature: the annealing residual ────────────────────
+// There is no prescribed heat capacity, no material schedule, no slider.
+// The search is an annealing computation: iterative deepening is time,
+// deepening is cooling, and the bath temperature is MEASURED, not chosen.
+// Every time the search revises a value by looking one ply deeper — the
+// root moves between iterations, and every interior child promoted from
+// its shallow ranking value to a full (depth−1) search — the revision
+// |ΔQ| is one sample of the engine's residual uncertainty about its own
+// evaluations. The bath temperature for the next iteration is the σ-scale
+// of that fluctuation ensemble (mean absolute deviation × √(π/2), the
+// Gaussian conversion):
+//
+//     T ← 1.2533 · ⟨ |Q_deeper − Q_shallower| ⟩
+//
+// While values still fluctuate by ~T, moves within ~T of the best are
+// genuinely indistinguishable at the engine's current resolution, and the
+// free energy weights them accordingly; as the search converges the
+// system cools toward the T = 0 minimax ground state. Perfect play is the
+// fully annealed limit. T is held constant within one deepening iteration
+// (one bath, one temperature — and the transposition table stays
+// coherent), and updated between iterations.
+// PARITY: negamax-softmax values carry an alternating entropy ladder —
+// every node adds +T·S for its mover — so values computed at depths of
+// opposite leaf parity differ by one uncompensated entropy layer ~T·S̄.
+// A thermometer that compares adjacent depths reads that ladder as
+// fluctuation and feeds it back (T ∝ T: runaway heating). All fluctuation
+// samples therefore compare SAME-PARITY depths (d vs d−2, and depth 1 vs
+// the static baseline), where the ladder cancels identically.
+//
+// ZERO POINT: the evaluation spectrum is quantized — move gains come in
+// whole squares of x-ray reach — and a quantized system's fluctuation
+// cannot fall below its level spacing. The bath temperature is floored at
+// the minimal positive level spacing T₀ of the move-gain spectrum,
+// COMPUTED from the geometry tables (it comes out to one square). This is
+// the zero-point motion of the evaluation lattice: even a fully converged
+// search cannot distinguish values finer than one square of mobility, so
+// optionality keeps exactly that much purchase and no more.
+let bathT = T_FLOOR;      // the bath temperature governing this iteration
+let measT = 0;            // measured (thermal) component, damped across iterations
+
+// ── Zero-point temperature: the quantum of the spectrum ────
+// The minimal positive level spacing of the move-gain spectrum, derived
+// from the geometry itself: the smallest nonzero difference between the
+// x-ray mobilities of one piece type across squares. It evaluates to one
+// square of reach — the lattice constant of the evaluation.
+const T_ZERO = (function () {
+    let q = Infinity;
+    for (const type of ['n','b','r','q']) {
+        const vals = [];
+        for (let r=0;r<8;r++) for (let f=0;f<8;f++) vals.push(xrayMobility(type,f,r));
+        vals.sort((a,b)=>a-b);
+        for (let i=1;i<vals.length;i++) {
+            const d = vals[i]-vals[i-1];
+            if (d > 1e-12 && d < q) q = d;
+        }
+    }
+    return Number.isFinite(q) ? q : 1;
+})();
+
+// ── Energy vs entropy: the division of labor ───────────────
+// Energy is MATERIAL ONLY (geometric bases). Mobility/activity is not an
+// energy term: it enters exclusively through the entropic channel — the
+// T·S optionality of the move ensemble — and is therefore priced at the
+// bath temperature. A cold engine (converged values) trades no material
+// for activity; a hot engine (unresolved values) pays for optionality
+// exactly up to its own uncertainty. The old 1:1 mobility-as-energy
+// weight was a hidden hardcoded exchange rate, and the direct cause of
+// hung material: piece values and mobility swings had the same magnitude.
+
+// ── Game State ─────────────────────────────────────────────
+let game = new Chess();
+let boardFlipped = false;
+let selectedSq = null;
+let legalTargets = [];
+let humanColor = 'w';
+let aiColor = 'b';
+let thinking = false;
+let lastMoveSquares = null;
+let moveHistory = [];
+let nodeCount = 0;
+let searchStats = { depth: 0, nodes: 0 };
+let graphData = [];
+
+// ── Transposition Cache ────────────────────────────────────
+// Cached F values are functions of (position, depth, T). The bath
+// temperature changes between deepening iterations, so annealRoot clears
+// the table at the start of every iteration: an annealing system does not
+// reuse equilibrium values computed at a different temperature.
+const thermoCache = new Map();
+const THERMO_CACHE_MAX = 500000;
+
+// Position keys of the played game (since the last irreversible move),
+// passed in with each analysis request and seeded into the search's
+// repetition detection: the engine avoids repetition draws when ahead and
+// steers into them when lost, relative to the ACTUAL game, not merely the
+// search path.
+let PAST_KEYS = [];
+
+// ── Energy display: material by color ──────────────────────
+function rawU(g) { return g.fast_raw_mat_split(); }
+
+// ── Leaf optionality: S = ln W ─────────────────────────────
+// At the search horizon the engine has no energy resolution among the
+// unsearched continuations, so each side's move ensemble is UNIFORM —
+// maximal entropy — and its entropy is Boltzmann's own S = ln W, with W
+// the number of available moves (pseudo-legal: the bare microstate count,
+// before the interaction that legality imposes). Optionality is the
+// difference of the two sides' entropies priced at the bath temperature:
+//
+//     opt = T · (ln W_us − ln W_them)
+//
+// side-symmetric by construction (no null move needed), bounded, with
+// diminishing returns in raw mobility — and computable in a single board
+// scan. A position in check has no equilibrium optionality (the ensemble
+// is not stationary): material only.
+let LEAF_T_OVERRIDE = 0;   // laboratory knob: price leaf optionality at a
+                           // counterfactual temperature while the search
+                           // runs at the bath. Test-only, like pinT.
+// ── Effective-entropy premium (the fourth edition's first experiment) ──
+// When on, computeF merges children that share a best reply: options with
+// one refutation are ONE microstate (a correlated block hedges nothing),
+// so Z_eff = Σ_groups e^{Q_g/T} with Q_g the block's best member. Reply
+// tags are written by each child's own search (the argmax it already
+// computes); a parallel cache keeps tags alive across TT hits. Off by
+// default everywhere; the UI build enables it for interactive testing.
+let EFF_PREMIUM = false;
+const replyCache = new Map();
+
+let THEM_T_OVERRIDE = 0;   // laboratory knob: run the OPPONENT'S interior
+                           // ensembles (their softmax + their choice
+                           // premium) at a counterfactual temperature.
+                           // Test-only. The us/them decomposition of the
+                           // interior term.
+function staticEval(g) {
+    const base = g.fast_raw_mat();
+    if (bathT <= T_FLOOR) return base;     // frozen bath: optionality is worthless
+    if (g.fast_in_check()) return base;
+    const c = g.fast_mob_counts();
+    const opt = (g.fast_turn() === 'w')
+        ? Math.log(c.mw + 1) - Math.log(c.mb + 1)
+        : Math.log(c.mb + 1) - Math.log(c.mw + 1);
+    return base + (LEAF_T_OVERRIDE > 0 ? LEAF_T_OVERRIDE : bathT) * opt;
+}
+
+// ── Quiescence Search ──────────────────────────────────────
+// Resolves captures and promotions to reach a quiet position before the
+// static evaluation applies. Positions with pending captures are far from
+// equilibrium; computing thermodynamic state variables for them is
+// meaningless. Alpha-beta at T = 0 (not Boltzmann): the fast tactical
+// degrees of freedom relax deterministically before the slow ones are
+// sampled thermally.
+// Tempo-tax frequency: the measured probability that a position taxes the
+// mover's tempo — the mover cannot just "bank" the static value because a
+// forcing continuation beats standing pat (or they are in check outright).
+// This is the mixing weight w of the susceptibility probe, counted over
+// every quiescence entry the search visits: a frequency read off the
+// engine's own experience of the game, chosen by no one.
+let taxTotal = 0, taxTaken = 0;
+
+// ── The μ field: local tempo chemical potential, measured for free ──
+// The quiescence stand-pat IS the null state: every quiescence entry
+// already computes the value of doing nothing versus the best forcing
+// continuation, so the local chemical potential of the tempo,
+//     μ̂_node = T·softplus(χ̃/T) − T·ln 2 ,   χ̃ = value − standPat,
+// falls out of numbers the search computes anyway. (The T·ln 2 gauge
+// subtracts the free-particle baseline: at χ̃ = 0 the pass ties the best
+// alternative, π_pass = ½, and the tempo carries only its option value.)
+// Samples are attributed to whichever side was the mover at the node,
+// relative to the search root: ⟨μ̂_us⟩ prices the forcing pressure ON us
+// in these futures, ⟨μ̂_them⟩ the pressure we generate. Mate-scale
+// readings are absorbing, not thermal, and are skipped. In-check nodes
+// (the pass state deleted outright) contribute the price actually
+// extracted: staticEval − evasion value.
+let fluxRootTurn = 'w';
+let muSumUs = 0, muCntUs = 0, muSumThem = 0, muCntThem = 0;
+let taxUs = 0, taxThem = 0;
+
+// ── Leaf tempo prior (channel 3: horizon priors) ────────────
+// The leaf already prices sub-horizon OPTIONALITY (T·lnW). This prices
+// sub-horizon INITIATIVE: a census leaf whose quiet stance was refuted
+// carries an unpaid obligation. First implementation priced it at the
+// windowed opponent T̂c and failed (5.5/12): the small-window estimate
+// spiked to ~1.7 pawns per leaf and produced contact-avoidant, drawish
+// play. The coefficient is now referenced to the STRUCTURAL J — the
+// rules' own share of initiative compounding. A forced reply comes
+// from a menu smaller by the constraint bite ⟨lnW_free − lnW_forced⟩,
+// so J_structure = T·bite, and the per-quantum charge J·b/2 becomes a
+// DIMENSIONLESS RATIO riding the live bath, exactly like the entropy
+// term beside it:
+//     charge = (b̂·bite/2) · T,   ratio < 1 by construction.
+// The bite is measured live: every in-check census node compares the
+// mover's pseudo-legal mobility against its actual evasion menu, with
+// the quiet legality gap (sampled at each search root) as baseline.
+// Raw values everywhere in caches and measurements, absorbing-guarded,
+// dissolving under deepening — the channel-3 guarantees unchanged.
+let LEAF_RATIO = 0;        // per-search dimensionless charge ratio (0 = off)
+// Gauge reference for the recentered charge: the damped census tax rate.
+// Charging (taxed − r̄) instead of taxed makes the term ZERO-MEAN within
+// each horizon-parity class by construction — the same gauge fix as
+// Φ = F − w(μ − μ̄) — so mixing resolved and tail leaves in one Z carries
+// no side-correlated offset (the diagnosed killer of the one-sided form).
+// Only the within-siblings contrast survives. −1 = not yet measured.
+let LEAF_TAXRATE = -1;
+let biteChkSum = 0, biteChkCnt = 0;    // in-check: ln(mobility) − ln(evasions)
+let biteBaseSum = 0, biteBaseCnt = 0;  // quiet roots: ln(mobility) − ln(legal)
+function biteReset() { biteChkSum = 0; biteChkCnt = 0; biteBaseSum = 0; biteBaseCnt = 0; }
+function biteEstimate() {
+    if (biteChkCnt < 12 || biteBaseCnt < 1) return 0;   // refills within the first search
+    return Math.max(0, biteChkSum / biteChkCnt - biteBaseSum / biteBaseCnt);
+}
+
+// ── Opponent thermometer: the running Ĵ estimator ──────────
+// How much does THIS opponent make obligations compound? Estimated by
+// running the validated offline methodology (fit_J.js: forward Curie–Weiss
+// fit, β = b·tanh((Δμ + Jβ)/2T), squared loss in β-space, each reading
+// keeping its own T and Δμ) on a sliding window of the game's own flux
+// readings. Every shortcut tried in place of the forward fit — raw
+// artanh inversion, delta-method bias corrections, binned-mean
+// linearization, intercept models — imported a bias that masqueraded as
+// J (the readings carry a point-of-view asymmetry and heterogeneous T
+// that only the per-reading forward model handles). The fit is a small
+// fixed grid over (J, b), a few ms per move; the error bar is split-half
+// disagreement (even vs odd moves — duplicate assays), so a window that
+// contradicts itself reports its own unreliability. The scheduler
+// consumes the conservative lower edge: an unresolved opponent is
+// budgeted as docile, never the reverse. No norm of play imported.
+const JH_WINDOW = 64;      // moves remembered (readings per move ≤ 8)
+const JH_PERMOVE = 8;
+let jhWin = [];            // [{pts: [[beta, dmu, T, w], …]}, …]
+function jhatReset() { jhWin = []; }
+function jhatUpdate(betas, dmus, ntaxs, T) {
+    if (!betas || !(T > 0) || T > 50) return;
+    const cand = [];
+    for (let i = 0; i < betas.length; i++) {
+        const beta = betas[i];
+        if (beta == null || !Number.isFinite(dmus[i])) continue;
+        const cnt = ntaxs ? ntaxs[i] || 1 : 1;
+        if (cnt < 4) continue;                 // a 3-count β is a coin flip
+        cand.push([beta, dmus[i], T, Math.min(cnt, 64)]);
+    }
+    if (!cand.length) return;
+    cand.sort((a, b2) => b2[3] - a[3]);        // keep the best-measured readings
+    jhWin.push({ pts: cand.slice(0, JH_PERMOVE) });
+    if (jhWin.length > JH_WINDOW) jhWin.shift();
+}
+function jhPredict(dmu, T, J, b) {
+    let x = Math.sign(dmu) * 0.5 * b || 0;
+    for (let it = 0; it < 24; it++) {
+        const nx = b * Math.tanh((dmu + J * x) / (2 * T));
+        if (Math.abs(nx - x) < 1e-7) return nx;
+        x = 0.5 * x + 0.5 * nx;
+    }
+    return x;
+}
+function jhFit(moves) {
+    let best = null;
+    for (let J = 0; J <= 10; J += 0.5) for (let b = 0.4; b <= 1.0001; b += 0.1) {
+        let sse = 0, W = 0;
+        for (const m of moves) for (const p of m.pts) {
+            const r = p[0] - jhPredict(p[1], p[2], J, b);
+            sse += p[3] * r * r; W += p[3];
+        }
+        const mse = sse / Math.max(1, W);
+        if (!best || mse < best.mse) best = { J, b, mse };
+    }
+    return best;
+}
+function jhatRead() {
+    // Bayesian, thresholdless: the prior is the STRUCTURAL reference
+    // J_s = bite · T̄ (bite measured live; T̄ the precision-weighted mean
+    // temperature of the window's own readings, since J_structure ∝ T and
+    // a constant-J fit sees the coupling at the weighted temperature), with
+    // prior width J_s itself — opponent deviations are of order the
+    // reference: skilled defense sits below it, punishing attack above.
+    // Evidence enters as the windowed forward fit with its split-half
+    // error bar; the posterior is the precision blend. There is no waiting
+    // period: pre-evidence the posterior IS the structural value with
+    // structural-sized uncertainty, and the scheduler's conservative 2σ
+    // lower edge (an explicit convention, kept) makes early T̂c ≈ 0 emerge
+    // from posterior width rather than from a move count.
+    let Tw = 0, Ww = 0;
+    for (const m of jhWin) for (const pt of m.pts) { Tw += pt[3] * pt[2]; Ww += pt[3]; }
+    const Js = Ww > 0 ? biteEstimate() * (Tw / Ww) : 0;
+    let Jfit = null, se = Infinity, bfit = 0.7;
+    if (jhWin.length >= 2) {
+        const all = jhFit(jhWin);
+        const ev = jhFit(jhWin.filter((_, i) => i % 2 === 0));
+        const od = jhFit(jhWin.filter((_, i) => i % 2 === 1));
+        Jfit = all.J; bfit = all.b;
+        se = Math.max(0.25, Math.abs(ev.J - od.J) / 2);   // duplicate-assay error bar
+    }
+    if (!(Js > 0.1)) {   // no structural reading yet (first search of the game)
+        if (Jfit == null) return { J: 0, se: Infinity, b: bfit, Tc: 0, n: jhWin.length };
+        const Jlo0 = Math.max(0, Jfit - 2 * se);
+        return { J: Jfit, se, b: bfit, Tc: Jlo0 * bfit / 2, n: jhWin.length };
+    }
+    const wPrior = 1 / (Js * Js);
+    const wFit = Jfit != null && se < Infinity ? 1 / (se * se) : 0;
+    const J = (wFit * (Jfit || 0) + wPrior * Js) / (wFit + wPrior);
+    const sd = Math.sqrt(1 / (wFit + wPrior));
+    const Jlo = Math.max(0, J - 2 * sd);
+    return { J, se: sd, b: bfit, Tc: Jlo * bfit / 2, n: jhWin.length, Js };
+}
+
+// ── Quiescence transposition table ──────────────────────────
+// Bounded-flag entries (0 exact, 1 lower bound, 2 upper bound) keyed by
+// position hash, tagged with remaining quiescence depth (an entry is
+// usable only if it was computed with at least as much depth as the
+// current node has). Entry nodes also store their census reading (μ̂,
+// taxed, mover) so a cache hit REPLAYS the field sample instead of
+// silently thinning the flux statistics. Cleared with the main table
+// once per search: annealing with hysteresis, same policy.
+const qCache = new Map();
+const Q_CACHE_MAX = 400000;
+function fieldSample(mover, chi, taxed) {
+    if (chi > MATE_NEAR || chi < -MATE_NEAR) return;    // absorbing, not thermal
+    const mu = Math.max(0, softplusT(chi) - bathT * Math.LN2);
+    if (mover === fluxRootTurn) { muSumUs += mu; muCntUs++; if (taxed) taxUs++; }
+    else { muSumThem += mu; muCntThem++; if (taxed) taxThem++; }
+}
+
+function qStore(key, v, flag, qd, cen, chi, tax) {
+    if (searchAborted) return;   // aborted unwind: values are garbage, store nothing
+    // Entry nodes only: interior capture-chain positions rarely transpose,
+    // so storing them buys churn, not hits. Entry nodes (the quiet leaves
+    // the main tree reaches by many move orders) are where the reuse lives.
+    if (qd === 24 && qCache.size < Q_CACHE_MAX)
+        qCache.set(key, { v, f: flag, qd, cen: !!cen, chi: chi || 0, tax: !!tax });
+}
+
+function quiesce(g, alpha, beta, qd) {
+    if (searchAborted) return alpha;                  // unwinding: iteration will be discarded
+    if ((nodeCount & 2047) === 0 && performance.now() > hardDeadline) { searchAborted = true; return alpha; }
+    nodeCount++;
+    if (qd === undefined) qd = 24;
+    const inCheck = g.fast_in_check();
+
+    // The census reads only ENTRY nodes (qd === 24): the population of
+    // positions the search treats as quiet leaves. Interior quiescence
+    // nodes sit mid-capture-chain and are taxed almost by definition.
+    const census = qd === 24;
+    const mover = census ? g.fast_turn() : null;
+
+    // Transposition probe. On a usable hit at an entry node, REPLAY the
+    // stored census reading so the flux statistics keep their sampling.
+    const qKey = g.fast_hash();
+    const hit = qCache.get(qKey);
+    if (hit !== undefined && hit.qd >= qd) {
+        // cache stores RAW values; the tempo prior applies on the way out
+        const hv = (LEAF_RATIO && census && hit.cen && Math.abs(hit.v) < MATE_NEAR)
+            ? hit.v - LEAF_RATIO * bathT * ((hit.tax ? 1 : 0) - LEAF_TAXRATE) : hit.v;
+        if (hit.f === 0 || (hit.f === 1 && hv >= beta) || (hit.f === 2 && hv <= alpha)) {
+            if (census && hit.cen) {
+                taxTotal++; if (hit.tax) taxTaken++;
+                fieldSample(mover, hit.chi, hit.tax);
+            }
+            return hv;
+        }
+    }
+    const alphaOrig = alpha;
+
+    let standPat = 0, sEvalCheck = 0;
+    if (!inCheck) {
+        standPat = staticEval(g);   // material + T·(S_us − S_them) at bath T
+        if (standPat >= beta) {     // banks the tempo: untaxed, cold μ sample
+            if (census) { taxTotal++; fieldSample(mover, 0, false); }
+            qStore(qKey, standPat, 1, qd, census, 0, false);
+            return (LEAF_RATIO && census && Math.abs(standPat) < MATE_NEAR)
+                ? standPat - LEAF_RATIO * bathT * (0 - LEAF_TAXRATE) : standPat;
+        }
+        if (standPat > alpha) alpha = standPat;
+        if (qd <= 0) return standPat;                   // quiescence depth cap (quiet)
+    } else if (census) {
+        taxTotal++; taxTaken++;                          // in check: tempo already taxed
+        sEvalCheck = staticEval(g);                      // reference for the price extracted
+    }
+    if (inCheck && qd <= -8) return staticEval(g);      // bound runaway checking sequences
+
+    // In check: all evasions. Not in check: captures and promotions only.
+    const moves = inCheck ? g.fast_moves() : g.fast_captures();
+    if (inCheck && census && moves.length > 0) {
+        const bmc = g.fast_mob_counts();
+        const bwf = (g.fast_turn() === 'w') ? bmc.mw : bmc.mb;
+        if (bwf > 0) { biteChkSum += Math.log(bwf) - Math.log(moves.length); biteChkCnt++; }
+    }
+    if (moves.length === 0) {
+        if (inCheck) { qStore(qKey, -CHECKMATE_SCORE, 0, qd, false); return -CHECKMATE_SCORE; }
+        if (alpha === standPat) qStore(qKey, standPat, 0, qd, census, alpha - standPat, false);
+        return alpha;
+    }
+
+    // MVV-LVA ordering: most valuable victim, least valuable attacker first,
+    // so the strongest captures produce beta cutoffs early. The king has no
+    // material worth (it is never traded) but as an ATTACKER it is ordered
+    // last, not first — its ordering value is its irreplaceability.
+    if (!inCheck && moves.length > 1) {
+        for (let i = 0; i < moves.length; i++)
+            moves[i]._o = (PIECE_BASE[moves[i].captured] || 0) * 16 -
+                          (moves[i].piece === 'k' ? 2 * PIECE_BASE.q : PIECE_BASE[moves[i].piece]);
+        moves.sort((a, b) => b._o - a._o);
+    }
+
+    // Delta-pruning margin: material step plus the typical optionality
+    // swing of one capture (~T·Δln W), priced at the bath temperature.
+    const margin = DELTA_MARGIN + 2 * bathT;
+
+    for (let i = 0; i < moves.length; i++) {
+        const m = moves[i];
+        // Delta pruning: if even winning this capture cannot lift us to alpha, skip it.
+        if (!inCheck && m.captured && !m.promotion &&
+            standPat + (PIECE_BASE[m.captured] || 0) + margin <= alpha) continue;
+        g.fast_make(m);
+        const score = -tickMate(quiesce(g, -beta, -alpha, qd - 1));
+        g.fast_undo();
+        if (score >= beta) {
+            let chi = 0;
+            if (census) {
+                if (inCheck) { chi = sEvalCheck - score; fieldSample(mover, chi, true); }
+                else { chi = score - standPat; taxTotal++; taxTaken++; fieldSample(mover, chi, true); }
+            }
+            qStore(qKey, score, 1, qd, census, chi, true);
+            return (LEAF_RATIO && census && Math.abs(score) < MATE_NEAR)
+                ? score - LEAF_RATIO * bathT * (1 - LEAF_TAXRATE) : score;
+        }
+        if (score > alpha) alpha = score;
+    }
+
+    let chi = 0, taxed = false;
+    if (census) {
+        if (inCheck) { chi = sEvalCheck - alpha; taxed = true; fieldSample(mover, chi, true); }
+        else {
+            taxTotal++;
+            taxed = alpha > standPat;
+            chi = alpha - standPat;
+            if (taxed) taxTaken++;
+            fieldSample(mover, chi, taxed);
+        }
+    }
+    qStore(qKey, alpha, alpha <= alphaOrig ? 2 : 0, qd, census, chi, taxed);
+    return (LEAF_RATIO && census && Math.abs(alpha) < MATE_NEAR)
+        ? alpha - LEAF_RATIO * bathT * ((taxed ? 1 : 0) - LEAF_TAXRATE) : alpha;
+}
+
+// ── Schottky measurement (dashboard instrument) ────────────
+// Nothing here influences play. Given the root move values and the bath
+// temperature, this measures where the bath sits on the position's own
+// heat-capacity curve C(T) = Var_π(Q)/T² — the Schottky anomaly of the
+// move ensemble. Reported:
+//   Ceff  = C(T_bath): the capacity the position exhibits at the bath T
+//   Cstar = max_T C(T): the position's critical capacity (an intrinsic,
+//           parameter-free invariant of the position)
+//   Tspin = argmax C(T): the spinodal temperature (Schottky peak)
+//   phase = 'frozen' | 'cold' (ordered side, T < T̂) | 'critical' |
+//           'hot' (disordered side, T > T̂)
+// The peak search uses a robust median (MAD) scale of the bulk so a mate
+// outlier reads as frozen instead of defining a fake high-T branch.
+function _sigmaOverT(xs, n, T, xmax) {
+    let expSum = 0, m1 = 0, m2 = 0;
+    for (let i = 0; i < n; i++) {
+        const w = Math.exp((xs[i] - xmax) / T);
+        expSum += w; m1 += w * xs[i]; m2 += w * xs[i] * xs[i];
+    }
+    m1 /= expSum; m2 /= expSum;
+    const v = m2 - m1 * m1;
+    return v > 0 ? Math.sqrt(v) / T : 0;
+}
+function measureSchottky(Qs, n, T) {
+    if (n < 2) return { Ceff: 0, Cstar: 0, Tspin: T_FLOOR, phase: 'frozen' };
+
+    // Robust bulk scale: MAD, with quantile fallbacks for degenerate bulks.
+    const tmp = new Array(n);
+    for (let i = 0; i < n; i++) tmp[i] = Qs[i];
+    tmp.sort((a, b) => a - b);
+    const med = n & 1 ? tmp[n >> 1] : (tmp[(n >> 1) - 1] + tmp[n >> 1]) * 0.5;
+    for (let i = 0; i < n; i++) tmp[i] = Math.abs(Qs[i] - med);
+    tmp.sort((a, b) => a - b);
+    const mad = n & 1 ? tmp[n >> 1] : (tmp[(n >> 1) - 1] + tmp[n >> 1]) * 0.5;
+    let scale = 1.4826 * mad;
+    if (scale === 0) scale = tmp[Math.min(n - 1, Math.ceil(0.9 * n) - 1)]; // 90th-pct deviation
+    if (scale === 0 && tmp[n - 1] < MATE_NEAR) scale = tmp[n - 1];         // widest non-mate gap
+
+    // Median-centered values for numerically stable moments.
+    const xs = tmp;
+    let xmax = -Infinity;
+    for (let i = 0; i < n; i++) { xs[i] = Qs[i] - med; if (xs[i] > xmax) xmax = xs[i]; }
+
+    const rBath = _sigmaOverT(xs, n, Math.max(T, T_FLOOR), xmax);
+    const Ceff = rBath * rBath;
+    if (scale === 0) return { Ceff, Cstar: Ceff, Tspin: T_FLOOR, phase: 'frozen' };
+
+    // Locate the Schottky peak: geometric grid sweep + golden refinement.
+    const RHO = 0.6;
+    let bestT = 6 * scale, bestR = _sigmaOverT(xs, n, bestT, xmax);
+    for (let Tk = bestT * RHO; Tk >= Math.max(T_FLOOR, scale * 1e-3); Tk *= RHO) {
+        const r = _sigmaOverT(xs, n, Tk, xmax);
+        if (r > bestR) { bestR = r; bestT = Tk; }
+        else if (r < 0.3 * bestR) break;
+    }
+    let lo = Math.log(bestT * RHO), hi = Math.log(bestT / RHO);
+    const GR = 0.6180339887498949;
+    let x1 = hi - GR * (hi - lo), x2 = lo + GR * (hi - lo);
+    let r1 = _sigmaOverT(xs, n, Math.exp(x1), xmax), r2 = _sigmaOverT(xs, n, Math.exp(x2), xmax);
+    for (let it = 0; it < 8; it++) {
+        if (r1 < r2) { lo = x1; x1 = x2; r1 = r2; x2 = lo + GR * (hi - lo); r2 = _sigmaOverT(xs, n, Math.exp(x2), xmax); }
+        else { hi = x2; x2 = x1; r2 = r1; x1 = hi - GR * (hi - lo); r1 = _sigmaOverT(xs, n, Math.exp(x1), xmax); }
+    }
+    const Tspin = Math.exp((lo + hi) * 0.5);
+    const rPk = _sigmaOverT(xs, n, Tspin, xmax);
+    const Cstar = Math.max(rPk * rPk, Ceff);
+
+    let phase;
+    if (T <= 2e-3 || rPk < 1e-6) phase = 'frozen';
+    else if (Math.abs(Math.log(T / Tspin)) < 0.25) phase = 'critical';
+    else phase = T < Tspin ? 'cold' : 'hot';
+
+    // Sample the full capacity curve C(T') on a log grid spanning both the
+    // Schottky peak and the bath, for the dashboard's curve plot.
+    const curve = [];
+    const Tlo = Math.min(Tspin, Math.max(T, T_FLOOR)) / 16;
+    const Thi = Math.max(Tspin, Math.max(T, T_FLOOR)) * 16;
+    const NPTS = 40, step = Math.log(Thi / Tlo) / (NPTS - 1);
+    for (let k = 0; k < NPTS; k++) {
+        const Tk = Tlo * Math.exp(k * step);
+        const r = _sigmaOverT(xs, n, Tk, xmax);
+        curve.push({ T: Tk, C: r * r });
+    }
+    return { Ceff, Cstar, Tspin, phase, curve };
+}
+
+// ── Thermodynamic Search: F = T ln Z ───────────────────────
+// Unified search at all depths. Both sides computed identically
+// (equilibrium requires symmetry).
+//   depth ≤ 0: quiescence search (alpha-beta over captures)
+//   depth 1 : full Boltzmann evaluation of all moves
+//   depth ≥ 2: partition-function truncation — the dominant set is
+//              fully recursed, the negligible tail keeps its shallow
+//              values (it contributes <1% of Z)
+//
+// Draw detection via pathKeys: if the current position has appeared
+// earlier on the search path — or in the PLAYED GAME since the last
+// irreversible move (PAST_KEYS, seeded per search) — return 0 (draw).
+function thermoSearch(g, depth, pathKeys, tagMove) {
+    if (searchAborted) return 0;                      // unwinding: iteration will be discarded
+    if ((nodeCount & 2047) === 0 && performance.now() > hardDeadline) { searchAborted = true; return 0; }
+    nodeCount++;
+
+    // Node hard limit: degrade gracefully
+    if (nodeCount > NODE_HARD_LIMIT && depth > 1) depth = 1;
+
+    // Leaf: resolve captures via quiescence
+    if (depth <= 0) return quiesce(g, -Infinity, Infinity);
+
+    const posKey = g.fast_hash();
+
+    // Draw detection: repetition on current search path
+    if (pathKeys.has(posKey)) return 0;
+
+    // Transposition table lookup (numeric key: 32-bit hash × depth ≤ 64
+    // packs exactly into a double — no string allocation per node)
+    const key = posKey * 128 + depth;
+    const cached = thermoCache.get(key);
+    if (cached !== undefined) {
+        if (tagMove !== undefined) {
+            const rk = replyCache.get(key);
+            if (rk !== undefined) tagMove._reply = rk;
+        }
+        return cached;
+    }
+
+    const moves = g.fast_moves();
+    const n = moves.length;
+    if (n === 0) {
+        const v = g.fast_in_check() ? -CHECKMATE_SCORE : 0;
+        if (!searchAborted && thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(key, v);
+        return v;
+    }
+
+    let Qs;
+
+    if (depth === 1) {
+        // Depth 1: quiescence is already the cheapest eval, nothing to truncate.
+        Qs = new Array(n);
+        pathKeys.add(posKey);
+        for (let i = 0; i < n; i++) {
+            g.fast_make(moves[i]);
+            Qs[i] = -tickMate(thermoSearch(g, 0, pathKeys));
+            g.fast_undo();
+        }
+        pathKeys.delete(posKey);
+    } else {
+        // Depth ≥ 2: partition-function truncation (the softmax analog of α-β).
+        // 1) cheap shallow pass (depth-2) to rank the children,
+        // 2) fully recurse only those carrying non-negligible Boltzmann weight
+        //    (within BOLTZ_SIGMA·T of the best, capped at TRUNC_MAX),
+        // 3) the negligible tail keeps its shallow value — it contributes <1% of Z.
+        // The width is temperature-scaled: forced (low-T) nodes prune to nearly one
+        // move, open (high-T) nodes keep more, and as T→0 this becomes hard minimax.
+        const quickQs = new Array(n);
+        pathKeys.add(posKey);
+        for (let i = 0; i < n; i++) {
+            g.fast_make(moves[i]);
+            quickQs[i] = -tickMate(thermoSearch(g, depth - 2, pathKeys, moves[i]));
+            g.fast_undo();
+        }
+
+        let qMax = quickQs[0];
+        for (let i = 1; i < n; i++) if (quickQs[i] > qMax) qMax = quickQs[i];
+        const threshold = qMax - BOLTZ_SIGMA * bathT;   // truncation width set by the bath
+
+        const order = new Array(n);
+        for (let i = 0; i < n; i++) order[i] = i;
+        order.sort((a, b) => quickQs[b] - quickQs[a]);   // move ordering (#4)
+
+        Qs = quickQs.slice();
+        for (let r = 0; r < n && r < TRUNC_MAX; r++) {
+            const i = order[r];
+            // Always resolve the top TWO children fully, whatever the
+            // temperature: verifying the runner-up is what catches a
+            // shallow misranking of the best move.
+            if (r > 1 && quickQs[i] < threshold) break;   // past the dominant set
+            g.fast_make(moves[i]);
+            Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys, moves[i]));
+            g.fast_undo();
+            // (no thermometer sample here: depth−1 vs depth−2 is a
+            // cross-parity pair — it would read the entropy ladder)
+        }
+        pathKeys.delete(posKey);
+    }
+
+    // Reply tagging for the redundancy instrument: when this node is a
+    // root child (tagMove set), record the opponent's best reply. Root
+    // moves sharing a refutation are one hedge, not two — the effective
+    // multiplicity of the root ensemble is the entropy of the induced
+    // reply partition, computed in analyzeRoot. Measurement only.
+    if (n > 0) {
+        let am = 0;
+        for (let i = 1; i < n; i++) if (Qs[i] > Qs[am]) am = i;
+        const rk = moves[am].from * 128 + moves[am].to;
+        if (tagMove !== undefined) tagMove._reply = rk;
+        if (replyCache.size < THERMO_CACHE_MAX) replyCache.set(key, rk);
+    }
+    return computeF(Qs, n, key,
+        (THEM_T_OVERRIDE > 0 && g.fast_turn() !== fluxRootTurn) ? THEM_T_OVERRIDE : 0,
+        moves, g.fast_turn() === fluxRootTurn);
+}
+
+function computeF(Qs, n, cacheKey) {
+    let maxQ = Qs[0];
+    for (let i = 1; i < n; i++) if (Qs[i] > maxQ) maxQ = Qs[i];
+    // Mate scores are absorbing states, not thermal energies. A forced win
+    // is taken deterministically (ground-state selection, T → 0 for this
+    // decision); when every move loses by force, the value is the longest
+    // resistance. No entropy bonus may attach to a terminal outcome —
+    // otherwise "many ways to mate" would outscore the mate itself
+    // (F = maxQ + T·ln Z > mate) and the engine would shuffle checks
+    // forever instead of converting.
+    if (maxQ > MATE_NEAR || maxQ < -MATE_NEAR || !Number.isFinite(maxQ)) {
+        if (cacheKey && !searchAborted && thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(cacheKey, maxQ);
+        return maxQ;
+    }
+    // One bath, one temperature: F is evaluated at the global annealing T.
+    const Tn = (arguments.length > 3 && arguments[3] > 0) ? arguments[3] : bathT;
+    const mv = arguments.length > 4 ? arguments[4] : null;
+    let val;
+    const effHere = EFF_PREMIUM === true ||
+        (EFF_PREMIUM === 'us' && arguments.length > 5 && arguments[5]);
+    if (effHere && mv) {
+        // effective multiplicity: one microstate per DISTINCT best reply
+        // (untagged children stay singletons — conservative)
+        const gmax = new Map();
+        for (let i = 0; i < n; i++) {
+            const k = mv[i] && mv[i]._reply !== undefined ? mv[i]._reply : -1 - i;
+            const cur = gmax.get(k);
+            if (cur === undefined || Qs[i] > cur) gmax.set(k, Qs[i]);
+        }
+        let expSum = 0;
+        for (const qg of gmax.values()) expSum += Math.exp((qg - maxQ) / Tn);
+        val = maxQ + Tn * Math.log(expSum);
+    } else {
+        let expSum = 0;
+        for (let i = 0; i < n; i++) expSum += Math.exp((Qs[i] - maxQ) / Tn);
+        val = maxQ + Tn * Math.log(expSum);
+    }
+    if (cacheKey && !searchAborted && thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(cacheKey, val);
+    return val;
+}
+
+// ── Chemical Potential: μ = −T ln(1 − p_P) ────────────────
+// p_P = Σ π_a for all moves originating from piece P.
+// μ_P = F − F_{−P}: free energy cost of removing P's moves
+// from the partition function. Assumes moves from other
+// pieces are unaffected (ideal-gas / independent-pieces limit).
+function sqId(file, rank) { return String.fromCharCode(97+file)+(rank+1); }
+function computeChemicalPotentials(g, thermo) {
+    if (!thermo || !thermo.fromSqs) return [];
+
+    const T = thermo.T;
+    const board = g.board();
+    const color = g.turn();
+
+    // Sum Boltzmann probabilities by origin square
+    const sqProb = {};
+    for (let i = 0; i < thermo.fromSqs.length; i++) {
+        const sq = thermo.fromSqs[i];
+        sqProb[sq] = (sqProb[sq] || 0) + thermo.probs[i];
+    }
+
+    const results = [];
+    const seen = {};
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            const p = board[row][col];
+            if (!p || p.color !== color || p.type === 'k') continue;
+            const sq = sqId(col, 7 - row);
+            if (seen[sq]) continue;
+            seen[sq] = 1;
+            const pSq = sqProb[sq] || 0;
+            const mu = -T * Math.log(1 - Math.min(pSq, 1 - 1e-10));
+            results.push({ type: p.type, square: sq, mu: mu, pSq: pSq });
+        }
+    }
+
+    results.sort((a, b) => b.mu - a.mu);
+    return results;
+}
+
+// ── Tempo-susceptibility probe ─────────────────────────────
+// χ = ΔF under a passed tempo: a response function, measured the way
+// physics measures stiffness — perturb (give the opponent the move) and
+// let the system relax (their exploiting line is searched, so unsound
+// sacrifices refute themselves; no static threat-counting anywhere).
+//
+// g stands at the CHILD position (opponent to move) after a candidate
+// root move. For each opponent reply o1: if o1 gives check, the mover's
+// tempo was going to be spent anyway — the line relaxes normally through
+// quiescence. Otherwise the mover PASSES and the opponent gets one more
+// full-width ply (quiet threats included) plus quiescence. The opponent
+// picks their best exploit (T = 0: tactical truth belongs to the
+// relaxation, not the ensemble). Returns the taxed value from the root
+// mover's point of view.
+// Chemical potential of the tempo, in closed form. On the null-extended
+// ensemble Z′ = Z + e^{Q_pass/T}, the same formula that prices every piece
+// (μ_X = −T ln(1 − p_X)) applies to the tempo — the piece whose moves are
+// all of them — and simplifies exactly to a softplus of the raw probe
+// reading χ̃ = F − Q_pass at the bath temperature:
+//     μ_tempo = T · ln(1 + e^{χ̃/T})
+// Equal to χ̃ when the tempo genuinely matters; smoothly zero in zugzwang
+// (the tempo of a player in zugzwang is a worthless particle); crossover
+// width set by T itself.
+function softplusT(x) {
+    const r = x / bathT;
+    if (r > 30) return x;        // exact to double precision
+    if (r < -30) return 0;
+    return bathT * Math.log(1 + Math.exp(r));
+}
+
+function tempoProbe(g, pathKeys) {
+    const replies = g.fast_moves();
+    if (replies.length === 0)
+        return g.fast_in_check() ? CHECKMATE_SCORE : 0;   // opponent already mated/stalled
+    let worst = Infinity;   // opponent minimizes the root mover's value
+    for (let i = 0; i < replies.length; i++) {
+        g.fast_make(replies[i]);
+        let v;
+        if (g.fast_in_check()) {
+            v = tickMate(quiesce(g, -Infinity, Infinity));   // my POV: forced anyway
+        } else {
+            // I pass; the opponent's exploitation relaxes through
+            // quiescence. The threat move is o1 itself; its execution is
+            // almost always forcing (a capture), which quiescence sees.
+            // Quiet-move mating nets are the one class this misses — the
+            // price of a probe cheap enough to cover the dominant set.
+            g.fast_make_null();
+            v = -tickMate(quiesce(g, -Infinity, Infinity));  // their POV after the pass: negate
+            g.fast_undo_null();
+        }
+        g.fast_undo();
+        if (v < worst) worst = v;
+    }
+    return worst;
+}
+
+// ── Annealed Iterative Deepening ───────────────────────────
+// The search is an explicit annealing process. Depth is time; after each
+// completed deepening iteration the bath temperature is re-MEASURED as
+// the robust (median) scale of how much the root values moved since the
+// previous iteration:
+//
+//     T ← 1.4826 · median_i | Q_i^{(d)} − Q_i^{(d−1)} |
+//
+// — the residual fluctuation of the engine's own beliefs. While values
+// still fluctuate by ~T, moves within ~T of the best are genuinely
+// indistinguishable at the engine's current resolution, and the free
+// energy weights them accordingly; as values converge the system cools
+// toward the T = 0 minimax ground state. Perfect play is the fully
+// annealed limit. The first iteration runs frozen (pure material
+// quiescence); its baseline is each child's static material value, so
+// the first measured T is the tactical volatility quiescence uncovered.
+// Mate-scored moves are excluded from the ΔQ ensemble: absorbing states
+// carry distance ticks, not thermal fluctuation.
+// Hard preemption for the deepening loop: a single deep child subtree can
+// otherwise blow seconds past the deadline (iterations were only
+// preemptible between root children). Checked every 2048 nodes; a tripped
+// iteration is DISCARDED (the timedOut path), so no partial values leak.
+let hardDeadline = Infinity;
+let searchAborted = false;
+
+function annealRoot(g, opts) {
+    const deadline = opts.deadline != null ? opts.deadline : Infinity;
+    const maxDepth = opts.maxDepth != null ? opts.maxDepth : 64;
+    // When probing, reserve a slice of the budget for the susceptibility
+    // stage so probe-on and probe-off runs use the same total time.
+    const mainDeadline = (opts.probe && Number.isFinite(deadline))
+        ? deadline - 0.15 * (deadline - performance.now())
+        : deadline;
+    nodeCount = 0;
+    measT = 0;
+    searchAborted = false;
+    hardDeadline = mainDeadline;
+    taxTotal = 0; taxTaken = 0;
+    fluxRootTurn = g.fast_turn();
+    muSumUs = 0; muCntUs = 0; muSumThem = 0; muCntThem = 0; taxUs = 0; taxThem = 0;
+    bathT = T_ZERO;                // zero-point: never colder than one quantum
+
+    const moves = g.fast_moves();
+    const n = moves.length;
+    if (n === 0) return null;
+    if (!g.fast_in_check()) {
+        const bmc0 = g.fast_mob_counts();
+        const bwf0 = (g.fast_turn() === 'w') ? bmc0.mw : bmc0.mb;
+        if (bwf0 > 0) { biteBaseSum += Math.log(bwf0) - Math.log(n); biteBaseCnt++; }
+    }
+    LEAF_RATIO = (opts.leafMu && LEAF_TAXRATE >= 0)
+        ? Math.min(1, 0.5 * jhatRead().b * biteEstimate()) : 0;
+    // Test-only hooks. Play never sets these.
+    // pinT: pin the bath to a counterfactual temperature for the whole
+    // search (thermometer disabled) — the laboratory's external-field
+    // knob, for measuring how decisions depend on T. There is still no
+    // temperature control in play; this is an instrument.
+    const pinned = opts.pinT > 0;
+    if (pinned) bathT = opts.pinT;
+    LEAF_T_OVERRIDE = opts.leafT > 0 ? opts.leafT : 0;
+    THEM_T_OVERRIDE = opts.themT > 0 ? opts.themT : 0;
+    // seeded root-order shuffle, for the move-order invariance battery
+    if (opts.shuffleSeed) {
+        let s = opts.shuffleSeed >>> 0;
+        const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+        for (let i = n - 1; i > 0; i--) {
+            const j = Math.floor(rnd() * (i + 1));
+            const t = moves[i]; moves[i] = moves[j]; moves[j] = t;
+        }
+    }
+
+    g.fast_seed_acc();
+    const pathKeys = new Set();
+    const rootPosKey = g.fast_hash();
+    const result = { moves, Qs: null, T: bathT, depth: 0, anneal: [],
+                     kapRatio: LEAF_RATIO, bite: biteEstimate() };
+
+    // One fresh table per search. Entries computed at earlier (hotter)
+    // iterations remain visible to later ones: annealing with hysteresis.
+    // The dominant set of every node is re-searched at the current T each
+    // iteration; stale-T entries only ever inform the shallow ranking pass
+    // and the negligible tail of Z, where their error is second-order —
+    // and the depth they buy is worth far more than their bias costs.
+    // The quiescence table follows the same policy.
+    thermoCache.clear();
+    qCache.clear();
+    replyCache.clear();
+    EFF_PREMIUM = opts.effS === 'us' ? 'us' : !!opts.effS;
+
+    for (let depth = 1; depth <= maxDepth; depth++) {
+        hardDeadline = depth === 1 ? Infinity : mainDeadline;
+        const Qs = new Array(n);
+        let timedOut = false;
+
+        pathKeys.clear();
+        pathKeys.add(rootPosKey);
+        for (let k = 0; k < PAST_KEYS.length; k++) pathKeys.add(PAST_KEYS[k]);
+
+        for (let i = 0; i < n; i++) {
+            // μ-field snapshot: everything the census records while this
+            // child is searched belongs to this move's subtree — the
+            // search's own expansion policy is the importance weighting.
+            const s0 = muSumUs, c0 = muCntUs, s1 = muSumThem, c1 = muCntThem;
+            const t0 = taxUs, t1 = taxThem;
+            g.fast_make(moves[i]);
+            if (depth === 1) moves[i]._pq2 = -g.fast_raw_mat();   // static baseline (same parity as depth 1)
+            Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys, moves[i]));
+            g.fast_undo();
+            moves[i]._flux = { su: muSumUs - s0, cu: muCntUs - c0,
+                               st: muSumThem - s1, ct: muCntThem - c1,
+                               tu: taxUs - t0, tt: taxThem - t1 };
+            // Depth 1 always runs to completion (it is nearly free): a partial
+            // first iteration would leave undefined values and an arbitrary move.
+            if (depth > 1 && (searchAborted || performance.now() > mainDeadline)) { timedOut = true; break; }
+        }
+        if (timedOut) break;
+
+        // Thermometer: the Boltzmann-WEIGHTED mean same-parity revision —
+        // an ensemble average, as a temperature measurement must be. The
+        // revision of a move the distribution does not occupy is resolved
+        // knowledge, not residual fluctuation; only occupied microstates
+        // register. (Same-parity: depth d vs d−2, or depth 1 vs the static
+        // material baseline. Depth 2 has no clean partner.) Damped across
+        // iterations, riding on the zero-point quantum.
+        if (depth !== 2 && !pinned) {
+            let maxQ = -Infinity;
+            for (let i = 0; i < n; i++)
+                if (Math.abs(Qs[i]) < MATE_NEAR && Qs[i] > maxQ) maxQ = Qs[i];
+            if (Number.isFinite(maxQ)) {
+                let wSum = 0, wDev = 0;
+                for (let i = 0; i < n; i++) {
+                    if (Math.abs(Qs[i]) > MATE_NEAR || Math.abs(moves[i]._pq2) > MATE_NEAR) continue;
+                    const w = Math.exp((Qs[i] - maxQ) / bathT);
+                    wSum += w; wDev += w * Math.abs(Qs[i] - moves[i]._pq2);
+                }
+                if (wSum > 0) {
+                    const meas = 1.2533 * wDev / wSum;
+                    measT = measT > 0 ? 0.5 * (measT + meas) : meas;
+                    bathT = Math.sqrt(measT * measT + T_ZERO * T_ZERO);
+                }
+            }
+        }
+        // ── Revision-covariance instrument (measurement only) ──
+        // The same same-parity revision vectors the thermometer takes
+        // magnitudes of, read for their CO-MOVEMENT: the Boltzmann-weighted
+        // common-mode fraction ĉ = ⟨r⟩²_π / ⟨r²⟩_π over occupied moves.
+        // Correlated hedges (thirty replies that are all fine iff the
+        // opponent declines one killer move) revise together: ĉ → 1, one
+        // effective option. Independent options: ĉ → 1/n_eff. This is the
+        // nominal-vs-effective multiplicity of the ensemble, measured from
+        // the search's own deepening — nothing is priced by hand, and
+        // nothing here feeds back into values.
+        if (depth !== 2) {
+            let maxQc = -Infinity;
+            for (let i = 0; i < n; i++)
+                if (Math.abs(Qs[i]) < MATE_NEAR && Qs[i] > maxQc) maxQc = Qs[i];
+            if (Number.isFinite(maxQc)) {
+                let wS = 0, m1 = 0, m2 = 0, cnt = 0;
+                for (let i = 0; i < n; i++) {
+                    if (Math.abs(Qs[i]) > MATE_NEAR || Math.abs(moves[i]._pq2) > MATE_NEAR) continue;
+                    const w = Math.exp((Qs[i] - maxQc) / bathT);
+                    const r = Qs[i] - moves[i]._pq2;
+                    wS += w; m1 += w * r; m2 += w * r * r; cnt++;
+                }
+                if (cnt >= 3 && wS > 0 && m2 > 1e-9) {
+                    const c = Math.min(1, (m1 * m1) / (wS * m2));
+                    result.covC = result.covC == null ? c : 0.5 * (result.covC + c);
+                    result._lastC = c;
+                }
+            }
+        }
+        for (let i = 0; i < n; i++) { moves[i]._pq2 = moves[i]._pq; moves[i]._pq = Qs[i]; }
+
+        // Reorder moves (and values) best-first for the next iteration.
+        const order = [];
+        for (let i = 0; i < n; i++) order.push(i);
+        order.sort((a, b) => Qs[b] - Qs[a]);
+        const nm = new Array(n), nq = new Array(n);
+        for (let i = 0; i < n; i++) { nm[i] = moves[order[i]]; nq[i] = Qs[order[i]]; }
+        for (let i = 0; i < n; i++) moves[i] = nm[i];
+
+        result.Qs = nq;
+        result.T = bathT;
+        result.depth = depth;
+        // Cooling trace: one point per completed iteration (the annealing
+        // schedule as it actually happened, for the dashboard).
+        result.anneal.push({ d: depth, T: bathT, bestQ: nq[0],
+                             c: result._lastC != null ? +result._lastC.toFixed(3) : null });
+
+        // ── σ_eff scheduler: thinking time as the latent heat of decision ──
+        // A decision is safe when the uncertainty of the value gap between
+        // the top two moves is smaller than the gap itself. The uncertainty
+        // has a direct channel (the bath, T) and an initiative-mediated one:
+        // a price-reading error of order T mis-forecasts the initiative with
+        // Curie–Weiss gain χ = b̂/2(T−T̂c) and each unit of β is worth ~μ̄.
+        //     σ_eff = T·√(1 + (μ̄·b̂ / 2(T − T̂c))²)
+        // Stop when σ_eff < ΔQ₁₂ (the decision is frozen: bank the time) —
+        // near the opponent's Curie point the requirement tightens and the
+        // engine automatically spends its banked time exactly there. T̂c
+        // uses the LOWER confidence edge of Ĵ, so an unknown opponent is
+        // budgeted as docile until the game supplies evidence. Two guards:
+        // mate-scores schedule themselves (absorbing states are decisions),
+        // and a runaway bath (§4.1 failure mode: hot AND heating) means the
+        // position is not equilibrating at any budget — moving is a quench,
+        // and the quench is all there is.
+        if (opts.schedule && depth >= 2 && n > 1) {
+            // A WINNING mate is a made decision: play it. A mate AGAINST us
+            // is not a scheduling event — the moves that differ only in how
+            // they lose still differ enormously in swindle value, and the
+            // repetition absorber needs search time to find its escapes.
+            if (nq[0] > MATE_NEAR) { result.stop = 'mate'; break; }
+            // The freeze criterion compares THERMAL quantities. A gap
+            // involving mate scores is absorbing, not thermal, and must not
+            // trip it (the first A/B moved in 90 ms in lost positions,
+            // exactly where the baseline's tenacious defense earned points).
+            if (Math.abs(nq[0]) > MATE_NEAR || Math.abs(nq[1]) > MATE_NEAR) {
+                // no freeze/runaway decisions on absorbing gaps
+            } else {
+            const gap = nq[0] - nq[1];
+            const jr = jhatRead();
+            const cnt = muCntUs + muCntThem;
+            const mubar = cnt > 0 ? (muSumUs + muSumThem) / cnt : 0;
+            const chi = bathT > jr.Tc ? jr.b / (2 * (bathT - jr.Tc)) : Infinity;
+            const sigma = bathT * Math.sqrt(1 + (mubar * chi) * (mubar * chi));
+            result.sigma = sigma; result.gap = gap; result.Tc = jr.Tc;
+            if (sigma < gap) { result.stop = 'frozen'; break; }
+            const a = result.anneal;
+            if (bathT > 20 && a.length >= 3 &&
+                a[a.length - 1].T > a[a.length - 2].T && a[a.length - 2].T > a[a.length - 3].T) {
+                result.stop = 'runaway'; break;
+            }
+            }
+        }
+
+        if (performance.now() > mainDeadline) break;
+        if (nodeCount > NODE_HARD_LIMIT) break;
+    }
+
+    hardDeadline = Infinity;   // deepening done; measurement stages run unpreempted
+    if (taxTotal > 50) {       // update the gauge reference (damped, like the thermometer)
+        const r = taxTaken / taxTotal;
+        LEAF_TAXRATE = LEAF_TAXRATE < 0 ? r : 0.5 * (LEAF_TAXRATE + r);
+    }
+
+    // ── Susceptibility stage (optional; the experiment) ────
+    // Mix each dominant root move's value with its taxed counterfactual:
+    //     Q ← (1−w)·Q + w·V_taxed
+    // where w is the measured tempo-tax frequency from this very search's
+    // quiescence and V_taxed comes from tempoProbe. Only the dominant set
+    // (the same Boltzmann window the truncation uses) is probed; result.
+    // probed records how many, and move selection stays within that set.
+    if (opts.probe && result.Qs) {
+        const w = taxTotal > 0 ? taxTaken / taxTotal : 0;
+        result.w = w;
+        result.chi = new Array(n).fill(null);
+        result.probed = 0;
+        // A found forced win is an absorbing state, not a thermal one: a
+        // mating line genuinely owns its tempo and must not be taxed
+        // (taxing it would make the engine avoid its own mates).
+        if (w > 0 && result.Qs.length > 1 && result.Qs[0] < MATE_NEAR) {
+            // The deepening loop can overshoot its reserved deadline by up to
+            // one root subtree, starving the probes; give the probe stage its
+            // own slice measured from now so the dominant set gets covered.
+            const probeDeadline = Number.isFinite(deadline)
+                ? performance.now() + 0.15 * (opts.budgetMs || 1000)
+                : Infinity;
+            pathKeys.clear();
+            pathKeys.add(rootPosKey);
+            for (let k = 0; k < PAST_KEYS.length; k++) pathKeys.add(PAST_KEYS[k]);
+            const q0 = result.Qs[0];
+            for (let i = 0; i < n && i < TRUNC_MAX; i++) {
+                if (i > 0 && result.Qs[i] < q0 - BOLTZ_SIGMA * bathT) break;
+                if (i > 1 && performance.now() > probeDeadline) break;   // always probe the top two
+                if (Math.abs(result.Qs[i]) > MATE_NEAR) { result.probed++; continue; }  // absorbing: unmixed
+                g.fast_make(moves[i]);
+                const vt = tempoProbe(g, pathKeys);
+                g.fast_undo();
+                result.chi[i] = result.Qs[i] - vt;
+                result.probed++;
+            }
+            // The evaluation is the GRAND POTENTIAL of the position with
+            // respect to tempo exchange with the opponent-reservoir:
+            //     Φ = F − w · (μ_tempo − μ̄)
+            // where μ_tempo = T·softplus(χ̃/T) is each candidate's tempo
+            // chemical potential and μ̄ (the reservoir gauge) is the minimum
+            // over candidates: chemical potentials are defined only up to a
+            // reference, and only μ DIFFERENCES drive particle exchange —
+            // the stiffest move pays nothing. w is the measured reservoir
+            // occupancy (tempo-tax census), and the linear-in-w form is the
+            // quenched average, correct for an adversary who chooses rather
+            // than samples. Zugzwang needs no special case: softplus sends
+            // its μ to zero.
+            result.mu = new Array(n).fill(null);
+            let muMin = Infinity;
+            for (let i = 0; i < n; i++) {
+                if (result.chi[i] == null) continue;
+                result.mu[i] = softplusT(result.chi[i]);
+                if (result.mu[i] < muMin) muMin = result.mu[i];
+            }
+            if (Number.isFinite(muMin))
+                for (let i = 0; i < n; i++)
+                    if (result.mu[i] != null)
+                        result.Qs[i] -= w * (result.mu[i] - muMin);
+        }
+    }
+
+    // ── Tempo-flux stage (measured at interior nodes, zero extra search) ──
+    // Each root move's subtree carried a measured μ field: ⟨μ̂_us⟩ (forcing
+    // pressure on us), ⟨μ̂_them⟩ (pressure we generate), and the 1-bit taxed
+    // counts. The signed flux β = (taxed_them − taxed_us)/total reads WHO
+    // owns the forcing future — exposure and ambition finally separated —
+    // and the value correction is flux × price, standard grand-canonical
+    // bookkeeping with both factors measured:
+    //     ΔQ = β · μ̄ ,  clamped to ±T (the resolution governor: a
+    // statistical signal may shade the degenerate band, never veto a
+    // resolved preference). Absorbing (mate-scored) moves stay unshaded.
+    // opts.flux: true = measure AND couple; 'measure' = instrument only
+    // (readings logged, values untouched — the mode the cooling scan uses).
+    if (opts.flux && result.Qs) {
+        const couple = opts.flux === true;
+        result.beta = new Array(n).fill(null);
+        result.dmu = new Array(n).fill(null);
+        result.mubar = new Array(n).fill(null);
+        result.ntax = new Array(n).fill(0);
+        result.nmu = new Array(n).fill(0);
+        for (let i = 0; i < n; i++) {
+            const f = moves[i]._flux;
+            if (!f) continue;
+            result.nmu[i] = f.cu + f.ct;
+            result.ntax[i] = f.tu + f.tt;
+            if (result.nmu[i] < 8) continue;             // too few samples to read
+            if (result.ntax[i] < 4) continue;            // a flux needs current to measure
+            const muUs = f.cu ? f.su / f.cu : 0;
+            const muThem = f.ct ? f.st / f.ct : 0;
+            const beta = (f.tt - f.tu) / result.ntax[i];
+            result.beta[i] = beta;
+            result.dmu[i] = muThem - muUs;
+            result.mubar[i] = 0.5 * (muUs + muThem);
+            if (!couple) continue;
+            if (Math.abs(result.Qs[i]) > MATE_NEAR) continue;
+            let dq = beta * result.mubar[i];
+            if (dq > bathT) dq = bathT; else if (dq < -bathT) dq = -bathT;
+            result.Qs[i] += dq;
+        }
+    }
+
+    g.fast_end_acc();
+    searchStats = { depth: result.depth, nodes: nodeCount };
+    return result.Qs ? result : null;
+}
+
+// ── Full Root State (play + dashboard, one search) ─────────
+// Runs the annealed search and derives everything from its final
+// iteration: the played move (argmax Q), the Boltzmann weights at the
+// measured bath temperature, the state variables, and the Schottky
+// measurement of where the bath sits on the position's capacity curve.
+function analyzeRoot(g, opts) {
+    const r = annealRoot(g, opts);
+    if (!r) return null;
+    const Qs = r.Qs, n = Qs.length;
+
+    // With the susceptibility stage active, selection stays inside the
+    // probed (dominant) set: an unprobed tail move must not win the argmax
+    // merely because its brittleness was never measured.
+    const selN = (opts.probe && r.probed > 0) ? r.probed : n;
+    let maxQ = Qs[0], bestIdx = 0;
+    for (let i = 1; i < selN; i++) if (Qs[i] > maxQ) { maxQ = Qs[i]; bestIdx = i; }
+    for (let i = selN; i < n; i++) if (Qs[i] > maxQ) maxQ = Qs[i];   // maxQ for π/F only
+
+    // Absorbing-state root: a forced mate (for either side) freezes the
+    // ensemble — the decision is deterministic. Mirrors computeF.
+    const T = (maxQ > MATE_NEAR || maxQ < -MATE_NEAR) ? T_FLOOR : r.T;
+
+    const expTerms = new Array(n);
+    let expSum = 0;
+    for (let i = 0; i < n; i++) { expTerms[i] = Math.exp((Qs[i]-maxQ)/T); expSum += expTerms[i]; }
+
+    const F = maxQ + T * Math.log(expSum);
+    const probs = new Array(n);
+    for (let i = 0; i < n; i++) probs[i] = expTerms[i] / expSum;
+
+    let avgQ = 0, S = 0;
+    for (let i = 0; i < n; i++) {
+        avgQ += probs[i] * Qs[i];
+        if (probs[i] > 1e-15) S -= probs[i] * Math.log(probs[i]);
+    }
+    const TS = T * S;
+
+    const schottky = measureSchottky(Qs, n, T);
+
+    // Chemical potential of the tempo at the root — the initiative,
+    // priced by the same formula as every piece. SAME-PARITY comparison:
+    // both terms are T = 0 quiescent relaxations one null apart, so the
+    // interior entropy ladder never enters and the T·S choice premium is
+    // excluded — this is the tactical tempo alone, stable under deepening.
+    // Not defined in check (passing is illegal).
+    let muTempo = null;
+    if (!g.fast_in_check() && Math.abs(F) < MATE_NEAR) {
+        const qHere = tickMate(quiesce(g, -Infinity, Infinity));
+        g.fast_make_null();
+        const qPass = -tickMate(quiesce(g, -Infinity, Infinity));
+        g.fast_undo_null();
+        if (Math.abs(qHere) < MATE_NEAR && Math.abs(qPass) < MATE_NEAR)
+            muTempo = softplusT(qHere - qPass);
+    }
+
+    const moveNames = new Array(n);
+    const fromSqs = new Array(n);
+    for (let i = 0; i < n; i++) {
+        moveNames[i] = g.fast_to_san(r.moves[i]);
+        fromSqs[i] = g.fast_algebraic(r.moves[i].from);
+    }
+
+    return { T, F, S, avgQ, TS, probs, moves: moveNames, fromSqs, Qs, bestIdx,
+             depth: r.depth, Ceff: schottky.Ceff, Cstar: schottky.Cstar,
+             Tspin: schottky.Tspin, phase: schottky.phase,
+             curve: schottky.curve || [], anneal: r.anneal,
+             tax: r.w, chi: r.chi || null, mu_t: r.mu || null,
+             probed: r.probed || 0, muTempo,
+             beta: r.beta || null, dmu: r.dmu || null, mubar: r.mubar || null,
+             ntax: r.ntax || null, nmu: r.nmu || null,
+             stop: r.stop || null, sigma: r.sigma != null ? r.sigma : null,
+             gap: r.gap != null ? r.gap : null, TcHat: r.Tc != null ? r.Tc : null,
+             kapRatio: r.kapRatio || 0, bite: r.bite || 0,
+             covC: r.covC != null ? r.covC : null,
+             effS: r.covC != null ? Math.max(0, S + Math.log(Math.max(1e-6, 1 - r.covC))) : null,
+             replyS: (() => {
+                 // effective multiplicity: entropy of the opponent-reply
+                 // partition. Moves sharing a best reply share a fate.
+                 const gw = new Map();
+                 for (let i = 0; i < n; i++) {
+                     const k = r.moves[i]._reply !== undefined ? r.moves[i]._reply : ('u' + i);
+                     gw.set(k, (gw.get(k) || 0) + probs[i]);
+                 }
+                 let sr = 0;
+                 for (const w of gw.values()) if (w > 1e-15) sr -= w * Math.log(w);
+                 return sr;
+             })() };
+}
+
+// Unified analysis entry point. Runs identically on the main thread (sync
+// fallback) and inside the Web Worker. One annealed search yields both the
+// move to play and the dashboard state — they can never disagree.
+function _runAnalyze(msg) {
+    PAST_KEYS = msg.pastKeys || [];       // played-game repetition keys (see collectPastKeys)
+    if (msg.newGame) { jhatReset(); biteReset(); LEAF_TAXRATE = -1; }   // per-game instrument state
+    const g = new Chess(msg.fen);
+    const out = { turn: g.turn(), fen: g.fen(), gameOver: g.game_over() };
+    if (out.gameOver) return out;
+    const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const t0 = now();
+    const th = analyzeRoot(g, msg.timeLimit != null
+        ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: msg.flux || false,
+            budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
+            leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
+            effS: msg.effS }
+        : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
+            leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
+            effS: msg.effS });
+    out.timeMs = Math.round(now() - t0);
+    if (!th) return out;
+    if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
+    out.depth = th.depth;
+    out.nodes = searchStats.nodes;
+    const r = rawU(g);
+    out.Uw = r.Uw; out.Ub = r.Ub;
+    th.mu = computeChemicalPotentials(g, th);
+    // Feed the opponent thermometer on PLAYED searches, plus analyses the
+    // caller explicitly marks as once-per-game-move (the UI's post-move
+    // dashboard job) — but never unmarked dashboard recomputations, which
+    // would double-count the same position.
+    if ((msg.timeLimit != null || msg.feedJhat) && th.beta) jhatUpdate(th.beta, th.dmu, th.ntax, th.T);
+    th.jhat = jhatRead();
+    out.thermo = th;
+    return out;
+}
+
+</script>
+<script>
+// ── Board Rendering ────────────────────────────────────────
+// (sqId lives in the engine script: the worker needs it for μ.)
+
+// Position keys (fast_hash) of every played position the current position
+// could still legally repeat: everything since the last capture or pawn
+// move. Castling-rights changes need no special reset — the hash includes
+// castling rights, so pre-change positions simply never match again.
+function collectPastKeys() {
+    const t = new Chess();
+    const keys = [t.fast_hash()];
+    const hist = game.history({ verbose: true });
+    for (let i = 0; i < hist.length; i++) {
+        t.move(hist[i].san);
+        if (hist[i].captured || hist[i].piece === 'p') keys.length = 0;   // irreversible
+        keys.push(t.fast_hash());
+    }
+    keys.pop();   // current position is handled by the search root itself
+    return keys;
+}
+
+function renderBoard() {
+    const el = document.getElementById('board');
+    el.innerHTML = '';
+    const b = game.board();
+    for (let dr=0; dr<8; dr++) {
+        const rowEl = document.createElement('div'); rowEl.className='board-row';
+        for (let dc=0; dc<8; dc++) {
+            const row = boardFlipped ? 7-dr : dr;
+            const col = boardFlipped ? 7-dc : dc;
+            const rank = 7-row, file = col;
+            const sq = sqId(file, rank);
+            const piece = b[row][col];
+            const cell = document.createElement('div');
+            cell.className = 'cell ' + ((row+col)%2===0 ? 'light' : 'dark');
+            cell.dataset.sq = sq;
+            if (lastMoveSquares && (sq===lastMoveSquares.from || sq===lastMoveSquares.to)) cell.classList.add('last-move');
+            if (sq===selectedSq) cell.classList.add('selected');
+            if (selectedSq && legalTargets.indexOf(sq)>=0) cell.classList.add(piece ? 'legal-capture' : 'legal-dot');
+            if (piece) cell.textContent = PIECE_CHAR[piece.color+piece.type];
+            // μ overlay: a glow ring around each piece of the side to move,
+            // intensity ∝ its chemical potential (how much of the position's
+            // free energy that piece carries).
+            if (muOverlayOn && lastMuMap && piece && piece.color === lastMuTurn) {
+                const m = lastMuMap[sq];
+                if (m !== undefined && lastMuMax > 0) {
+                    const a = (0.18 + 0.62 * m / lastMuMax).toFixed(3);
+                    const halo = document.createElement('div');
+                    halo.className = 'mu-halo';
+                    halo.style.background = 'radial-gradient(circle, rgba(126,200,227,0) 38%, rgba(126,200,227,' + a + ') 60%, rgba(126,200,227,0) 76%)';
+                    cell.appendChild(halo);
+                }
+            }
+            if (dc===0) { const lbl=document.createElement('span'); lbl.className='coord-label rank-label'; lbl.textContent=rank+1; cell.appendChild(lbl); }
+            if (dr===7) { const lbl=document.createElement('span'); lbl.className='coord-label file-label'; lbl.textContent=String.fromCharCode(97+file); cell.appendChild(lbl); }
+            cell.addEventListener('click', () => onCellClick(sq));
+            rowEl.appendChild(cell);
+        }
+        el.appendChild(rowEl);
+    }
+}
+
+// ── Interaction ────────────────────────────────────────────
+function onCellClick(sq) {
+    if (thinking || game.game_over()) return;
+    if (game.turn() !== humanColor) return;
+    if (selectedSq) {
+        if (legalTargets.indexOf(sq) >= 0) {
+            const piece = game.get(selectedSq);
+            const toRank = parseInt(sq[1]);
+            if (piece && piece.type==='p' &&
+                ((piece.color==='w'&&toRank===8)||(piece.color==='b'&&toRank===1))) {
+                showPromotion(selectedSq, sq); return;
+            }
+            makeHumanMove(selectedSq, sq);
+        } else { selectSquare(sq); }
+    } else { selectSquare(sq); }
+}
+function selectSquare(sq) {
+    const piece = game.get(sq);
+    if (piece && piece.color===humanColor) {
+        selectedSq = sq;
+        const seen = {};
+        legalTargets = [];
+        const vm = game.moves({verbose:true});
+        for (let i=0;i<vm.length;i++) {
+            if (vm[i].from===sq && !seen[vm[i].to]) { legalTargets.push(vm[i].to); seen[vm[i].to]=true; }
+        }
+    } else { selectedSq=null; legalTargets=[]; }
+    renderBoard();
+}
+// ── Async compute: Web Worker (keeps the UI responsive) with a
+//    synchronous fallback if a Worker can't be created ──────────────
+let tdWorker = null, _wid = 0, analysisGen = 0;
+const _wpending = {};
+(function initWorker() {
+    try {
+        const glue = '\nself.onmessage=function(e){var m=e.data;try{var o=_runAnalyze(m);o.id=m.id;self.postMessage(o);}catch(err){self.postMessage({id:m.id,error:String(err&&err.stack||err)});}};';
+        const src = document.getElementById('td-engine').textContent + glue;
+        tdWorker = new Worker(URL.createObjectURL(new Blob([src], { type: 'application/javascript' })));
+        tdWorker.onmessage = e => { const d = e.data; const p = _wpending[d.id]; if (p) { delete _wpending[d.id]; p(d); } };
+        tdWorker.onerror = () => { tdWorker = null; };   // degrade to synchronous compute
+    } catch (err) { tdWorker = null; }
+})();
+
+function analyzeAsync(msg) {
+    return new Promise(resolve => {
+        if (tdWorker) {
+            const id = ++_wid; _wpending[id] = resolve;
+            tdWorker.postMessage(Object.assign({ id }, msg));
+        } else {
+            // No worker available: yield once so the board paints, then compute.
+            setTimeout(() => { let o; try { o = _runAnalyze(msg); } catch (err) { o = { error: String(err) }; } resolve(o); }, 10);
+        }
+    });
+}
+
+// Apply a completed analysis to the dashboard + graph. engineStats (or null)
+// carries the calc time / depth of the move that produced this position.
+function applyAnalysis(res, engineStats) {
+    if (!res || res.error) { if (res && res.error) console.warn('analysis error:', res.error); return; }
+    const thermo = res.thermo || null;
+    if (thermo && moveHistory.length > 0 && graphData.length < moveHistory.length) {
+        const turn = res.turn;
+        // "Eval" = value of the move the engine actually plays (argmax Q), in White-POV
+        // pawns — a who-is-winning number comparable to Stockfish. This is the energy
+        // side of F = <Q> + T*S with the optionality bonus stripped out; T and S remain
+        // as their own columns. (Best-move maxQ, not the Boltzmann-average avgQ, which at
+        // high T is dragged down by inferior moves and misreads the balance.)
+        const eval_w = (turn === 'w' ? 1 : -1) * thermo.Qs[thermo.bestIdx] / PAWN_XRAY;
+        graphData.push({ halfMove: graphData.length + 1, eval_w, T: thermo.T, S: thermo.S,
+            TS: thermo.TS, Ceff: thermo.Ceff, Cstar: thermo.Cstar, phase: thermo.phase,
+            U: (res.Uw - res.Ub) / PAWN_XRAY, move: moveHistory[graphData.length],
+            fen: res.fen, turn, sfEval: undefined,
+            timeMs: engineStats ? engineStats.timeMs : null,
+            depthReached: engineStats ? engineStats.depth : null });
+        if (res.fen && res.fen !== sfLastRequestedFen) { sfLastRequestedFen = res.fen; sfCurrentPosEval = null; requestSfEval(res.fen, turn); }
+    }
+    const source = thermo ? ('Engine evaluation (depth ' + thermo.depth + ', matches play)') : '';
+    lastUw = res.Uw; lastUb = res.Ub; lastThermo = thermo; lastSource = source;
+    renderThermoGrid(res.Uw, res.Ub, thermo, source);
+    renderMoveHistory();
+    renderMoveProbs(thermo);
+    renderMu(thermo, res.turn);
+    renderSchottky(thermo);
+    renderAnneal(thermo);
+    renderGraph();
+}
+
+// Recompute the dashboard for the current position (no move, no search).
+async function refreshDashboard() {
+    const gen = analysisGen, fen = game.fen();
+    if (game.game_over()) {
+        const { Uw, Ub } = rawU(game);
+        lastThermo = null; renderThermoGrid(Uw, Ub, null, '');
+        renderMoveHistory(); renderMoveProbs(null); renderMu(null);
+        renderSchottky(null); renderAnneal(null); renderGraph();
+        return;
+    }
+    const res = await analyzeAsync({ fen, pastKeys: collectPastKeys(), timeLimit: null,
+        dashDepth: (searchStats.depth > 0 ? searchStats.depth : 2), effS: effMode() });
+    if (gen !== analysisGen || game.fen() !== fen) return;   // stale
+    applyAnalysis(res, null);
+}
+
+function makeHumanMove(from, to, promo) {
+    if (thinking) return;
+    const result = game.move({ from, to, promotion: promo || undefined });
+    if (!result) return;
+    lastMoveSquares = { from, to };
+    moveHistory.push(result.san);
+    selectedSq = null; legalTargets = [];
+    renderBoard();                                 // instant — the search runs off-thread
+    if (game.game_over()) { refreshDashboard(); handleGameOver(); return; }
+    thinking = true;
+    setStatus('Thinking\u2026');
+    engineReply();
+}
+
+// Runs the engine's reply: one job returns both the analysis of the position
+// the engine faces (graph point for the opponent's move) and the engine's move;
+// a second job produces the dashboard for the resulting position.
+function effMode() {
+    const v = document.getElementById('effmode');
+    return v && v.value === 'both' ? true : (v && v.value === 'us' ? 'us' : undefined);
+}
+let uiBank = 0;   // scheduler time bank: frozen decisions fund hard ones
+let lastClock = null;   // last scheduled think: {stop, sigma, gap} for the grid
+async function engineReply() {
+    if (!thinking || game.game_over()) { thinking = false; return; }
+    const gen = analysisGen;
+    const base = TIME_LIMITS[document.getElementById('difficulty').value];
+    const timeLimit = base + Math.min(uiBank, 3 * base);
+    const res = await analyzeAsync({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit,
+                                     flux: 'measure', schedule: true, effS: effMode(),
+                                     newGame: moveHistory.length < 2 });
+    if (res && res.timeMs != null) uiBank = Math.max(0, uiBank + base - res.timeMs);
+    if (res && res.thermo) lastClock = { stop: res.thermo.stop || 'deadline',
+                                         sigma: res.thermo.sigma, gap: res.thermo.gap,
+                                         ms: res.timeMs };
+    if (gen !== analysisGen) return;               // aborted by new game / undo / switch
+    applyAnalysis(res, null);
+    if (res.san) {
+        const r = game.move(res.san);
+        if (r) { lastMoveSquares = { from: r.from, to: r.to }; moveHistory.push(r.san); }
+        searchStats = { depth: res.depth || 0, nodes: res.nodes || 0 };
+    }
+    thinking = false;
+    renderBoard();
+    if (game.game_over()) { handleGameOver(); refreshDashboard(); return; }
+    const res2 = await analyzeAsync({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit: null,
+                                      dashDepth: res.depth || 2, flux: 'measure', feedJhat: true,
+                                      effS: effMode() });
+    if (gen !== analysisGen) return;
+    applyAnalysis(res2, { timeMs: res.timeMs, depth: res.depth });
+    setStatus('Your move (' + (humanColor === 'w' ? 'White' : 'Black') + ') \u2014 depth ' +
+              (res.depth || 0) + ', ' + (res.nodes || 0).toLocaleString() + ' nodes');
+}
+function handleGameOver() {
+    let msg;
+    if (game.in_checkmate()) msg='Checkmate! '+(game.turn()==='w'?'Black':'White')+' wins.';
+    else if (game.in_stalemate()) msg='Stalemate \u2014 draw.';
+    else if (game.in_threefold_repetition()) msg='Threefold repetition \u2014 draw.';
+    else if (game.in_draw()) msg='Draw.';
+    else msg='Game over.';
+    setStatus(msg);
+}
+
+// ── Promotion UI ───────────────────────────────────────────
+function showPromotion(from, to) {
+    const modal=document.getElementById('promotion-modal');
+    const box=document.getElementById('promo-choices');
+    const color=game.turn(); box.innerHTML='';
+    for (const type of ['q','r','b','n']) {
+        const el=document.createElement('div'); el.className='promo-piece';
+        el.textContent=PIECE_CHAR[color+type];
+        el.addEventListener('click', () => { modal.classList.remove('active'); makeHumanMove(from,to,type); });
+        box.appendChild(el);
+    }
+    modal.classList.add('active');
+}
+
+// ── Controls ───────────────────────────────────────────────
+function newGame() {
+    analysisGen++; thinking=false; game=new Chess(); uiBank=0; lastClock=null;
+    selectedSq=null; legalTargets=[]; lastMoveSquares=null;
+    moveHistory=[]; thermoCache.clear(); graphData=[];
+    invalidateSf();
+    renderBoard(); updateMoveList();
+    if (humanColor==='b') { setStatus('Thinking\u2026'); thinking=true; engineReply(); }
+    else { setStatus('Your move (White)'); refreshDashboard(); }
+}
+function undoMove() {
+    if (thinking || moveHistory.length<2) return;
+    analysisGen++;
+    game.undo(); game.undo();
+    moveHistory.pop(); moveHistory.pop();
+    if (graphData.length>0) graphData.pop();
+    if (graphData.length>0) graphData.pop();
+    invalidateSf();
+    lastMoveSquares=null; selectedSq=null; legalTargets=[];
+    renderBoard(); updateMoveList();
+    setStatus('Your move ('+(humanColor==='w'?'White':'Black')+')');
+    refreshDashboard();
+}
+function flipBoard() { boardFlipped=!boardFlipped; renderBoard(); }
+function switchSides() {
+    if (thinking) return;
+    analysisGen++;
+    humanColor = humanColor==='w' ? 'b' : 'w';
+    aiColor = aiColor==='w' ? 'b' : 'w';
+    selectedSq=null; legalTargets=[];
+    thermoCache.clear();
+    renderBoard();
+    if (!game.game_over() && game.turn()===aiColor) { setStatus('Thinking\u2026'); thinking=true; engineReply(); }
+    else { setStatus('Your move ('+(humanColor==='w'?'White':'Black')+')'); refreshDashboard(); }
+}
+function setStatus(msg) { document.getElementById('status').textContent=msg; }
+function updateMoveList() {
+    const el=document.getElementById('move-list');
+    if (!el) return;   // game-history panel removed; move history table on the right supersedes it
+    if (moveHistory.length===0) { el.textContent='Game start'; return; }
+    let s='';
+    for (let i=0;i<moveHistory.length;i+=2) {
+        s+=(i/2+1)+'. '+moveHistory[i];
+        if (moveHistory[i+1]) s+=' '+moveHistory[i+1];
+        s+='  ';
+    }
+    el.textContent=s; el.scrollTop=el.scrollHeight;
+}
+
+// ── Stockfish reference engine ─────────────────────────────
+// Runs a real Stockfish (UCI) in a Web Worker purely as an
+// external ground-truth check on the thermodynamic engine's
+// evaluation. It never influences play; it only annotates the
+// dashboard and the history graph. All scores are normalised to
+// White's point of view (+ = White better) to match eval_w.
+let sfWorker = null, sfReady = false, sfBusy = false;
+let sfQueue = [], sfEpoch = 0, sfCurrent = null, sfScore = null;
+let sfCurrentPosEval = null;     // White-POV pawns for the position on the board, or null
+let sfLastRequestedFen = null;
+
+async function initStockfish() {
+    try {
+        const r = await fetch('https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.js');
+        const js = await r.text();
+        const blob = new Blob([js], { type: 'application/javascript' });
+        sfWorker = new Worker(URL.createObjectURL(blob));
+        sfWorker.onmessage = onSfMessage;
+        sfWorker.postMessage('uci');
+    } catch (e) {
+        sfWorker = null;
+        sfRefresh();   // show "offline" in the panel
+    }
+}
+
+function onSfMessage(e) {
+    const line = typeof e.data === 'string' ? e.data : '';
+    if (line === 'uciok') {
+        sfWorker.postMessage('isready');
+    } else if (line === 'readyok') {
+        sfReady = true; sfBusy = false;
+        sfRefresh();
+        processSfQueue();
+    } else if (line.startsWith('info') && line.includes(' depth ')) {
+        const cp = line.match(/\bcp (-?\d+)/);
+        const mate = line.match(/\bmate (-?\d+)/);
+        if (cp) sfScore = parseInt(cp[1]) / 100;
+        else if (mate) sfScore = (parseInt(mate[1]) > 0 ? MATE_SENTINEL : -MATE_SENTINEL);
+    } else if (line.startsWith('bestmove')) {
+        if (sfCurrent && sfCurrent.epoch === sfEpoch && sfScore != null) {
+            // Convert side-to-move score to White's point of view
+            const whitePov = (sfCurrent.turn === 'w' ? 1 : -1) * sfScore;
+            for (let i = 0; i < graphData.length; i++)
+                if (graphData[i].fen === sfCurrent.fen) graphData[i].sfEval = whitePov;
+            if (sfCurrent.fen === game.fen()) sfCurrentPosEval = whitePov;
+            sfRefresh();
+        }
+        sfBusy = false; sfCurrent = null; sfScore = null;
+        processSfQueue();
+    }
+}
+
+function processSfQueue() {
+    if (!sfReady || sfBusy || sfQueue.length === 0) return;
+    const item = sfQueue.shift();
+    if (item.epoch !== sfEpoch) { processSfQueue(); return; }   // drop stale jobs
+    sfCurrent = item; sfScore = null; sfBusy = true;
+    sfWorker.postMessage('position fen ' + item.fen);
+    sfWorker.postMessage('go depth ' + SF_DEPTH);
+}
+
+function requestSfEval(fen, turn) {
+    if (!sfWorker) return;
+    sfQueue.push({ fen, turn, epoch: sfEpoch });
+    processSfQueue();
+}
+
+function invalidateSf() {
+    sfEpoch++;            // any in-flight or queued job is now stale and ignored
+    sfQueue = [];
+    sfCurrentPosEval = null;
+    sfLastRequestedFen = null;
+}
+
+// Re-render only the SF-dependent parts without recomputing thermodynamics
+// (and without re-enqueuing an SF job, which would loop).
+function sfRefresh() {
+    if (lastThermo !== undefined) renderThermoGrid(lastUw, lastUb, lastThermo, lastSource);
+    renderGraph();
+}
+
+// ── Dashboard ──────────────────────────────────────────────
+let lastThermo, lastUw, lastUb, lastSource;   // cached for sfRefresh
+function updateDashboard() { refreshDashboard(); }
+
+function fmt(v, d) {
+    if (v == null || !Number.isFinite(v)) return '\u2014';
+    return v.toFixed(d === undefined ? 2 : d);
+}
+
+function renderThermoGrid(Uw, Ub, th, source) {
+    const grid = document.getElementById('thermo-grid');
+    if (!th) { grid.innerHTML='<span class="dash-label">Game over</span>'; return; }
+
+    // Eval = value of the move the engine actually plays (argmax Q), in
+    // White-POV pawns \u2014 the same convention as the history table and graph,
+    // and the number the Stockfish delta compares against. F (which adds the
+    // optionality term TS) is displayed on its own row.
+    const evalSide = game.turn();
+    const bestQ = th.Qs[th.bestIdx];
+    const evalW = evalSide === 'w' ? bestQ : -bestQ;
+    const enginePawns = evalW / PAWN_XRAY;
+
+    // Shared White-POV pawn formatting for engine and Stockfish evals
+    function fmtCp(v) {
+        if (v == null) return '\u2014';
+        if (Math.abs(v) >= MATE_SENTINEL) return v > 0 ? '#' : '-#';
+        return (v >= 0 ? '+' : '') + v.toFixed(2) + ' \u2659';
+    }
+    let sfStr, deltaStr;
+    if (!sfWorker) { sfStr = 'offline'; deltaStr = '\u2014'; }
+    else if (sfCurrentPosEval == null) { sfStr = '\u2026'; deltaStr = '\u2014'; }
+    else {
+        sfStr = fmtCp(sfCurrentPosEval);
+        if (Math.abs(sfCurrentPosEval) >= MATE_SENTINEL || Math.abs(enginePawns) >= MATE_SENTINEL) deltaStr = '\u2014';
+        else {
+            const d = enginePawns - sfCurrentPosEval;
+            deltaStr = (d >= 0 ? '+' : '') + d.toFixed(2);
+        }
+    }
+
+    // Schottky measurement: where the measured bath temperature sits on the
+    // position's own heat-capacity curve. C_eff = Var(Q)/T\u00B2 at the bath T;
+    // C* = the position's critical capacity (peak of the curve); phase =
+    // frozen / cold (ordered side) / critical / hot (disordered side).
+    const phase = th.phase ? ' (' + th.phase + ')' : '';
+
+    // Opponent thermometer: the running Curie-Weiss self-coupling of the
+    // initiative measured against THIS opponent, with its duplicate-assay
+    // error bar, and the scheduler state it drives (sigma_eff vs gap).
+    const jh = th.jhat;
+    const jhStr = (jh && jh.se !== Infinity && jh.se != null)
+        ? fmt(jh.J,1) + '\u00B1' + fmt(jh.se,1) + ' (T\u0302c ' + fmt(jh.Tc,2) + ')' +
+          (jh.Js != null && (jh.n||0) < 8 ? ' \u00B7prior' : '')
+        : '\u2014 (no reading)';
+    const lc = (th.stop || th.sigma != null) ? { stop: th.stop || 'deadline', sigma: th.sigma, gap: th.gap, ms: null }
+             : (typeof lastClock !== 'undefined' ? lastClock : null);
+    const schedStr = lc
+        ? lc.stop + (lc.sigma != null ? ' \u03C3=' + fmt(lc.sigma,1) + '/' + fmt(lc.gap,1) : '') +
+          (lc.ms != null ? ' \u00B7 ' + (lc.ms/1000).toFixed(1) + 's' : '')
+        : '\u2014';
+
+    const rows = [
+        ['U_w', fmt(Uw,1), 'U_b', fmt(Ub,1)],
+        ['T (bath)', fmt(th.T,3), 'S', fmt(th.S,4)],
+        ['\u27E8Q\u27E9', fmt(th.avgQ,4), 'TS', fmt(th.TS,4)],
+        ['C_eff', fmt(th.Ceff,2), 'C*', fmt(th.Cstar,2)+phase],
+        ['F=\u27E8Q\u27E9+TS', fmt(th.F,4), 'Eval', fmtCp(enginePawns)],
+        ['S_reply (n_eff)', th.replyS != null ? fmt(th.replyS,2) + ' (' + fmt(Math.exp(th.replyS),1) + ')' : '\u2014',
+         '\u0394S overcount', th.replyS != null ? fmt(th.S - th.replyS,2) : '\u2014'],
+        ['\u0134 opponent', jhStr, 'clock', schedStr],
+        ['SF (d'+SF_DEPTH+')', sfStr, '\u0394 (eng\u2212SF)', deltaStr],
+    ];
+
+    let html = '<span class="dash-label" style="grid-column:span 4;color:#666;font-size:0.8em;margin-bottom:2px">' +
+               source + '</span>';
+    for (const r of rows) {
+        html += '<span class="dash-label">'+r[0]+'</span><span class="dash-value">'+r[1]+'</span>';
+        html += '<span class="dash-label">'+r[2]+'</span><span class="dash-value">'+r[3]+'</span>';
+    }
+    grid.innerHTML = html;
+}
+
+function renderMoveHistory() {
+    const el = document.getElementById('dash-movehistory');
+    if (!el) return;
+    if (graphData.length === 0) { el.innerHTML = '<span style="color:#666">No moves yet</span>'; return; }
+
+    const sfStatus = sfWorker ? (sfReady ? '' : ' (loading)') : ' (offline)';
+    let html = '<table class="prob-table"><tr><th>#</th><th>Move</th>' +
+               '<th style="text-align:right">Eval</th>' +
+               '<th style="text-align:right">SF' + sfStatus + '</th>' +
+               '<th style="text-align:right">S</th><th style="text-align:right">T</th>' +
+               '<th style="text-align:right">U</th>' +
+               '<th style="text-align:right">Time</th><th style="text-align:right">Depth</th></tr>';
+
+    const fmtCp = v => (v == null) ? '\u2026'
+        : (Math.abs(v) >= MATE_SENTINEL ? (v > 0 ? '#' : '-#')
+           : (v >= 0 ? '+' : '') + v.toFixed(2));
+    const fmtTime = ms => (ms == null) ? '' : (ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms');
+
+    for (let i = 0; i < graphData.length; i++) {
+        const d = graphData[i];
+        const moveNum = Math.ceil(d.halfMove / 2);
+        const isBlack = d.halfMove % 2 === 0;
+        const label = isBlack ? moveNum + '\u2026' : moveNum + '.';
+        const ev = fmtCp(d.eval_w);
+        const sf = fmtCp(d.sfEval);
+        const u = (d.U >= 0 ? '+' : '') + d.U.toFixed(2);
+        const bg = isBlack ? ' style="background:rgba(255,255,255,0.03)"' : '';
+        html += '<tr' + bg + '><td>' + label + '</td><td>' + (d.move || '') + '</td>' +
+                '<td style="text-align:right">' + ev + '</td>' +
+                '<td style="text-align:right;color:#e0a458">' + sf + '</td>' +
+                '<td style="text-align:right">' + d.S.toFixed(2) + '</td>' +
+                '<td style="text-align:right">' + d.T.toFixed(1) + '</td>' +
+                '<td style="text-align:right">' + u + '</td>' +
+                '<td style="text-align:right;color:#8fae8f">' + fmtTime(d.timeMs) + '</td>' +
+                '<td style="text-align:right;color:#8fae8f">' + (d.depthReached == null ? '' : d.depthReached) + '</td></tr>';
+    }
+    html += '</table>';
+    el.innerHTML = html;
+    el.scrollTop = el.scrollHeight;
+}
+
+function renderMoveProbs(th) {
+    const el = document.getElementById('dash-moves');
+    if (!th) { el.innerHTML='<span style="color:#666">N/A</span>'; return; }
+
+    const indexed = [];
+    for (let i=0;i<th.moves.length;i++)
+        indexed.push({ move:th.moves[i], prob:th.probs[i], q:th.Qs[i], isBest:i===th.bestIdx });
+    indexed.sort((a,b) => b.prob - a.prob);
+
+    let maxP = 0;
+    for (let i=0;i<indexed.length;i++) if (indexed[i].prob>maxP) maxP=indexed[i].prob;
+
+    let html = '<table class="prob-table"><tr><th>Move</th><th style="text-align:right">Q (\u2659)</th>' +
+               '<th style="text-align:right">\u03C0</th><th class="prob-bar-cell"></th></tr>';
+    const show = Math.min(indexed.length, 20);
+    for (let i=0; i<show; i++) {
+        const x = indexed[i];
+        const barW = Math.max(2, (x.prob/maxP)*100);
+        const qs = x.q / PAWN_XRAY;
+        const sign = qs >= 0 ? '+' : '';
+        const cls = x.isBest ? ' class="best-move-row"' : '';
+        html += '<tr'+cls+'><td>'+(x.isBest?'\u25B6 ':'')+x.move+'</td><td style="text-align:right">'+sign+fmt(qs,2)+
+                '</td><td style="text-align:right">'+fmt(x.prob,3)+
+                '</td><td class="prob-bar-cell"><div class="prob-bar" style="width:'+barW.toFixed(1)+'%"></div></td></tr>';
+    }
+    if (indexed.length > 20)
+        html += '<tr><td colspan="4" style="color:#666">... '+(indexed.length-20)+' more</td></tr>';
+    html += '</table>';
+    el.innerHTML = html;
+}
+
+// Per-piece chemical potential: which pieces carry the position's free
+// energy. p_P is the Boltzmann weight of all moves originating from P;
+// μ_P = −T ln(1−p_P) is the free-energy cost of freezing P in place.
+let muOverlayOn = false, lastMuMap = null, lastMuTurn = 'w', lastMuMax = 0;
+function toggleMuOverlay(on) { muOverlayOn = on; renderBoard(); }
+function renderMu(th, turn) {
+    const el = document.getElementById('dash-mu');
+    if (!el) return;
+    if (!th || !th.mu || th.mu.length === 0) {
+        el.innerHTML = '<span style="color:#666">N/A</span>';
+        lastMuMap = null;
+        if (muOverlayOn) renderBoard();
+        return;
+    }
+    lastMuMap = {}; lastMuTurn = turn; lastMuMax = 0;
+    for (let i = 0; i < th.mu.length; i++) {
+        lastMuMap[th.mu[i].square] = th.mu[i].mu;
+        if (th.mu[i].mu > lastMuMax) lastMuMax = th.mu[i].mu;
+    }
+    if (muOverlayOn) renderBoard();
+
+    let maxMu = 0;
+    for (let i = 0; i < th.mu.length; i++) if (th.mu[i].mu > maxMu) maxMu = th.mu[i].mu;
+    if (th.muTempo != null && th.muTempo > maxMu) maxMu = th.muTempo;
+
+    let html = '<table class="prob-table"><tr><th>Piece</th><th style="text-align:right">μ (♙)</th>' +
+               '<th style="text-align:right">p_P</th><th class="prob-bar-cell"></th></tr>';
+    // The tempo priced as a piece: the initiative, μ_tempo = T·softplus(χ̃/T)
+    // on the null-extended ensemble. Zero in zugzwang.
+    if (th.muTempo != null) {
+        const tw = maxMu > 0 ? Math.max(2, (th.muTempo / maxMu) * 100) : 2;
+        html += '<tr style="border-bottom:1px solid #2a2a3e"><td>⌛ tempo</td>' +
+                '<td style="text-align:right">' + fmt(th.muTempo / PAWN_XRAY, 3) + '</td>' +
+                '<td style="text-align:right">—</td>' +
+                '<td class="prob-bar-cell"><div class="prob-bar" style="width:' + tw.toFixed(1) + '%;background:linear-gradient(90deg,#e0a458,#c08838)"></div></td></tr>';
+    }
+    for (let i = 0; i < th.mu.length; i++) {
+        const x = th.mu[i];
+        const barW = maxMu > 0 ? Math.max(2, (x.mu / maxMu) * 100) : 2;
+        html += '<tr><td>' + PIECE_CHAR[turn + x.type] + ' ' + x.square +
+                '</td><td style="text-align:right">' + fmt(x.mu / PAWN_XRAY, 3) +
+                '</td><td style="text-align:right">' + fmt(x.pSq, 3) +
+                '</td><td class="prob-bar-cell"><div class="prob-bar" style="width:' + barW.toFixed(1) + '%"></div></td></tr>';
+    }
+    html += '</table>';
+    el.innerHTML = html;
+}
+
+// ── Instrument canvases ────────────────────────────────────
+const PHASE_COLORS = { frozen: '#5b7bd5', cold: '#7ec8e3', critical: '#e3c87e', hot: '#e37e7e' };
+
+function setupCanvas(id) {
+    const canvas = document.getElementById(id);
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    return { ctx, w: rect.width, h: rect.height };
+}
+function noData(c) {
+    c.ctx.fillStyle = '#555'; c.ctx.font = '12px system-ui';
+    c.ctx.textAlign = 'left'; c.ctx.fillText('No data yet', 10, c.h / 2);
+}
+function fmtT(v) { return v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2); }
+
+// The position's heat-capacity curve C(T) = Var_π(Q)/T² on a log-T axis —
+// its Schottky anomaly — with the measured bath temperature marked on it.
+// Where the marker sits relative to the peak IS the phase.
+function renderSchottky(th) {
+    const c = setupCanvas('schottky-canvas');
+    if (!c) return;
+    const { ctx, w, h } = c;
+    ctx.clearRect(0, 0, w, h);
+    if (!th || !th.curve || th.curve.length < 2) { noData(c); return; }
+
+    const pad = { top: 10, right: 10, bottom: 18, left: 34 };
+    const pw = w - pad.left - pad.right, ph = h - pad.top - pad.bottom;
+    const pts = th.curve;
+    const lx0 = Math.log(pts[0].T), lx1 = Math.log(pts[pts.length - 1].T);
+    let maxC = th.Cstar;
+    for (const p of pts) if (p.C > maxC) maxC = p.C;
+    maxC = Math.max(maxC * 1.1, 1e-6);
+    const X = T => pad.left + (Math.log(T) - lx0) / (lx1 - lx0) * pw;
+    const Y = C => pad.top + ph * (1 - C / maxC);
+
+    // grid + y labels
+    ctx.strokeStyle = '#2a2a3e'; ctx.lineWidth = 1;
+    ctx.fillStyle = '#888'; ctx.font = '9px Consolas, Menlo, monospace'; ctx.textAlign = 'right';
+    for (let i = 0; i <= 2; i++) {
+        const y = pad.top + (i / 2) * ph;
+        ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+        ctx.fillText((maxC * (1 - i / 2)).toFixed(2), pad.left - 4, y + 3);
+    }
+    // x labels (log ticks at ends and peak)
+    ctx.textAlign = 'center';
+    ctx.fillText(fmtT(pts[0].T), X(pts[0].T), h - 5);
+    ctx.fillText(fmtT(pts[pts.length - 1].T), X(pts[pts.length - 1].T), h - 5);
+
+    // the curve
+    ctx.strokeStyle = '#7ec8e3'; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+        const x = X(pts[i].T), y = Y(pts[i].C);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Schottky peak (C*, T̂)
+    ctx.fillStyle = '#e0a458';
+    ctx.beginPath(); ctx.arc(X(th.Tspin), Y(th.Cstar), 3, 0, Math.PI * 2); ctx.fill();
+    ctx.textAlign = 'center'; ctx.fillText('C*', X(th.Tspin), Y(th.Cstar) - 6);
+
+    // bath temperature marker, colored by phase
+    const bx = X(Math.max(th.T, pts[0].T));
+    const pc = PHASE_COLORS[th.phase] || '#e0e0ea';
+    ctx.strokeStyle = pc; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(bx, pad.top); ctx.lineTo(bx, pad.top + ph); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = pc; ctx.textAlign = bx > w * 0.75 ? 'right' : 'left';
+    ctx.fillText('T=' + fmtT(th.T) + ' (' + th.phase + ')', bx + (bx > w * 0.75 ? -4 : 4), pad.top + 8);
+}
+
+// The cooling schedule of the search that just ran: measured bath T per
+// deepening iteration, with the zero-point quantum as a floor line.
+function renderAnneal(th) {
+    const c = setupCanvas('anneal-canvas');
+    if (!c) return;
+    const { ctx, w, h } = c;
+    ctx.clearRect(0, 0, w, h);
+    if (!th || !th.anneal || th.anneal.length === 0) { noData(c); return; }
+
+    const pad = { top: 10, right: 10, bottom: 16, left: 34 };
+    const pw = w - pad.left - pad.right, ph = h - pad.top - pad.bottom;
+    const tr = th.anneal;
+    let maxT = T_ZERO;
+    for (const p of tr) if (p.T > maxT) maxT = p.T;
+    maxT *= 1.15;
+    const X = i => pad.left + (tr.length === 1 ? pw / 2 : (i / (tr.length - 1)) * pw);
+    const Y = T => pad.top + ph * (1 - T / maxT);
+
+    // zero-point floor
+    ctx.strokeStyle = '#3a3a5e'; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, Y(T_ZERO)); ctx.lineTo(w - pad.right, Y(T_ZERO)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#666'; ctx.font = '9px Consolas, Menlo, monospace'; ctx.textAlign = 'left';
+    ctx.fillText('T₀', w - pad.right - 12, Y(T_ZERO) - 3);
+
+    // cooling curve
+    ctx.strokeStyle = '#b07ee3'; ctx.fillStyle = '#b07ee3'; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    for (let i = 0; i < tr.length; i++) {
+        const x = X(i), y = Y(tr[i].T);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    for (let i = 0; i < tr.length; i++) {
+        ctx.beginPath(); ctx.arc(X(i), Y(tr[i].T), 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#888';
+        ctx.fillText('d' + tr[i].d, X(i), h - 4);
+        ctx.fillStyle = '#b07ee3';
+    }
+    // y labels
+    ctx.fillStyle = '#888'; ctx.textAlign = 'right';
+    ctx.fillText(fmtT(maxT), pad.left - 4, pad.top + 3);
+    ctx.fillText('0', pad.left - 4, pad.top + ph + 3);
+    // final T annotation
+    ctx.fillStyle = '#b07ee3'; ctx.textAlign = 'right';
+    ctx.fillText('T=' + fmtT(tr[tr.length - 1].T), w - pad.right, pad.top + 8);
+}
+
+// ── Turn-by-turn Graph ─────────────────────────────────────
+function renderGraph() {
+    const canvas = document.getElementById('graph-canvas');
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const w = rect.width, h = rect.height;
+
+    const variable = document.getElementById('graphVar').value;
+    const EVAL_CLAMP = 10;   // keep mate scores from blowing up the y-scale (both series)
+    const clampEval = v => Math.max(-EVAL_CLAMP, Math.min(EVAL_CLAMP, v));
+    const data = graphData.map(d => {
+        switch (variable) {
+            case 'eval': return clampEval(d.eval_w);
+            case 'T': return d.T;
+            case 'S': return d.S;
+            case 'TS': return d.TS || 0;
+            case 'Ceff': return d.Ceff || 0;
+            case 'Cstar': return d.Cstar || 0;
+            default: return clampEval(d.eval_w);
+        }
+    });
+
+    // Stockfish reference series (only meaningful for the eval variable)
+    const showSf = variable === 'eval';
+    const sfData = showSf
+        ? graphData.map(d => (d.sfEval == null ? null : clampEval(d.sfEval)))
+        : [];
+
+    ctx.clearRect(0, 0, w, h);
+
+    if (data.length === 0) {
+        ctx.fillStyle = '#555';
+        ctx.font = '12px system-ui';
+        ctx.fillText('No data yet', 10, h / 2);
+        return;
+    }
+
+    const pad = { top: 12, right: 10, bottom: 22, left: 42 };
+    const pw = w - pad.left - pad.right;
+    const ph = h - pad.top - pad.bottom;
+
+    let minY = data[0], maxY = data[0];
+    for (let i = 1; i < data.length; i++) {
+        if (data[i] < minY) minY = data[i];
+        if (data[i] > maxY) maxY = data[i];
+    }
+    if (showSf) for (const v of sfData) {
+        if (v == null) continue;
+        if (v < minY) minY = v;
+        if (v > maxY) maxY = v;
+    }
+    if (variable === 'eval') { minY = Math.min(minY, -0.5); maxY = Math.max(maxY, 0.5); }
+    else { minY = Math.min(minY, 0); maxY = Math.max(maxY, 0.5); }
+    if (maxY - minY < 0.1) { maxY += 0.25; minY -= 0.25; }
+    const rangeY = maxY - minY;
+
+    function xPos(i) { return pad.left + (data.length === 1 ? pw/2 : (i/(data.length-1))*pw); }
+    function yPos(v) { return pad.top + ph * (1 - (v - minY) / rangeY); }
+
+    // Horizontal grid lines
+    ctx.strokeStyle = '#2a2a3e';
+    ctx.lineWidth = 1;
+    const nGrid = 4;
+    for (let i = 0; i <= nGrid; i++) {
+        const y = pad.top + (i / nGrid) * ph;
+        ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+    }
+
+    // Zero line for eval
+    if (variable === 'eval' && minY < 0 && maxY > 0) {
+        const zy = yPos(0);
+        ctx.strokeStyle = '#444';
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.moveTo(pad.left, zy); ctx.lineTo(w - pad.right, zy); ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    if (variable === 'eval') {
+        // Single engine series (Stockfish overlay drawn below)
+        ctx.strokeStyle = '#7ec8e3';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let i = 0; i < data.length; i++) {
+            const x = xPos(i), y = yPos(data[i]);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.fillStyle = '#7ec8e3';
+        for (let i = 0; i < data.length; i++) {
+            ctx.beginPath();
+            ctx.arc(xPos(i), yPos(data[i]), 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    } else {
+        // T and S delineated by the side to move at each position.
+        const WCOL = '#e0e0ea', BCOL = '#b07ee3';
+        const drawSeries = (turnChar, color) => {
+            ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            let started = false;
+            for (let i = 0; i < data.length; i++) {
+                if (graphData[i].turn !== turnChar) continue;
+                const x = xPos(i), y = yPos(data[i]);
+                if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            for (let i = 0; i < data.length; i++) {
+                if (graphData[i].turn !== turnChar) continue;
+                ctx.beginPath(); ctx.arc(xPos(i), yPos(data[i]), 2.5, 0, Math.PI * 2); ctx.fill();
+            }
+        };
+        drawSeries('w', WCOL);   // positions with White to move
+        drawSeries('b', BCOL);   // positions with Black to move
+
+        // Legend
+        ctx.textAlign = 'left';
+        ctx.font = '10px Consolas, Menlo, monospace';
+        ctx.fillStyle = WCOL; ctx.fillText('\u25CF White to move', pad.left + 4, pad.top + 8);
+        ctx.fillStyle = BCOL; ctx.fillText('\u25CF Black to move', pad.left + 96, pad.top + 8);
+    }
+
+    // Stockfish reference overlay (amber), drawn across gaps where SF
+    // hasn't returned yet for a given half-move.
+    if (showSf) {
+        ctx.strokeStyle = '#e0a458';
+        ctx.lineWidth = 1.5;
+        let started = false;
+        ctx.beginPath();
+        for (let i = 0; i < sfData.length; i++) {
+            if (sfData[i] == null) { started = false; continue; }
+            const x = xPos(i), y = yPos(sfData[i]);
+            if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.fillStyle = '#e0a458';
+        for (let i = 0; i < sfData.length; i++) {
+            if (sfData[i] == null) continue;
+            ctx.beginPath();
+            ctx.arc(xPos(i), yPos(sfData[i]), 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Legend
+        ctx.textAlign = 'left';
+        ctx.font = '10px Consolas, Menlo, monospace';
+        ctx.fillStyle = '#7ec8e3'; ctx.fillText('\u25CF engine', pad.left + 4, pad.top + 8);
+        ctx.fillStyle = '#e0a458'; ctx.fillText('\u25CF stockfish', pad.left + 64, pad.top + 8);
+    }
+
+    // Y-axis labels
+    ctx.fillStyle = '#888';
+    ctx.font = '10px Consolas, Menlo, monospace';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= nGrid; i++) {
+        const val = maxY - (i / nGrid) * rangeY;
+        ctx.fillText(val.toFixed(1), pad.left - 5, pad.top + (i / nGrid) * ph + 3);
+    }
+
+    // X-axis labels
+    ctx.textAlign = 'center';
+    const step = Math.max(1, Math.ceil(data.length / 10));
+    for (let i = 0; i < data.length; i += step) {
+        ctx.fillText(String(graphData[i].halfMove), xPos(i), h - 4);
+    }
+
+    // Phase strip: the game's phase geography, one colored cell per
+    // half-move (frozen / cold / critical / hot), just above the x labels.
+    const stripY = h - pad.bottom + 3, stripH = 5;
+    for (let i = 0; i < graphData.length; i++) {
+        const ph2 = graphData[i].phase;
+        if (!ph2) continue;
+        const xl = i === 0 ? pad.left : (xPos(i - 1) + xPos(i)) / 2;
+        const xr = i === graphData.length - 1 ? w - pad.right : (xPos(i) + xPos(i + 1)) / 2;
+        ctx.fillStyle = PHASE_COLORS[ph2] || '#444';
+        ctx.fillRect(xl, stripY, Math.max(xr - xl, 1), stripH);
+    }
+}
+
+// ── Init ───────────────────────────────────────────────────
+(function init() {
+    if (typeof Chess === 'undefined') {
+        document.getElementById('status').textContent = 'Error: chess.js failed to load.';
+        document.getElementById('status').style.color = '#ff6b6b';
+        return;
+    }
+    renderBoard();
+    updateMoveList();
+    updateDashboard();
+    initStockfish();
+})();
+</script>
+</body>
+</html>

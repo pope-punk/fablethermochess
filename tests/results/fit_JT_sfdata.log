@@ -1,0 +1,15 @@
+robust cut at T > 50: dropped 41 moves / 350 readings (runaway tail), kept 12113 readings
+rung      moves  readings   ⟨T⟩      J     b      J·b/2T   (95% CI on J)
+1000ms      455    12113    3.24  13.75  0.90     1.91     [15.50 … 15.50]
+pooled      455    12113    3.24  13.75  0.90     1.91     [15.50 … 15.50]
+
+T-binned fits (quantile bins over moves, pooled across rungs):
+T range        moves  readings   ⟨T⟩      J     b      J·b/2T   (95% CI on J)
+1.00–1.16        91     3048    1.07   2.80  0.97     1.27     [2.05 … 3.55]
+1.16–1.41        91     2569    1.29   2.65  0.92     0.95     [2.15 … 3.65]
+1.41–1.89        91     2533    1.64   3.10  0.88     0.83     [2.10 … 4.35]
+1.92–3.45        91     2291    2.46  10.00  0.83     1.69     [8.25 … 11.75]
+3.52–39.33       91     1672    9.71  35.45  1.00     1.82     [37.20 … 37.20]
+
+VERDICT: the COLD bins CROSS the Curie point — spontaneous initiative polarization in the frozen regime.
+plot written: /tmp/claude-0/-home-user-fablethermochess/5de665a6-1b49-5361-a16b-9119aa5d0afc/scratchpad/sf_flux_asrungs_JT.svg

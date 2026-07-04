@@ -1,232 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chess Thermodynamics Engine</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: #0f0f1a;
-    color: #e0e0e0;
-    min-height: 100vh;
-}
-#app {
-    display: flex;
-    max-width: 1400px;
-    margin: 0 auto;
-    gap: 24px;
-    padding: 20px;
-    align-items: flex-start;
-}
-#left-panel { flex: 0 0 auto; }
-#right-panel {
-    flex: 1;
-    min-width: 310px;
-    max-height: calc(100vh - 40px);
-    overflow-y: auto;
-}
-h1 { font-size: 1.4em; margin-bottom: 10px; color: #7ec8e3; }
-h2 {
-    font-size: 1.05em;
-    margin: 14px 0 6px;
-    color: #7ec8e3;
-    border-bottom: 1px solid #2a2a3e;
-    padding-bottom: 4px;
-}
-.h2-sub {
-    font-size: 0.75em;
-    color: #666;
-    font-weight: normal;
-    display: block;
-    margin-top: 2px;
-}
-#status {
-    margin-bottom: 10px;
-    padding: 8px 12px;
-    background: #16213e;
-    border-radius: 6px;
-    font-size: 0.9em;
-    min-height: 36px;
-}
-#board-container {
-    display: inline-block;
-    border: 2px solid #3a3a5e;
-    border-radius: 4px;
-    overflow: hidden;
-}
-.board-row { display: flex; }
-.cell {
-    width: 68px; height: 68px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 46px; cursor: pointer; user-select: none;
-    position: relative; transition: opacity 0.1s;
-    color: #1a1a1a; text-shadow: 0 0 2px rgba(0,0,0,0.3);
-}
-.light { background: #f0d9b5; }
-.dark { background: #b58863; }
-.cell:hover { opacity: 0.88; }
-.cell.selected { box-shadow: inset 0 0 0 3.5px #3355dd; }
-.cell.legal-dot::after {
-    content: ''; position: absolute;
-    width: 20px; height: 20px;
-    background: rgba(0,0,0,0.22); border-radius: 50%;
-    top: 50%; left: 50%; transform: translate(-50%,-50%);
-    pointer-events: none;
-}
-.cell.legal-capture { box-shadow: inset 0 0 0 4px rgba(0,0,0,0.22); }
-.light.last-move { background: #cdd26a; }
-.dark.last-move { background: #aaa23a; }
-.light.last-move.selected { background: #cdd26a; box-shadow: inset 0 0 0 3.5px #3355dd; }
-.dark.last-move.selected { background: #aaa23a; box-shadow: inset 0 0 0 3.5px #3355dd; }
-.coord-label { font-size: 10px; position: absolute; pointer-events: none; font-weight: 600; }
-.file-label { bottom: 2px; right: 4px; }
-.rank-label { top: 2px; left: 4px; }
-.light .coord-label { color: #b58863; }
-.dark .coord-label { color: #f0d9b5; }
-#controls {
-    margin-top: 10px; display: flex; gap: 8px;
-    flex-wrap: wrap; align-items: center;
-}
-button, select {
-    padding: 6px 12px; background: #16213e; color: #e0e0e0;
-    border: 1px solid #3a3a5e; border-radius: 5px;
-    cursor: pointer; font-size: 0.85em; font-family: inherit;
-}
-button:hover { background: #1e3050; }
-select:focus, button:focus { outline: 1px solid #7ec8e3; }
-input[type="range"] {
-    width: 80px; vertical-align: middle; accent-color: #7ec8e3;
-    cursor: pointer; margin: 0 4px;
-}
-#heatCapVal { font-family: 'Consolas','Menlo',monospace; font-size: 0.85em; color: #7ec8e3; min-width: 2em; display: inline-block; }
-label { font-size: 0.85em; }
-#move-list {
-    margin-top: 10px; padding: 8px 10px;
-    background: #16213e; border-radius: 6px;
-    font-family: 'Consolas','Menlo',monospace; font-size: 0.84em;
-    max-height: 110px; overflow-y: auto;
-    line-height: 1.7; word-wrap: break-word;
-}
-.dash-section {
-    background: #16213e; border-radius: 6px;
-    padding: 10px 12px; margin-bottom: 8px;
-}
-.dash-grid {
-    display: grid;
-    grid-template-columns: auto 1fr auto 1fr;
-    gap: 3px 10px;
-    font-family: 'Consolas','Menlo',monospace; font-size: 0.84em;
-    align-items: baseline;
-}
-.dash-label { color: #999; white-space: nowrap; }
-.dash-value { color: #7ec8e3; text-align: right; font-variant-numeric: tabular-nums; }
-.prob-table {
-    width: 100%; border-collapse: collapse;
-    font-family: 'Consolas','Menlo',monospace; font-size: 0.8em;
-}
-.prob-table th {
-    text-align: left; color: #888; padding: 2px 6px;
-    border-bottom: 1px solid #2a2a3e; font-weight: normal;
-}
-.prob-table td { padding: 2px 6px; }
-.prob-bar-cell { width: 35%; }
-.prob-bar {
-    height: 13px;
-    background: linear-gradient(90deg, #7ec8e3, #5ba3c0);
-    border-radius: 2px; min-width: 2px;
-}
-.best-move-row td { color: #c8e37e; }
-#promotion-modal {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.7); z-index: 100;
-    align-items: center; justify-content: center;
-}
-#promotion-modal.active { display: flex; }
-.promo-choices {
-    display: flex; gap: 10px; background: #16213e;
-    padding: 18px; border-radius: 10px; border: 2px solid #7ec8e3;
-}
-.promo-piece {
-    width: 68px; height: 68px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 50px; cursor: pointer;
-    background: #f0d9b5; border-radius: 6px; transition: transform 0.1s;
-}
-.promo-piece:hover { transform: scale(1.08); background: #e0c9a5; }
-.graph-controls {
-    display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
-}
-.graph-controls select { padding: 3px 8px; font-size: 0.8em; }
-#graph-canvas { width: 100%; height: 150px; display: block; }
-@media (max-width: 960px) {
-    #app { flex-direction: column; align-items: center; }
-    #right-panel { min-width: unset; width: 100%; max-width: 560px; max-height: unset; }
-}
-@media (max-width: 600px) {
-    .cell { width: 48px; height: 48px; font-size: 32px; }
-    #app { padding: 10px; gap: 12px; }
-}
-</style>
-</head>
-<body>
 
-<div id="app">
-<div id="left-panel">
-    <h1>&#9812; Chess Thermodynamics</h1>
-    <div id="status">Your move (White)</div>
-    <div id="board-container"><div id="board"></div></div>
-    <div id="controls">
-        <button onclick="newGame()">New Game</button>
-        <button onclick="undoMove()">Undo</button>
-        <button onclick="flipBoard()">Flip</button>
-        <button onclick="switchSides()">Switch Sides</button>
-        <select id="difficulty">
-            <option value="easy">Easy (0.5 s)</option>
-            <option value="medium" selected>Medium (2 s)</option>
-            <option value="hard">Hard (8 s)</option>
-            <option value="max">Max (20 s)</option>
-        </select>
-        <label title="multiplier on the material-scaled heat capacity (keep &le;1.5 or the temperature collapses)">C&times;: <input type="range" id="heatCap" min="0.3" max="1.5" step="0.1" value="1.0"
-            oninput="onHeatCapChange(this.value)"><span id="heatCapVal">1.0</span>
-        </label>
-    </div>
-</div>
-
-<div id="right-panel">
-    <h2>Thermodynamic State
-        <span class="h2-sub">Q = &minus;E convention; F maximized</span>
-    </h2>
-    <div id="dash-thermo" class="dash-section"><div class="dash-grid" id="thermo-grid"></div></div>
-
-    <h2>Move History
-        <span class="h2-sub">Per-move thermodynamic state &amp; Stockfish comparison</span>
-    </h2>
-    <div id="dash-movehistory" class="dash-section" style="max-height:240px;overflow-y:auto"></div>
-
-    <h2>Evaluation Weights &pi;<sub>a</sub>
-        <span class="h2-sub">Engine plays argmax Q; weights show competitive moves</span>
-    </h2>
-    <div id="dash-moves" class="dash-section" style="max-height:320px;overflow-y:auto"></div>
-
-    <h2>History</h2>
-    <div class="dash-section">
-        <div class="graph-controls">
-            <select id="graphVar" onchange="renderGraph()">
-                <option value="eval" selected>Eval (&pawn;)</option>
-                <option value="T">T</option>
-                <option value="S">S</option>
-            </select>
-        </div>
-        <canvas id="graph-canvas"></canvas>
-    </div>
-</div>
-</div>
-
-<div id="promotion-modal"><div class="promo-choices" id="promo-choices"></div></div>
-
-<script id="td-engine">
 /* ================================================================
  * chess.js v0.10.3 (c) Jeff Hlywa, BSD license
  * Modified: castling[us]=0 (was ''), fast_hash, generate_captures
@@ -988,6 +760,22 @@ var Chess = function(fen) {
       }
       return { Uw:Uw, Ub:Ub };
     },
+    /* Null move (pass): flips the side to move and clears en passant,
+     * touching no pieces — used to evaluate the opponent's move ensemble
+     * from the same position (symmetric leaf optionality). Callers must
+     * pair make/undo and never pass while in check. */
+    fast_make_null: function() {
+      history.push({ move: null, kings: { b: kings.b, w: kings.w }, turn: turn,
+        castling: { b: castling.b, w: castling.w }, ep_square: ep_square,
+        half_moves: half_moves, move_number: move_number });
+      turn = swap_color(turn); ep_square = EMPTY;
+    },
+    fast_undo_null: function() {
+      var old = history.pop();
+      turn = old.turn; ep_square = old.ep_square;
+      kings = old.kings; castling = old.castling;
+      half_moves = old.half_moves; move_number = old.move_number;
+    },
     fast_in_check: function() { return in_check(); },
     fast_in_checkmate: function() { return in_checkmate(); },
     fast_turn: function() { return turn; },
@@ -1021,6 +809,12 @@ const T_FLOOR = 1e-3;   // Numerical guard only, well below the engine's eval
                         // an arbitrary fixed temperature. Not a physical floor.
 const PAWN_XRAY = 2;   // pawn base = 2 internal units (avg pawn moves); also the display divisor
 const CHECKMATE_SCORE = 100000;
+const MATE_NEAR = CHECKMATE_SCORE - 4096;   // scores beyond this encode mate distance
+// Mate-distance ticking: every negation on the way up the tree pulls a mate
+// score one unit toward zero, so a mate in 2 outscores a mate in 4 and the
+// engine converts won positions instead of shuffling. Scores stay
+// node-relative, which keeps transposition-table entries valid across paths.
+function tickMate(v) { return v > MATE_NEAR ? v - 1 : (v < -MATE_NEAR ? v + 1 : v); }
 const TIME_LIMITS = { easy:500, medium:2000, hard:8000, max:20000 };
 const MATE_SENTINEL = 9999;   // Stockfish mate score, stored in pawn-equivalent units
 const SF_DEPTH = 12;          // Stockfish search depth for the reference evaluation
@@ -1068,18 +862,18 @@ for (const type of ['p','n','b','r','q','k']) {
 }
 
 // Heat capacity is scaled by material left on the board. Since robustT solves
-// Var(Q)/T^2 = C, a LARGER C is a LOWER temperature. CRUCIAL CONSTRAINT: the
-// self-consistent T equation only has a solution while sqrt(C) stays below the
-// max of sigma_pi/T, which is ~O(1); empirically T stays alive up to C ~ 3.3 and
-// collapses to the floor above that. So C must live in a narrow band. We map the
+// Var(Q)/T^2 = C, a LARGER C demands a LOWER temperature. The demand is not
+// always satisfiable: each position has a critical capacity
+// C* = max_T Var_pi(Q)/T^2 set by its own move ensemble, and when C > C* the
+// solver pins T at the spinodal (see robustT) — so C acts as a capacity
+// DEMAND, an upper bound the position meets when it can. We map the
 // value-weighted material fraction (1 at the start, ->0 as pieces are traded)
 // linearly into [C_BARE, C_OPEN]: a full board is cool and decisive (checks and
-// entropy games are muted) while an open board heats up and the optionality term
-// is allowed to matter. The average-piece-value factor is deliberately dropped:
-// it pushes C past the cliff once pawns come off, which silently kills T and S.
+// entropy games are muted) while an open board heats up and the optionality
+// term is allowed to matter.
 const START_TOTAL = 2 * (8*PIECE_WORTH.p + 2*PIECE_WORTH.n + 2*PIECE_WORTH.b + 2*PIECE_WORTH.r + PIECE_WORTH.q);
-const C_OPEN = 2.0;   // full board: cool enough to mute the check obsession, T/S still alive
-const C_BARE = 0.6;   // open board / endgame: hotter, exploratory
+const C_OPEN = 2.0;   // full board (opening): cool, decisive; typically supercritical → T pins at T̂
+const C_BARE = 0.6;   // bare board (endgame): hotter, exploratory; typically an exact solution exists
 function materialC(g) {
     const placement = g.fen().split(' ')[0];
     let total = 0;
@@ -1111,12 +905,13 @@ const XRAY = {};
 // the only place the choice actually lives.
 //   'xray'   : static x-ray mobility (default). Cheap, side-symmetric,
 //              position-independent — already baked into the XRAY table.
-//   'thermo' : T·S of the Boltzmann distribution over the leaf's own
-//              legal moves (treating those moves as the leaf's
-//              microstates), added to a material-only base. Grounded
-//              in the same thermodynamics as the rest of the engine,
-//              but far slower and currently side-to-move-only — see the
-//              caveats in leafOptionality(). Off by default.
+//   'thermo' : T·S of the Boltzmann distribution over each side's legal
+//              moves (treating moves as the leaf's microstates), added to
+//              a material-only base. The opponent's ensemble is reached by
+//              a null move, and the two are differenced, so the term is
+//              side-symmetric (no odd/even parity bias). Grounded in the
+//              same thermodynamics as the rest of the engine, but several
+//              times slower. Off by default.
 let OPTIONALITY_MODE = 'xray';
 
 // Material-only companion table (base piece values, no mobility term),
@@ -1146,6 +941,25 @@ let heatCapMult = 1;      // user slider: a multiplier on the material-scaled C
 const thermoCache = new Map();
 const THERMO_CACHE_MAX = 500000;
 
+// Cached F values are functions of (position, depth, C). C changes with the
+// slider and with material, so entries computed under a different C are
+// stale physics, not just stale search: drop them. Also drop everything when
+// the table nears its cap (no eviction policy — a full table stops learning).
+let tCacheC = -1;
+function syncCache() {
+    if (activeC !== tCacheC || thermoCache.size > THERMO_CACHE_MAX * 0.9) {
+        thermoCache.clear();
+        tCacheC = activeC;
+    }
+}
+
+// Position keys of the played game (since the last irreversible move),
+// passed in with each analysis request and seeded into the search's
+// repetition detection: the engine avoids repetition draws when ahead and
+// steers into them when lost, relative to the ACTUAL game, not merely the
+// search path.
+let PAST_KEYS = [];
+
 // ── X-ray evaluation: split by color ───────────────────────
 function rawU(g) {
     return g.fast_real_u_split ? g.fast_real_u_split() : rawU_slow(g);
@@ -1162,20 +976,13 @@ function rawU_slow(g) {
 }
 
 // ── Leaf optionality (thermo mode) ─────────────────────────
-// Treats the leaf's own legal moves as its microstates and returns
+// Treats a side's legal moves as the leaf's microstates and returns
 // T·S of the Boltzmann distribution over their static values — a
 // position-aware optionality score that replaces static x-ray
 // mobility. This resolves the "μ can't exist at a leaf" problem:
 // a leaf is a single position, but optionality is a property of the
 // *moves available from it*, which do form a distribution.
-//
-// CAVEAT: this scores only the side to move. Used alone it would give
-// whoever is on move an entropy bonus the opponent doesn't get, which
-// flips sign every ply and would reintroduce an odd/even parity bias
-// (the same failure mode as the old king extension). A side-symmetric
-// version needs the opponent's optionality too (via a null move), which
-// is why 'thermo' is off by default.
-function leafOptionality(g) {
+function sideOptionality(g) {
     const moves = g.fast_moves();
     const n = moves.length;
     if (n <= 1) return 0;                 // 0 or 1 move ⇒ no optionality
@@ -1197,6 +1004,27 @@ function leafOptionality(g) {
     }
     return T * S;                          // same units as U (Q-units)
 }
+// Side-symmetric optionality: the mover's T·S minus the opponent's T·S,
+// the latter evaluated after a null move (a pass — exactly the ensemble
+// "what could they do if it were their turn"). A mover-only bonus would
+// flip sign every ply and inject an odd/even parity bias into the search;
+// the difference restores the symmetry equilibrium requires. Only called
+// from quiet stand-pat positions, where passing is physically meaningful.
+function leafOptionality(g) {
+    const own = sideOptionality(g);
+    g.fast_make_null();
+    const theirs = sideOptionality(g);
+    g.fast_undo_null();
+    return own - theirs;
+}
+// Static leaf evaluation, mode-aware. In 'thermo' mode a position in check
+// has no equilibrium optionality (passing is illegal, the ensemble is not
+// stationary): material only.
+function staticEval(g) {
+    if (OPTIONALITY_MODE !== 'thermo') return g.fast_real_u();
+    const base = g.fast_raw_u(MAT);
+    return g.fast_in_check() ? base : base + leafOptionality(g);
+}
 
 // ── Quiescence Search ──────────────────────────────────────
 // Resolves captures and promotions to reach a quiet position
@@ -1212,24 +1040,26 @@ function quiesce(g, alpha, beta, qd) {
 
     let standPat = 0;
     if (!inCheck) {
-        standPat = (OPTIONALITY_MODE === 'thermo')
-            ? g.fast_raw_u(MAT) + leafOptionality(g)   // material base + thermodynamic optionality
-            : g.fast_real_u();                          // material + REAL blocker-aware mobility
+        standPat = staticEval(g);   // xray: material + REAL blocker-aware mobility;
+                                    // thermo: material + symmetric T·S optionality
         if (standPat >= beta) return standPat;
         if (standPat > alpha) alpha = standPat;
         if (qd <= 0) return standPat;                   // quiescence depth cap (quiet)
     }
-    if (inCheck && qd <= -8) return g.fast_real_u();    // bound runaway checking sequences
+    if (inCheck && qd <= -8) return staticEval(g);      // bound runaway checking sequences
 
     // In check: all evasions. Not in check: captures and promotions only.
     const moves = inCheck ? g.fast_moves() : g.fast_captures();
     if (moves.length === 0) return inCheck ? -CHECKMATE_SCORE : alpha;
 
     // MVV-LVA ordering: most valuable victim, least valuable attacker first,
-    // so the strongest captures produce beta cutoffs early.
+    // so the strongest captures produce beta cutoffs early. The king has no
+    // material worth (it is never traded) but as an ATTACKER it is ordered
+    // last, not first — its ordering value is its irreplaceability.
     if (!inCheck && moves.length > 1) {
         for (let i = 0; i < moves.length; i++)
-            moves[i]._o = (PIECE_WORTH[moves[i].captured] || 0) * 16 - PIECE_WORTH[moves[i].piece];
+            moves[i]._o = (PIECE_WORTH[moves[i].captured] || 0) * 16 -
+                          (moves[i].piece === 'k' ? 2 * PIECE_WORTH.q : PIECE_WORTH[moves[i].piece]);
         moves.sort((a, b) => b._o - a._o);
     }
 
@@ -1239,7 +1069,7 @@ function quiesce(g, alpha, beta, qd) {
         if (!inCheck && m.captured && !m.promotion &&
             standPat + (PIECE_WORTH[m.captured] || 0) + DELTA_MARGIN <= alpha) continue;
         g.fast_make(m);
-        const score = -quiesce(g, -beta, -alpha, qd - 1);
+        const score = -tickMate(quiesce(g, -beta, -alpha, qd - 1));
         g.fast_undo();
         if (score >= beta) return score;
         if (score > alpha) alpha = score;
@@ -1249,52 +1079,133 @@ function quiesce(g, alpha, beta, qd) {
 }
 
 // ── Self-Consistent Temperature ────────────────────────────
-// Finds the fixed point of T = σ_π(T) / √C, where σ_π is the
-// standard deviation of Q under the Boltzmann distribution at
-// temperature T. At convergence, Var(Q)/T² = C (the heat
-// capacity). C is set by the user:
-//   C < 1 → T amplified → broader distribution → exploratory
-//   C > 1 → T suppressed → sharper distribution → decisive
-//   C = 1 → T = σ (original behavior)
+// Solves the fixed-point equation  Var_π(Q) / T² = C  for T, where π is
+// the Boltzmann distribution over the node's move values at temperature T
+// and C is the prescribed heat capacity. Writing r(T) ≡ σ_π(T)/T, the
+// equation reads r(T) = √C. r(T) → 0 as T → 0 (the distribution freezes
+// onto the best move) and r(T) → 0 as T → ∞ (σ_π saturates while T grows),
+// so r is peaked in between and the solver distinguishes three phases:
 //
-// Phase 1: MAD for outlier-robust initial estimate.
-// Phase 2: Iterate Boltzmann-weighted σ until convergence.
-function robustT(Qs, n) {
-    const sqrtC = Math.sqrt(activeC);
-    const tmp = new Array(n);
-    for (let i=0;i<n;i++) tmp[i]=Qs[i];
-    tmp.sort((a,b) => a-b);
-    const med = n&1 ? tmp[n>>1] : (tmp[(n>>1)-1]+tmp[n>>1])*0.5;
-    for (let i=0;i<n;i++) tmp[i]=Math.abs(Qs[i]-med);
-    tmp.sort((a,b) => a-b);
-    const mad = n&1 ? tmp[n>>1] : (tmp[(n>>1)-1]+tmp[n>>1])*0.5;
-    let T = Math.max(1.4826*mad / sqrtC, T_FLOOR);
-
-    let maxQ=Qs[0];
-    for (let i=1;i<n;i++) if (Qs[i]>maxQ) maxQ=Qs[i];
-
-    for (let iter=0; iter<8; iter++) {
-        let expSum=0;
-        for (let i=0;i<n;i++) { tmp[i]=Math.exp((Qs[i]-maxQ)/T); expSum+=tmp[i]; }
-        let avgQ=0, avgQ2=0;
-        for (let i=0;i<n;i++) { const p=tmp[i]/expSum; avgQ+=p*Qs[i]; avgQ2+=p*Qs[i]*Qs[i]; }
-        const sigW = Math.sqrt(Math.max(avgQ2 - avgQ*avgQ, 0));
-        const Tnew = Math.max(sigW / sqrtC, T_FLOOR);
-        if (Math.abs(Tnew-T) < 0.01) break;
-        T = Math.max(Math.sqrt(T*Tnew), T_FLOOR);
+//   subcritical   max r > √C : the self-consistent temperature exists.
+//                 Take the crossing on the RIGHT (descending) branch —
+//                 the thermodynamically stable fixed point — by log-space
+//                 bisection, solved to <1%.
+//   supercritical max r < √C : NO temperature can supply the demanded
+//                 capacity. T pins at the spinodal T̂ = argmax r(T), the
+//                 closest achievable equilibrium; the achieved capacity
+//                 saturates at the position's critical capacity
+//                 C* = max_T Var_π(Q)/T² < C. (Dashboard: C_eff vs C.)
+//   frozen        max r ≈ 0 : one move dominates at every temperature in
+//                 the domain (forced positions, mates): T → T_FLOOR and
+//                 F → max Q, the minimax limit.
+//
+// The search domain is set by a robust median-based scale of the BULK of
+// the Q distribution, not the full range: a mate outlier must freeze the
+// ensemble, not open a fake high-temperature branch in which F would be
+// valued as a mixture of mate and quiet moves.
+function _sigmaOverT(xs, n, T, xmax) {
+    let expSum = 0, m1 = 0, m2 = 0;
+    for (let i = 0; i < n; i++) {
+        const w = Math.exp((xs[i] - xmax) / T);
+        expSum += w; m1 += w * xs[i]; m2 += w * xs[i] * xs[i];
     }
-    return T;
+    m1 /= expSum; m2 /= expSum;
+    const v = m2 - m1 * m1;
+    return v > 0 ? Math.sqrt(v) / T : 0;
+}
+function robustT(Qs, n) {
+    if (n < 2) return T_FLOOR;
+    const sqrtC = Math.sqrt(activeC);
+
+    // Robust bulk scale: MAD, with quantile fallbacks for degenerate bulks.
+    const tmp = new Array(n);
+    for (let i = 0; i < n; i++) tmp[i] = Qs[i];
+    tmp.sort((a, b) => a - b);
+    const med = n & 1 ? tmp[n >> 1] : (tmp[(n >> 1) - 1] + tmp[n >> 1]) * 0.5;
+    for (let i = 0; i < n; i++) tmp[i] = Math.abs(Qs[i] - med);
+    tmp.sort((a, b) => a - b);
+    const mad = n & 1 ? tmp[n >> 1] : (tmp[(n >> 1) - 1] + tmp[n >> 1]) * 0.5;
+    let scale = 1.4826 * mad;
+    if (scale === 0) scale = tmp[Math.min(n - 1, Math.ceil(0.9 * n) - 1)]; // 90th-pct deviation
+    if (scale === 0 && tmp[n - 1] < MATE_NEAR) scale = tmp[n - 1];         // widest non-mate gap
+    if (scale === 0) return T_FLOOR;                                       // frozen: no bulk spread
+
+    // Median-centered values: T depends only on the spread, and centering
+    // keeps E[Q²]−E[Q]² numerically stable when |Q| is large.
+    const xs = tmp;
+    let xmax = -Infinity;
+    for (let i = 0; i < n; i++) { xs[i] = Qs[i] - med; if (xs[i] > xmax) xmax = xs[i]; }
+
+    // Geometric sweep downward from well above the bulk scale. If r is
+    // still above √C at the ceiling, the stable branch sits higher: expand.
+    let T_hi = 6 * scale / sqrtC;
+    let r_hi = _sigmaOverT(xs, n, T_hi, xmax);
+    let guard = 0;
+    while (r_hi >= sqrtC && guard++ < 40) { T_hi *= 2; r_hi = _sigmaOverT(xs, n, T_hi, xmax); }
+
+    const RHO = 0.6, T_min = Math.max(T_FLOOR, scale * 1e-3);
+    let bestT = T_hi, bestR = r_hi;
+    let Ta = T_hi, Tb = 0, found = false;
+    for (let T = T_hi * RHO; T >= T_min; T *= RHO) {
+        const r = _sigmaOverT(xs, n, T, xmax);
+        if (r >= sqrtC) { found = true; Tb = T; break; }     // bracket [Tb, Ta]
+        if (r > bestR) { bestR = r; bestT = T; }
+        else if (r < 0.3 * bestR) break;                      // well past the peak: no crossing below
+        Ta = T;
+    }
+
+    if (found) {
+        // Largest root: bisect in log T on [Tb, Ta] with r(Tb) ≥ √C > r(Ta).
+        let lo = Tb, hi = Ta;
+        for (let it = 0; it < 10; it++) {
+            const mid = Math.sqrt(lo * hi);
+            if (_sigmaOverT(xs, n, mid, xmax) >= sqrtC) lo = mid; else hi = mid;
+        }
+        return Math.max(Math.sqrt(lo * hi), T_FLOOR);
+    }
+
+    // No grid point cleared √C: refine the peak of r by golden-section in
+    // log T. Frozen if even the peak is negligible.
+    if (bestR < 1e-6) return T_FLOOR;
+    let lo = Math.log(bestT * RHO), hi = Math.log(Math.min(bestT / RHO, T_hi));
+    const GR = 0.6180339887498949;
+    let x1 = hi - GR * (hi - lo), x2 = lo + GR * (hi - lo);
+    let r1 = _sigmaOverT(xs, n, Math.exp(x1), xmax), r2 = _sigmaOverT(xs, n, Math.exp(x2), xmax);
+    for (let it = 0; it < 8; it++) {
+        if (r1 < r2) { lo = x1; x1 = x2; r1 = r2; x2 = lo + GR * (hi - lo); r2 = _sigmaOverT(xs, n, Math.exp(x2), xmax); }
+        else { hi = x2; x2 = x1; r2 = r1; x1 = hi - GR * (hi - lo); r1 = _sigmaOverT(xs, n, Math.exp(x1), xmax); }
+    }
+    const Tpk = Math.exp((lo + hi) * 0.5);
+    const rPk = _sigmaOverT(xs, n, Tpk, xmax);
+    // Near-critical rescue: the band where r ≥ √C can be narrower than one
+    // grid step and slip between sweep points. If the refined peak clears
+    // √C after all, the position is subcritical — recover the stable
+    // (right-branch) crossing between the peak and the grid point above it,
+    // where r < √C was already established.
+    if (rPk >= sqrtC) {
+        let cl = Tpk, ch = Math.min(bestT / RHO, T_hi);
+        for (let it = 0; it < 10; it++) {
+            const mid = Math.sqrt(cl * ch);
+            if (_sigmaOverT(xs, n, mid, xmax) >= sqrtC) cl = mid; else ch = mid;
+        }
+        return Math.max(Math.sqrt(cl * ch), T_FLOOR);
+    }
+    // Genuinely supercritical: pin at the spinodal.
+    return Math.max(Tpk, T_FLOOR);
 }
 
 // ── Thermodynamic Search: F = T ln Z ───────────────────────
 // Unified search at all depths. Both sides computed identically
 // (equilibrium requires symmetry).
 //   depth ≤ 0: quiescence search (alpha-beta over captures)
-//   depth 1–2: full Boltzmann evaluation of all moves
-//   depth ≥ 3: Boltzmann pruning + importance-sampled tail
+//   depth 1 : full Boltzmann evaluation of all moves
+//   depth ≥ 2: partition-function truncation — the dominant set is
+//              fully recursed, the negligible tail keeps its shallow
+//              values (it contributes <1% of Z)
 //
-// Draw detection via pathKeys set: if the current position
-// has appeared earlier on the search path, return 0 (draw).
+// Draw detection via pathKeys: if the current position has appeared
+// earlier on the search path — or in the PLAYED GAME since the last
+// irreversible move (PAST_KEYS, seeded per search) — return 0 (draw).
 function thermoSearch(g, depth, pathKeys) {
     nodeCount++;
 
@@ -1309,8 +1220,9 @@ function thermoSearch(g, depth, pathKeys) {
     // Draw detection: repetition on current search path
     if (pathKeys.has(posKey)) return 0;
 
-    // Transposition table lookup
-    const key = depth + ':' + posKey;
+    // Transposition table lookup (numeric key: 32-bit hash × depth ≤ 64
+    // packs exactly into a double — no string allocation per node)
+    const key = posKey * 128 + depth;
     const cached = thermoCache.get(key);
     if (cached !== undefined) return cached;
 
@@ -1330,7 +1242,7 @@ function thermoSearch(g, depth, pathKeys) {
         pathKeys.add(posKey);
         for (let i = 0; i < n; i++) {
             g.fast_make(moves[i]);
-            Qs[i] = -thermoSearch(g, 0, pathKeys);
+            Qs[i] = -tickMate(thermoSearch(g, 0, pathKeys));
             g.fast_undo();
         }
         pathKeys.delete(posKey);
@@ -1346,7 +1258,7 @@ function thermoSearch(g, depth, pathKeys) {
         pathKeys.add(posKey);
         for (let i = 0; i < n; i++) {
             g.fast_make(moves[i]);
-            quickQs[i] = -thermoSearch(g, depth - 2, pathKeys);
+            quickQs[i] = -tickMate(thermoSearch(g, depth - 2, pathKeys));
             g.fast_undo();
         }
 
@@ -1364,7 +1276,7 @@ function thermoSearch(g, depth, pathKeys) {
             const i = order[r];
             if (r > 0 && quickQs[i] < threshold) break;   // past the dominant set
             g.fast_make(moves[i]);
-            Qs[i] = -thermoSearch(g, depth - 1, pathKeys);
+            Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys));
             g.fast_undo();
         }
         pathKeys.delete(posKey);
@@ -1374,13 +1286,20 @@ function thermoSearch(g, depth, pathKeys) {
 }
 
 function computeF(Qs, n, cacheKey) {
-    const T = robustT(Qs, n);
     let maxQ = Qs[0];
     for (let i = 1; i < n; i++) if (Qs[i] > maxQ) maxQ = Qs[i];
-    if (!Number.isFinite(maxQ)) {
+    // Mate scores are absorbing states, not thermal energies. A forced win
+    // is taken deterministically (ground-state selection, T → 0 for this
+    // decision); when every move loses by force, the value is the longest
+    // resistance. No entropy bonus may attach to a terminal outcome —
+    // otherwise "many ways to mate" would outscore the mate itself
+    // (F = maxQ + T·ln Z > mate) and the engine would shuffle checks
+    // forever instead of converting.
+    if (maxQ > MATE_NEAR || maxQ < -MATE_NEAR || !Number.isFinite(maxQ)) {
         if (cacheKey && thermoCache.size < THERMO_CACHE_MAX) thermoCache.set(cacheKey, maxQ);
         return maxQ;
     }
+    const T = robustT(Qs, n);
     let expSum = 0;
     for (let i = 0; i < n; i++) expSum += Math.exp((Qs[i] - maxQ) / T);
     const val = maxQ + T * Math.log(expSum);
@@ -1391,14 +1310,15 @@ function computeF(Qs, n, cacheKey) {
 // ── Full Thermodynamic State (dashboard analysis) ──────────
 function computeThermodynamics(g, depth) {
     activeC = heatCapMult * materialC(g);   // temperature set by material on the board
+    syncCache();
     const rawMoves = g.fast_moves();
     if (rawMoves.length === 0) return null;
 
-    const pathKeys = new Set();
+    const pathKeys = new Set(PAST_KEYS);
     const posKey = g.fast_hash();
     pathKeys.add(posKey);
 
-    g.fast_seed_acc();
+    if (OPTIONALITY_MODE === 'thermo') g.fast_seed_acc();
     const Qs = new Array(rawMoves.length);
     const moveNames = new Array(rawMoves.length);
     const fromSqs = new Array(rawMoves.length);
@@ -1406,16 +1326,20 @@ function computeThermodynamics(g, depth) {
         moveNames[i] = g.fast_to_san(rawMoves[i]);
         fromSqs[i] = g.fast_algebraic(rawMoves[i].from);
         g.fast_make(rawMoves[i]);
-        Qs[i] = -thermoSearch(g, depth - 1, pathKeys);
+        Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys));
         g.fast_undo();
     }
     pathKeys.delete(posKey);
     g.fast_end_acc();
 
     const n = Qs.length;
-    const T = robustT(Qs, n);
     let maxQ = Qs[0], bestIdx = 0;
     for (let i = 1; i < n; i++) if (Qs[i] > maxQ) { maxQ = Qs[i]; bestIdx = i; }
+
+    // Absorbing-state root: a forced mate (for either side) freezes the
+    // ensemble — the decision is deterministic, so T sits at the floor and
+    // F = maxQ. Mirrors the same rule in computeF.
+    const T = (maxQ > MATE_NEAR || maxQ < -MATE_NEAR) ? T_FLOOR : robustT(Qs, n);
 
     const expTerms = new Array(n);
     let expSum = 0;
@@ -1425,14 +1349,21 @@ function computeThermodynamics(g, depth) {
     const probs = new Array(n);
     for (let i = 0; i < n; i++) probs[i] = expTerms[i] / expSum;
 
-    let avgQ = 0, S = 0;
+    let avgQ = 0, avgX = 0, avgX2 = 0, S = 0;
     for (let i = 0; i < n; i++) {
         avgQ += probs[i] * Qs[i];
+        const x = Qs[i] - maxQ;              // centered: stable when |Q| is large
+        avgX += probs[i] * x;
+        avgX2 += probs[i] * x * x;
         if (probs[i] > 1e-15) S -= probs[i] * Math.log(probs[i]);
     }
     const TS = T * S;
+    // Achieved capacity Var(Q)/T². Equals the demanded C in the subcritical
+    // phase; saturates at the position's critical capacity C* when pinned.
+    const Ceff = Math.max(avgX2 - avgX*avgX, 0) / (T*T);
 
-    return { T, F, S, avgQ, TS, probs, moves: moveNames, fromSqs, Qs, bestIdx };
+    return { T, F, S, avgQ, TS, probs, moves: moveNames, fromSqs, Qs, bestIdx,
+             Cdemand: activeC, Ceff };
 }
 
 // ── Chemical Potential: μ = −T ln(1 − p_P) ────────────────
@@ -1440,6 +1371,7 @@ function computeThermodynamics(g, depth) {
 // μ_P = F − F_{−P}: free energy cost of removing P's moves
 // from the partition function. Assumes moves from other
 // pieces are unaffected (ideal-gas / independent-pieces limit).
+function sqId(file, rank) { return String.fromCharCode(97+file)+(rank+1); }
 function computeChemicalPotentials(g, thermo) {
     if (!thermo || !thermo.fromSqs) return [];
 
@@ -1477,11 +1409,15 @@ function computeChemicalPotentials(g, thermo) {
 function bestMove(g, timeLimitMs) {
     const deadline = performance.now() + timeLimitMs;
     nodeCount = 0;
-    thermoCache.clear();
     activeC = heatCapMult * materialC(g);   // temperature set by material on the board
     // activeC is the heat-capacity C; the slider (onHeatCapChange) sets the
     // multiplier heatCapMult, and it is scaled here by the board material. No DOM
     // access, so bestMove can run inside a Web Worker.
+    // Fresh table every move: cached values absorb repetition draws relative
+    // to the current game path (graph-history interaction), so entries must
+    // not outlive the move they were computed for.
+    thermoCache.clear();
+    tCacheC = activeC;
 
     const moves = g.fast_moves();
     const n = moves.length;
@@ -1495,7 +1431,7 @@ function bestMove(g, timeLimitMs) {
     let reachedDepth = 0;
     const pathKeys = new Set();
     const rootPosKey = g.fast_hash();
-    g.fast_seed_acc();
+    if (OPTIONALITY_MODE === 'thermo') g.fast_seed_acc();
 
     for (let depth = 1; depth <= 64; depth++) {
         const Qs = new Array(n);
@@ -1503,13 +1439,16 @@ function bestMove(g, timeLimitMs) {
 
         pathKeys.clear();
         pathKeys.add(rootPosKey);
+        for (let k = 0; k < PAST_KEYS.length; k++) pathKeys.add(PAST_KEYS[k]);
 
         for (let i = 0; i < n; i++) {
             g.fast_make(moves[i]);
-            Qs[i] = -thermoSearch(g, depth - 1, pathKeys);
+            Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys));
             g.fast_undo();
 
-            if (performance.now() > deadline) { timedOut = true; break; }
+            // Depth 1 always runs to completion (it is nearly free): a partial
+            // first iteration would leave undefined Qs and an arbitrary move.
+            if (depth > 1 && performance.now() > deadline) { timedOut = true; break; }
         }
 
         if (timedOut && reachedDepth > 0) break;
@@ -1576,7 +1515,8 @@ function buildRootThermo(g, rawMoves, Qs, depth) {
 // the best move (when timeLimit is set), then computes the dashboard
 // thermodynamics, and returns a plain serialisable object.
 function _runAnalyze(msg) {
-    heatCapMult = msg.activeC || 1;   // slider value is a multiplier; effective C is set from material per-search
+    heatCapMult = msg.heatCapMult || 1;   // slider value is a multiplier; effective C is set from material per-search
+    PAST_KEYS = msg.pastKeys || [];       // played-game repetition keys (see collectPastKeys)
     const g = new Chess(msg.fen);
     const out = { turn: g.turn(), fen: g.fen(), gameOver: g.game_over() };
     if (msg.timeLimit != null) {
@@ -1597,643 +1537,11 @@ function _runAnalyze(msg) {
         out.Uw = r.Uw; out.Ub = r.Ub;
         out.thermo = th ? { T: th.T, F: th.F, S: th.S, avgQ: th.avgQ, TS: th.TS,
                             probs: th.probs, moves: th.moves, fromSqs: th.fromSqs,
-                            Qs: th.Qs, bestIdx: th.bestIdx, depth: depth } : null;
+                            Qs: th.Qs, bestIdx: th.bestIdx, depth: depth,
+                            Cdemand: th.Cdemand, Ceff: th.Ceff,
+                            mu: computeChemicalPotentials(g, th) } : null;
     }
     return out;
 }
-</script>
-<script>
-// ── Board Rendering ────────────────────────────────────────
-function sqId(file, rank) { return String.fromCharCode(97+file)+(rank+1); }
 
-function renderBoard() {
-    const el = document.getElementById('board');
-    el.innerHTML = '';
-    const b = game.board();
-    for (let dr=0; dr<8; dr++) {
-        const rowEl = document.createElement('div'); rowEl.className='board-row';
-        for (let dc=0; dc<8; dc++) {
-            const row = boardFlipped ? 7-dr : dr;
-            const col = boardFlipped ? 7-dc : dc;
-            const rank = 7-row, file = col;
-            const sq = sqId(file, rank);
-            const piece = b[row][col];
-            const cell = document.createElement('div');
-            cell.className = 'cell ' + ((row+col)%2===0 ? 'light' : 'dark');
-            cell.dataset.sq = sq;
-            if (lastMoveSquares && (sq===lastMoveSquares.from || sq===lastMoveSquares.to)) cell.classList.add('last-move');
-            if (sq===selectedSq) cell.classList.add('selected');
-            if (selectedSq && legalTargets.indexOf(sq)>=0) cell.classList.add(piece ? 'legal-capture' : 'legal-dot');
-            if (piece) cell.textContent = PIECE_CHAR[piece.color+piece.type];
-            if (dc===0) { const lbl=document.createElement('span'); lbl.className='coord-label rank-label'; lbl.textContent=rank+1; cell.appendChild(lbl); }
-            if (dr===7) { const lbl=document.createElement('span'); lbl.className='coord-label file-label'; lbl.textContent=String.fromCharCode(97+file); cell.appendChild(lbl); }
-            cell.addEventListener('click', () => onCellClick(sq));
-            rowEl.appendChild(cell);
-        }
-        el.appendChild(rowEl);
-    }
-}
-
-// ── Interaction ────────────────────────────────────────────
-function onCellClick(sq) {
-    if (thinking || game.game_over()) return;
-    if (game.turn() !== humanColor) return;
-    if (selectedSq) {
-        if (legalTargets.indexOf(sq) >= 0) {
-            const piece = game.get(selectedSq);
-            const toRank = parseInt(sq[1]);
-            if (piece && piece.type==='p' &&
-                ((piece.color==='w'&&toRank===8)||(piece.color==='b'&&toRank===1))) {
-                showPromotion(selectedSq, sq); return;
-            }
-            makeHumanMove(selectedSq, sq);
-        } else { selectSquare(sq); }
-    } else { selectSquare(sq); }
-}
-function selectSquare(sq) {
-    const piece = game.get(sq);
-    if (piece && piece.color===humanColor) {
-        selectedSq = sq;
-        const seen = {};
-        legalTargets = [];
-        const vm = game.moves({verbose:true});
-        for (let i=0;i<vm.length;i++) {
-            if (vm[i].from===sq && !seen[vm[i].to]) { legalTargets.push(vm[i].to); seen[vm[i].to]=true; }
-        }
-    } else { selectedSq=null; legalTargets=[]; }
-    renderBoard();
-}
-// ── Async compute: Web Worker (keeps the UI responsive) with a
-//    synchronous fallback if a Worker can't be created ──────────────
-let tdWorker = null, _wid = 0, analysisGen = 0;
-const _wpending = {};
-(function initWorker() {
-    try {
-        const glue = '\nself.onmessage=function(e){var m=e.data;try{var o=_runAnalyze(m);o.id=m.id;self.postMessage(o);}catch(err){self.postMessage({id:m.id,error:String(err&&err.stack||err)});}};';
-        const src = document.getElementById('td-engine').textContent + glue;
-        tdWorker = new Worker(URL.createObjectURL(new Blob([src], { type: 'application/javascript' })));
-        tdWorker.onmessage = e => { const d = e.data; const p = _wpending[d.id]; if (p) { delete _wpending[d.id]; p(d); } };
-        tdWorker.onerror = () => { tdWorker = null; };   // degrade to synchronous compute
-    } catch (err) { tdWorker = null; }
-})();
-
-function analyzeAsync(msg) {
-    return new Promise(resolve => {
-        if (tdWorker) {
-            const id = ++_wid; _wpending[id] = resolve;
-            tdWorker.postMessage(Object.assign({ id }, msg));
-        } else {
-            // No worker available: yield once so the board paints, then compute.
-            setTimeout(() => { let o; try { o = _runAnalyze(msg); } catch (err) { o = { error: String(err) }; } resolve(o); }, 10);
-        }
-    });
-}
-
-// Apply a completed analysis to the dashboard + graph. engineStats (or null)
-// carries the calc time / depth of the move that produced this position.
-function applyAnalysis(res, engineStats) {
-    if (!res || res.error) { if (res && res.error) console.warn('analysis error:', res.error); return; }
-    const thermo = res.thermo || null;
-    if (thermo && moveHistory.length > 0 && graphData.length < moveHistory.length) {
-        const turn = res.turn;
-        // "Eval" = value of the move the engine actually plays (argmax Q), in White-POV
-        // pawns — a who-is-winning number comparable to Stockfish. This is the energy
-        // side of F = <Q> + T*S with the optionality bonus stripped out; T and S remain
-        // as their own columns. (Best-move maxQ, not the Boltzmann-average avgQ, which at
-        // high T is dragged down by inferior moves and misreads the balance.)
-        const eval_w = (turn === 'w' ? 1 : -1) * thermo.Qs[thermo.bestIdx] / PAWN_XRAY;
-        graphData.push({ halfMove: graphData.length + 1, eval_w, T: thermo.T, S: thermo.S,
-            U: (res.Uw - res.Ub) / PAWN_XRAY, move: moveHistory[graphData.length],
-            fen: res.fen, turn, sfEval: undefined,
-            timeMs: engineStats ? engineStats.timeMs : null,
-            depthReached: engineStats ? engineStats.depth : null });
-        if (res.fen && res.fen !== sfLastRequestedFen) { sfLastRequestedFen = res.fen; sfCurrentPosEval = null; requestSfEval(res.fen, turn); }
-    }
-    const source = thermo ? ('Engine evaluation (depth ' + thermo.depth + ', matches play)') : '';
-    lastUw = res.Uw; lastUb = res.Ub; lastThermo = thermo; lastSource = source;
-    renderThermoGrid(res.Uw, res.Ub, thermo, source);
-    renderMoveHistory();
-    renderMoveProbs(thermo);
-    renderGraph();
-}
-
-// Recompute the dashboard for the current position (no move, no search).
-async function refreshDashboard() {
-    const gen = analysisGen, fen = game.fen();
-    if (game.game_over()) {
-        const { Uw, Ub } = rawU(game);
-        lastThermo = null; renderThermoGrid(Uw, Ub, null, '');
-        renderMoveHistory(); renderMoveProbs(null); renderGraph();
-        return;
-    }
-    const res = await analyzeAsync({ fen, activeC: heatCapMult, timeLimit: null, dashDepth: (searchStats.depth > 0 ? searchStats.depth : 2) });
-    if (gen !== analysisGen || game.fen() !== fen) return;   // stale
-    applyAnalysis(res, null);
-}
-
-function makeHumanMove(from, to, promo) {
-    if (thinking) return;
-    const result = game.move({ from, to, promotion: promo || undefined });
-    if (!result) return;
-    lastMoveSquares = { from, to };
-    moveHistory.push(result.san);
-    selectedSq = null; legalTargets = [];
-    renderBoard();                                 // instant — the search runs off-thread
-    if (game.game_over()) { refreshDashboard(); handleGameOver(); return; }
-    thinking = true;
-    setStatus('Thinking\u2026');
-    engineReply();
-}
-
-// Runs the engine's reply: one job returns both the analysis of the position
-// the engine faces (graph point for the opponent's move) and the engine's move;
-// a second job produces the dashboard for the resulting position.
-async function engineReply() {
-    if (!thinking || game.game_over()) { thinking = false; return; }
-    const gen = analysisGen;
-    const timeLimit = TIME_LIMITS[document.getElementById('difficulty').value];
-    const res = await analyzeAsync({ fen: game.fen(), activeC: heatCapMult, timeLimit });
-    if (gen !== analysisGen) return;               // aborted by new game / undo / switch
-    applyAnalysis(res, null);
-    if (res.san) {
-        const r = game.move(res.san);
-        if (r) { lastMoveSquares = { from: r.from, to: r.to }; moveHistory.push(r.san); }
-        searchStats = { depth: res.depth || 0, nodes: res.nodes || 0 };
-    }
-    thinking = false;
-    renderBoard();
-    if (game.game_over()) { handleGameOver(); refreshDashboard(); return; }
-    const res2 = await analyzeAsync({ fen: game.fen(), activeC: heatCapMult, timeLimit: null, dashDepth: res.depth || 2 });
-    if (gen !== analysisGen) return;
-    applyAnalysis(res2, { timeMs: res.timeMs, depth: res.depth });
-    setStatus('Your move (' + (humanColor === 'w' ? 'White' : 'Black') + ') \u2014 depth ' +
-              (res.depth || 0) + ', ' + (res.nodes || 0).toLocaleString() + ' nodes');
-}
-function handleGameOver() {
-    let msg;
-    if (game.in_checkmate()) msg='Checkmate! '+(game.turn()==='w'?'Black':'White')+' wins.';
-    else if (game.in_stalemate()) msg='Stalemate \u2014 draw.';
-    else if (game.in_threefold_repetition()) msg='Threefold repetition \u2014 draw.';
-    else if (game.in_draw()) msg='Draw.';
-    else msg='Game over.';
-    setStatus(msg);
-}
-
-// ── Promotion UI ───────────────────────────────────────────
-function showPromotion(from, to) {
-    const modal=document.getElementById('promotion-modal');
-    const box=document.getElementById('promo-choices');
-    const color=game.turn(); box.innerHTML='';
-    for (const type of ['q','r','b','n']) {
-        const el=document.createElement('div'); el.className='promo-piece';
-        el.textContent=PIECE_CHAR[color+type];
-        el.addEventListener('click', () => { modal.classList.remove('active'); makeHumanMove(from,to,type); });
-        box.appendChild(el);
-    }
-    modal.classList.add('active');
-}
-
-// ── Controls ───────────────────────────────────────────────
-function newGame() {
-    analysisGen++; thinking=false; game=new Chess();
-    selectedSq=null; legalTargets=[]; lastMoveSquares=null;
-    moveHistory=[]; thermoCache.clear(); graphData=[];
-    invalidateSf();
-    renderBoard(); updateMoveList();
-    if (humanColor==='b') { setStatus('Thinking\u2026'); thinking=true; engineReply(); }
-    else { setStatus('Your move (White)'); refreshDashboard(); }
-}
-function undoMove() {
-    if (thinking || moveHistory.length<2) return;
-    analysisGen++;
-    game.undo(); game.undo();
-    moveHistory.pop(); moveHistory.pop();
-    if (graphData.length>0) graphData.pop();
-    if (graphData.length>0) graphData.pop();
-    invalidateSf();
-    lastMoveSquares=null; selectedSq=null; legalTargets=[];
-    renderBoard(); updateMoveList();
-    setStatus('Your move ('+(humanColor==='w'?'White':'Black')+')');
-    refreshDashboard();
-}
-function flipBoard() { boardFlipped=!boardFlipped; renderBoard(); }
-function switchSides() {
-    if (thinking) return;
-    analysisGen++;
-    humanColor = humanColor==='w' ? 'b' : 'w';
-    aiColor = aiColor==='w' ? 'b' : 'w';
-    selectedSq=null; legalTargets=[];
-    thermoCache.clear();
-    renderBoard();
-    if (!game.game_over() && game.turn()===aiColor) { setStatus('Thinking\u2026'); thinking=true; engineReply(); }
-    else { setStatus('Your move ('+(humanColor==='w'?'White':'Black')+')'); refreshDashboard(); }
-}
-function setStatus(msg) { document.getElementById('status').textContent=msg; }
-function onHeatCapChange(val) {
-    heatCapMult = parseFloat(val) || 1;
-    document.getElementById('heatCapVal').textContent = heatCapMult.toFixed(1);
-    clearTimeout(onHeatCapChange._t);              // debounce: recompute once the slider settles
-    onHeatCapChange._t = setTimeout(() => { if (!thinking) refreshDashboard(); }, 250);
-}
-function updateMoveList() {
-    const el=document.getElementById('move-list');
-    if (!el) return;   // game-history panel removed; move history table on the right supersedes it
-    if (moveHistory.length===0) { el.textContent='Game start'; return; }
-    let s='';
-    for (let i=0;i<moveHistory.length;i+=2) {
-        s+=(i/2+1)+'. '+moveHistory[i];
-        if (moveHistory[i+1]) s+=' '+moveHistory[i+1];
-        s+='  ';
-    }
-    el.textContent=s; el.scrollTop=el.scrollHeight;
-}
-
-// ── Stockfish reference engine ─────────────────────────────
-// Runs a real Stockfish (UCI) in a Web Worker purely as an
-// external ground-truth check on the thermodynamic engine's
-// evaluation. It never influences play; it only annotates the
-// dashboard and the history graph. All scores are normalised to
-// White's point of view (+ = White better) to match eval_w.
-let sfWorker = null, sfReady = false, sfBusy = false;
-let sfQueue = [], sfEpoch = 0, sfCurrent = null, sfScore = null;
-let sfCurrentPosEval = null;     // White-POV pawns for the position on the board, or null
-let sfLastRequestedFen = null;
-
-async function initStockfish() {
-    try {
-        const r = await fetch('https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.js');
-        const js = await r.text();
-        const blob = new Blob([js], { type: 'application/javascript' });
-        sfWorker = new Worker(URL.createObjectURL(blob));
-        sfWorker.onmessage = onSfMessage;
-        sfWorker.postMessage('uci');
-    } catch (e) {
-        sfWorker = null;
-        sfRefresh();   // show "offline" in the panel
-    }
-}
-
-function onSfMessage(e) {
-    const line = typeof e.data === 'string' ? e.data : '';
-    if (line === 'uciok') {
-        sfWorker.postMessage('isready');
-    } else if (line === 'readyok') {
-        sfReady = true; sfBusy = false;
-        sfRefresh();
-        processSfQueue();
-    } else if (line.startsWith('info') && line.includes(' depth ')) {
-        const cp = line.match(/\bcp (-?\d+)/);
-        const mate = line.match(/\bmate (-?\d+)/);
-        if (cp) sfScore = parseInt(cp[1]) / 100;
-        else if (mate) sfScore = (parseInt(mate[1]) > 0 ? MATE_SENTINEL : -MATE_SENTINEL);
-    } else if (line.startsWith('bestmove')) {
-        if (sfCurrent && sfCurrent.epoch === sfEpoch && sfScore != null) {
-            // Convert side-to-move score to White's point of view
-            const whitePov = (sfCurrent.turn === 'w' ? 1 : -1) * sfScore;
-            for (let i = 0; i < graphData.length; i++)
-                if (graphData[i].fen === sfCurrent.fen) graphData[i].sfEval = whitePov;
-            if (sfCurrent.fen === game.fen()) sfCurrentPosEval = whitePov;
-            sfRefresh();
-        }
-        sfBusy = false; sfCurrent = null; sfScore = null;
-        processSfQueue();
-    }
-}
-
-function processSfQueue() {
-    if (!sfReady || sfBusy || sfQueue.length === 0) return;
-    const item = sfQueue.shift();
-    if (item.epoch !== sfEpoch) { processSfQueue(); return; }   // drop stale jobs
-    sfCurrent = item; sfScore = null; sfBusy = true;
-    sfWorker.postMessage('position fen ' + item.fen);
-    sfWorker.postMessage('go depth ' + SF_DEPTH);
-}
-
-function requestSfEval(fen, turn) {
-    if (!sfWorker) return;
-    sfQueue.push({ fen, turn, epoch: sfEpoch });
-    processSfQueue();
-}
-
-function invalidateSf() {
-    sfEpoch++;            // any in-flight or queued job is now stale and ignored
-    sfQueue = [];
-    sfCurrentPosEval = null;
-    sfLastRequestedFen = null;
-}
-
-// Re-render only the SF-dependent parts without recomputing thermodynamics
-// (and without re-enqueuing an SF job, which would loop).
-function sfRefresh() {
-    if (lastThermo !== undefined) renderThermoGrid(lastUw, lastUb, lastThermo, lastSource);
-    renderGraph();
-}
-
-// ── Dashboard ──────────────────────────────────────────────
-let lastThermo, lastUw, lastUb, lastSource;   // cached for sfRefresh
-function updateDashboard() { refreshDashboard(); }
-
-function fmt(v, d) {
-    if (v == null || !Number.isFinite(v)) return '\u2014';
-    return v.toFixed(d === undefined ? 2 : d);
-}
-
-function renderThermoGrid(Uw, Ub, th, source) {
-    const grid = document.getElementById('thermo-grid');
-    if (!th) { grid.innerHTML='<span class="dash-label">Game over</span>'; return; }
-
-    const evalSide = game.turn();
-    const evalW = evalSide === 'w' ? th.F : -th.F;
-    const sign = evalW >= 0 ? '+' : '';
-    const enginePawns = evalW / PAWN_XRAY;
-
-    // Stockfish reference (White-POV), formatted to match the engine Eval
-    function fmtCp(v) {
-        if (v == null) return '\u2014';
-        if (Math.abs(v) >= MATE_SENTINEL) return v > 0 ? '#' : '-#';
-        return (v >= 0 ? '+' : '') + v.toFixed(2) + ' \u2659';
-    }
-    let sfStr, deltaStr;
-    if (!sfWorker) { sfStr = 'offline'; deltaStr = '\u2014'; }
-    else if (sfCurrentPosEval == null) { sfStr = '\u2026'; deltaStr = '\u2014'; }
-    else {
-        sfStr = fmtCp(sfCurrentPosEval);
-        if (Math.abs(sfCurrentPosEval) >= MATE_SENTINEL) deltaStr = '\u2014';
-        else {
-            const d = enginePawns - sfCurrentPosEval;
-            deltaStr = (d >= 0 ? '+' : '') + d.toFixed(2);
-        }
-    }
-
-    const rows = [
-        ['U_w', fmt(Uw,1), 'U_b', fmt(Ub,1)],
-        ['T',   fmt(th.T,4), 'S',  fmt(th.S,4)],
-        ['\u27E8Q\u27E9', fmt(th.avgQ,4), 'TS', fmt(th.TS,4)],
-        ['F=\u27E8Q\u27E9+TS', fmt(th.F,4), 'Eval', sign+fmt(evalW/PAWN_XRAY,2)+' \u2659'],
-        ['SF (d'+SF_DEPTH+')', sfStr, '\u0394 (eng\u2212SF)', deltaStr],
-    ];
-
-    let html = '<span class="dash-label" style="grid-column:span 4;color:#666;font-size:0.8em;margin-bottom:2px">' +
-               source + '</span>';
-    for (const r of rows) {
-        html += '<span class="dash-label">'+r[0]+'</span><span class="dash-value">'+r[1]+'</span>';
-        html += '<span class="dash-label">'+r[2]+'</span><span class="dash-value">'+r[3]+'</span>';
-    }
-    grid.innerHTML = html;
-}
-
-function renderMoveHistory() {
-    const el = document.getElementById('dash-movehistory');
-    if (!el) return;
-    if (graphData.length === 0) { el.innerHTML = '<span style="color:#666">No moves yet</span>'; return; }
-
-    const sfStatus = sfWorker ? (sfReady ? '' : ' (loading)') : ' (offline)';
-    let html = '<table class="prob-table"><tr><th>#</th><th>Move</th>' +
-               '<th style="text-align:right">Eval</th>' +
-               '<th style="text-align:right">SF' + sfStatus + '</th>' +
-               '<th style="text-align:right">S</th><th style="text-align:right">T</th>' +
-               '<th style="text-align:right">U</th>' +
-               '<th style="text-align:right">Time</th><th style="text-align:right">Depth</th></tr>';
-
-    const fmtCp = v => (v == null) ? '\u2026'
-        : (Math.abs(v) >= MATE_SENTINEL ? (v > 0 ? '#' : '-#')
-           : (v >= 0 ? '+' : '') + v.toFixed(2));
-    const fmtTime = ms => (ms == null) ? '' : (ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms');
-
-    for (let i = 0; i < graphData.length; i++) {
-        const d = graphData[i];
-        const moveNum = Math.ceil(d.halfMove / 2);
-        const isBlack = d.halfMove % 2 === 0;
-        const label = isBlack ? moveNum + '\u2026' : moveNum + '.';
-        const ev = fmtCp(d.eval_w);
-        const sf = fmtCp(d.sfEval);
-        const u = (d.U >= 0 ? '+' : '') + d.U.toFixed(2);
-        const bg = isBlack ? ' style="background:rgba(255,255,255,0.03)"' : '';
-        html += '<tr' + bg + '><td>' + label + '</td><td>' + (d.move || '') + '</td>' +
-                '<td style="text-align:right">' + ev + '</td>' +
-                '<td style="text-align:right;color:#e0a458">' + sf + '</td>' +
-                '<td style="text-align:right">' + d.S.toFixed(2) + '</td>' +
-                '<td style="text-align:right">' + d.T.toFixed(1) + '</td>' +
-                '<td style="text-align:right">' + u + '</td>' +
-                '<td style="text-align:right;color:#8fae8f">' + fmtTime(d.timeMs) + '</td>' +
-                '<td style="text-align:right;color:#8fae8f">' + (d.depthReached == null ? '' : d.depthReached) + '</td></tr>';
-    }
-    html += '</table>';
-    el.innerHTML = html;
-    el.scrollTop = el.scrollHeight;
-}
-
-function renderMoveProbs(th) {
-    const el = document.getElementById('dash-moves');
-    if (!th) { el.innerHTML='<span style="color:#666">N/A</span>'; return; }
-
-    const indexed = [];
-    for (let i=0;i<th.moves.length;i++)
-        indexed.push({ move:th.moves[i], prob:th.probs[i], q:th.Qs[i], isBest:i===th.bestIdx });
-    indexed.sort((a,b) => b.prob - a.prob);
-
-    let maxP = 0;
-    for (let i=0;i<indexed.length;i++) if (indexed[i].prob>maxP) maxP=indexed[i].prob;
-
-    let html = '<table class="prob-table"><tr><th>Move</th><th style="text-align:right">Q (\u2659)</th>' +
-               '<th style="text-align:right">\u03C0</th><th class="prob-bar-cell"></th></tr>';
-    const show = Math.min(indexed.length, 20);
-    for (let i=0; i<show; i++) {
-        const x = indexed[i];
-        const barW = Math.max(2, (x.prob/maxP)*100);
-        const qs = x.q / PAWN_XRAY;
-        const sign = qs >= 0 ? '+' : '';
-        const cls = x.isBest ? ' class="best-move-row"' : '';
-        html += '<tr'+cls+'><td>'+(x.isBest?'\u25B6 ':'')+x.move+'</td><td style="text-align:right">'+sign+fmt(qs,2)+
-                '</td><td style="text-align:right">'+fmt(x.prob,3)+
-                '</td><td class="prob-bar-cell"><div class="prob-bar" style="width:'+barW.toFixed(1)+'%"></div></td></tr>';
-    }
-    if (indexed.length > 20)
-        html += '<tr><td colspan="4" style="color:#666">... '+(indexed.length-20)+' more</td></tr>';
-    html += '</table>';
-    el.innerHTML = html;
-}
-
-// ── Turn-by-turn Graph ─────────────────────────────────────
-function renderGraph() {
-    const canvas = document.getElementById('graph-canvas');
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    const w = rect.width, h = rect.height;
-
-    const variable = document.getElementById('graphVar').value;
-    const data = graphData.map(d => {
-        switch (variable) {
-            case 'eval': return d.eval_w;
-            case 'T': return d.T;
-            case 'S': return d.S;
-            default: return d.eval_w;
-        }
-    });
-
-    // Stockfish reference series (only meaningful for the eval variable)
-    const showSf = variable === 'eval';
-    const SF_CLAMP = 10;   // keep mate sentinels from blowing up the y-scale
-    const sfData = showSf
-        ? graphData.map(d => (d.sfEval == null ? null
-            : Math.max(-SF_CLAMP, Math.min(SF_CLAMP, d.sfEval))))
-        : [];
-
-    ctx.clearRect(0, 0, w, h);
-
-    if (data.length === 0) {
-        ctx.fillStyle = '#555';
-        ctx.font = '12px system-ui';
-        ctx.fillText('No data yet', 10, h / 2);
-        return;
-    }
-
-    const pad = { top: 12, right: 10, bottom: 22, left: 42 };
-    const pw = w - pad.left - pad.right;
-    const ph = h - pad.top - pad.bottom;
-
-    let minY = data[0], maxY = data[0];
-    for (let i = 1; i < data.length; i++) {
-        if (data[i] < minY) minY = data[i];
-        if (data[i] > maxY) maxY = data[i];
-    }
-    if (showSf) for (const v of sfData) {
-        if (v == null) continue;
-        if (v < minY) minY = v;
-        if (v > maxY) maxY = v;
-    }
-    if (variable === 'eval') { minY = Math.min(minY, -0.5); maxY = Math.max(maxY, 0.5); }
-    else { minY = Math.min(minY, 0); maxY = Math.max(maxY, 0.5); }
-    if (maxY - minY < 0.1) { maxY += 0.25; minY -= 0.25; }
-    const rangeY = maxY - minY;
-
-    function xPos(i) { return pad.left + (data.length === 1 ? pw/2 : (i/(data.length-1))*pw); }
-    function yPos(v) { return pad.top + ph * (1 - (v - minY) / rangeY); }
-
-    // Horizontal grid lines
-    ctx.strokeStyle = '#2a2a3e';
-    ctx.lineWidth = 1;
-    const nGrid = 4;
-    for (let i = 0; i <= nGrid; i++) {
-        const y = pad.top + (i / nGrid) * ph;
-        ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
-    }
-
-    // Zero line for eval
-    if (variable === 'eval' && minY < 0 && maxY > 0) {
-        const zy = yPos(0);
-        ctx.strokeStyle = '#444';
-        ctx.setLineDash([4, 3]);
-        ctx.beginPath(); ctx.moveTo(pad.left, zy); ctx.lineTo(w - pad.right, zy); ctx.stroke();
-        ctx.setLineDash([]);
-    }
-
-    if (variable === 'eval') {
-        // Single engine series (Stockfish overlay drawn below)
-        ctx.strokeStyle = '#7ec8e3';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        for (let i = 0; i < data.length; i++) {
-            const x = xPos(i), y = yPos(data[i]);
-            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        ctx.fillStyle = '#7ec8e3';
-        for (let i = 0; i < data.length; i++) {
-            ctx.beginPath();
-            ctx.arc(xPos(i), yPos(data[i]), 2.5, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    } else {
-        // T and S delineated by the side to move at each position.
-        const WCOL = '#e0e0ea', BCOL = '#b07ee3';
-        const drawSeries = (turnChar, color) => {
-            ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            let started = false;
-            for (let i = 0; i < data.length; i++) {
-                if (graphData[i].turn !== turnChar) continue;
-                const x = xPos(i), y = yPos(data[i]);
-                if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-            for (let i = 0; i < data.length; i++) {
-                if (graphData[i].turn !== turnChar) continue;
-                ctx.beginPath(); ctx.arc(xPos(i), yPos(data[i]), 2.5, 0, Math.PI * 2); ctx.fill();
-            }
-        };
-        drawSeries('w', WCOL);   // positions with White to move
-        drawSeries('b', BCOL);   // positions with Black to move
-
-        // Legend
-        ctx.textAlign = 'left';
-        ctx.font = '10px Consolas, Menlo, monospace';
-        ctx.fillStyle = WCOL; ctx.fillText('\u25CF White to move', pad.left + 4, pad.top + 8);
-        ctx.fillStyle = BCOL; ctx.fillText('\u25CF Black to move', pad.left + 96, pad.top + 8);
-    }
-
-    // Stockfish reference overlay (amber), drawn across gaps where SF
-    // hasn't returned yet for a given half-move.
-    if (showSf) {
-        ctx.strokeStyle = '#e0a458';
-        ctx.lineWidth = 1.5;
-        let started = false;
-        ctx.beginPath();
-        for (let i = 0; i < sfData.length; i++) {
-            if (sfData[i] == null) { started = false; continue; }
-            const x = xPos(i), y = yPos(sfData[i]);
-            if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        ctx.fillStyle = '#e0a458';
-        for (let i = 0; i < sfData.length; i++) {
-            if (sfData[i] == null) continue;
-            ctx.beginPath();
-            ctx.arc(xPos(i), yPos(sfData[i]), 2.5, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Legend
-        ctx.textAlign = 'left';
-        ctx.font = '10px Consolas, Menlo, monospace';
-        ctx.fillStyle = '#7ec8e3'; ctx.fillText('\u25CF engine', pad.left + 4, pad.top + 8);
-        ctx.fillStyle = '#e0a458'; ctx.fillText('\u25CF stockfish', pad.left + 64, pad.top + 8);
-    }
-
-    // Y-axis labels
-    ctx.fillStyle = '#888';
-    ctx.font = '10px Consolas, Menlo, monospace';
-    ctx.textAlign = 'right';
-    for (let i = 0; i <= nGrid; i++) {
-        const val = maxY - (i / nGrid) * rangeY;
-        ctx.fillText(val.toFixed(1), pad.left - 5, pad.top + (i / nGrid) * ph + 3);
-    }
-
-    // X-axis labels
-    ctx.textAlign = 'center';
-    const step = Math.max(1, Math.ceil(data.length / 10));
-    for (let i = 0; i < data.length; i += step) {
-        ctx.fillText(String(graphData[i].halfMove), xPos(i), h - 4);
-    }
-}
-
-// ── Init ───────────────────────────────────────────────────
-(function init() {
-    if (typeof Chess === 'undefined') {
-        document.getElementById('status').textContent = 'Error: chess.js failed to load.';
-        document.getElementById('status').style.color = '#ff6b6b';
-        return;
-    }
-    renderBoard();
-    updateMoveList();
-    updateDashboard();
-    initStockfish();
-})();
-</script>
-</body>
-</html>
+module.exports = { Chess, bestMove: (...a)=>bestMove(...a), _runAnalyze, setMode: m=>{OPTIONALITY_MODE=m;}, staticEval: g=>staticEval(g), setC: c=>{activeC=c;}, robustT: (...a)=>robustT(...a), get searchStats(){return searchStats;} };
