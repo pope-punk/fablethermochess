@@ -17,6 +17,19 @@
 //             caveat: the truncation tail mixes backup forms across one Z)
 //   'max'     revisions common-mode: premium cancels in every comparison
 //
+// MEASURED (depth 3/4, live bath): 'mean' and 'max' both cure the
+// Alekhine blunder at every temperature (F: +0.48 toward d6 at depth 4;
+// mean: −1.59; max: −3.43) with all tactical controls intact. 'mean-us'
+// convicts itself before any match: the asymmetric backup is a one-sided
+// entropy ladder, and the thermometer reads it as heat (T → 7.1 at depth
+// 4) — the parity rule applies to backup forms, not just charges. The
+// runaway and trébuchet probes (§4, §5 below) then split 'mean' and
+// 'max': 'mean' tames the interior share of thermal runaway but erases
+// deep forced lines (opponent-mixing discounts certainty geometrically);
+// 'max' keeps them. Strength adjudication: oracle matches + gauntlet
+// ('meanback' / 'maxback' modes in vs_stockfish.js, 'cur:mean' in
+// match.js).
+//
 //   node tests/backup_forms.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
 const E0 = fresh();
@@ -82,3 +95,46 @@ for (const [name, fen, must] of CONTROLS) {
 }
 if (failures) { console.log(`\n${failures} control FAILURES`); process.exit(1); }
 console.log('\nall controls passed');
+
+// ── 4 · Thermal-runaway probe: is the amplification interior? ──
+// The runaway loop is T·S feedback into the thermometer. 'mean' removes
+// the interior premium; the leaf T·ΔlnW back-reaction remains. Measured
+// (3 s think): in a crushed position F's bath runs 1.5 → 5.7 while
+// 'mean' holds 1.2 — most of the amplification is the interior premium.
+console.log('\n4 · Bath in decided positions (3 s think)');
+const DECIDED = [
+  ['middlegame (balanced)', 'r2q1rk1/pp2bppp/2n1pn2/3p4/3P4/2NBPN2/PP3PPP/R2Q1RK1 w - - 0 10'],
+  ['crushed: R+B down',     '5rk1/pp3ppp/4p3/8/8/2NBPN2/PP3PPP/R2Q1RK1 b - - 0 14'],
+];
+console.log('position'.padEnd(26) + 'form    T_final  anneal trace');
+for (const [name, fen] of DECIDED) {
+  for (const mode of ['', 'mean']) {
+    const E = fresh();
+    const res = E._runAnalyze({ fen, timeLimit: 3000, backup: mode });
+    const t = res.thermo;
+    console.log(name.padEnd(26) + label(mode) + t.T.toFixed(2).padStart(7) +
+      '   ' + t.anneal.map(a => a.T.toFixed(1)).join(' → '));
+  }
+}
+
+// ── 5 · The trébuchet: deep forced lines per form ───────────
+// The certified mutual zugzwang (zugzwang.js) is a full-point loss for
+// the mover ~40 plies from conversion. Measured (4 s): F carries the
+// loss in its Q values (≈ −3.3♙; only the premium washes it out), 'max'
+// reads a definite loss signal, but 'mean' erases it (≈ −0.08): QRE
+// averaging mixes the opponent's suboptimal replies at every ply, so a
+// deep forced loss is discounted geometrically (~π^d). 'mean' sees
+// 1-ply punishments at weight π and 40-ply certainties not at all —
+// opponent-mixing is the wrong model exactly where play is forced.
+console.log('\n5 · Trébuchet visibility (4 s think), bestQ in ♙ (mover POV; certified loss)');
+for (const [name, fen] of [['wtm', '8/8/8/3Kp3/4Pk2/8/8/8 w - - 0 1'],
+                           ['btm', '8/8/8/3Kp3/4Pk2/8/8/8 b - - 0 1']]) {
+  let row = name.padEnd(6);
+  for (const mode of ['', 'mean', 'max']) {
+    const E = fresh();
+    const res = E._runAnalyze({ fen, timeLimit: 4000, backup: mode });
+    const t = res.thermo;
+    row += `${label(mode)}${(t.Qs[t.bestIdx] / 2).toFixed(2)} (T=${t.T.toFixed(1)} d${res.depth})   `;
+  }
+  console.log(row);
+}

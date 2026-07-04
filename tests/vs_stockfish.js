@@ -20,11 +20,12 @@ const ELO = parseInt(process.argv[2] || '1500');
 const ENGINE_MS = parseInt(process.argv[3] || '1000');
 const SF_MS = parseInt(process.argv[4] || '200');
 const OUT = process.argv[5] || path.join(__dirname, 'results', `vs_sf${ELO}.json`);
-const MODE = process.argv[6] || '';          // '', 'probe', 'flux', 'measure', or 'schedule'
+const MODE = process.argv[6] || '';          // '', 'probe', 'flux', 'measure', 'schedule', 'meanback', 'maxback'
 const PROBE = MODE === 'probe';
 const SCHEDULE = MODE === 'schedule';        // measure + sigma_eff time management with banking
 const LEAFMU = MODE === 'leafmu';            // measure + leaf tempo prior (kappa = live T-hat_c), fixed time
-const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU;
+const BACKUP = MODE === 'meanback' ? 'mean' : MODE === 'maxback' ? 'max' : undefined;  // backup-form knob, fixed time
+const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined;
 
 const OPENINGS = [
   { name: 'Italian complex',       line: ['e4', 'e5', 'Nf3', 'Nc6'] },
@@ -96,8 +97,8 @@ async function playGame(sf, opening, engineIsWhite) {
       const allowed = SCHEDULE ? ENGINE_MS + Math.min(bank, 3 * ENGINE_MS) : ENGINE_MS;
       const res = E._runAnalyze({ fen: g.fen(), timeLimit: allowed, pastKeys: keys.slice(0, -1),
                                   probe: PROBE, schedule: SCHEDULE, newGame: (SCHEDULE || LEAFMU) && engFirst,
-                                  leafMu: LEAFMU,
-                                  flux: (MODE === 'measure' || SCHEDULE || LEAFMU) ? 'measure' : FLUX });
+                                  leafMu: LEAFMU, backup: BACKUP,
+                                  flux: (MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined) ? 'measure' : FLUX });
       engFirst = false;
       // income is BASE per move; a draw from the bank is real expenditure
       // (the first A/B credited moves with their own draw — a perpetual
