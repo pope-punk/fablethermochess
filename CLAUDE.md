@@ -51,8 +51,10 @@ compared with `node tests/ab_compare.js` against the relevant baseline
 
 - Develop on the designated feature branch; commit early with descriptive messages;
   push after each coherent unit of work.
-- Test-only laboratory hooks in the engine (`pinT`, `leafT`, `themT`, `shuffleSeed`)
-  are never set by play.
+- Test-only laboratory hooks in the engine (`pinT`, `leafT`, `themT`, `premT`,
+  `backup`, `shuffleSeed`) are never set by play. The app's Lab panel exposes
+  them to the experimenter's hand; any active field is stamped on the dashboard
+  reading (`⚠ LAB: …`), and blank = honest play.
 - Results files: incremental JSON written during runs; long runs go in background
   with logs under `tests/results/`; every experiment gets committed win or lose.
 

@@ -46,8 +46,9 @@ node tests/suite.js                 # 13 checks: perft, invariants, absorbing st
 | `j_floor_probe.js` | the structural share of J from played games: constraint bite ⟨lnW_free − lnW_forced⟩ ≈ 1.9, dimensionless criticality ratio ≈ 0.6–0.75 |
 | `t_crossing.js` | counterfactual-temperature reranking of a decision (uses the `pinT` lab hook); found the Alekhine blunder crossing at T* ≈ 1.0 = the zero-point floor |
 | `t_decompose.js` | three-knob decomposition (`pinT`/`leafT`/`themT`) of a decision's T-dependence; convicted the *our-side interior choice premium* (~3.75 of the swing) |
-| `covariance_probe.js` | redundancy instruments: v1 revision common-mode (failed honestly — measures drift), v2 reply-partition n_eff (validated: trap 3.5 vs sound 10.6) |
-| `backup_forms.js` | backup-form decomposition (`backup` lab hook): F vs ⟨Q⟩_π ('mean') vs max — F−⟨Q⟩_π = T·S is the winner's-curse identity; 'mean' and 'max' cure the Alekhine blunder at every T, 'mean-us' dies by one-sided ladder (thermometer runaway, as the parity rule predicts) |
+| `covariance_probe.js` | redundancy instruments: v1 revision common-mode (failed honestly — measures drift), v2 reply-partition n_eff (validated: trap 3.5 vs sound 10.6), v3 λ̂ drift-centered reply-grouped independence (validated on all five predictions: trap 0.60 / sound 0.91 / middlegame 0.92 / Q-en-prise 0.56 / startpos 0.87 — orders correctly exactly where v1 ordered backwards) |
+| `backup_forms.js` | backup-form decomposition (`backup` lab hook): F vs ⟨Q⟩_π ('mean') vs max — F−⟨Q⟩_π = T·S is the winner's-curse identity; 'mean' and 'max' cure the Alekhine blunder at every T, 'mean-us' dies by one-sided ladder (thermometer runaway, as the parity rule predicts); gauntlets 3.5 & 5/12 — the premium is also the danger sense |
+| `premT_scan.js` | the premium-temperature leg (`premT` hook): global premium repricing crosses at premT ≈ 0.75–1.0 — the zero-point floor again, from the premium axis — so no global scale separates blunder-cure from danger-sense; the cure must be per-node (λ̂) |
 
 ## The material oracle (`ref_engine.js`)
 
@@ -76,4 +77,14 @@ effective-entropy premium, also exposed as the UI selector) · `leafMu` (retired
 leaf tempo charge, kept for reproducibility) · `backup` (`'mean'`/`'max'`/
 `'mean-us'`: interior backup form — what scalar propagates up, with the
 ensemble, thermometer, truncation, and leaf term untouched; see
-`backup_forms.js`). `match.js` accepts backup variants as `cur:mean` etc.
+`backup_forms.js`) · `premT` (pay only the interior choice premium T·S at a
+counterfactual temperature; ensemble stays at the bath — `premT→0` is the
+`'mean'` backup, `premT=bath` is F; see `premT_scan.js`).
+`match.js` accepts backup variants as `cur:mean` etc.
+
+The app now carries a **Lab panel** (dashed amber console under the game
+controls): the same hooks, hand-applied. Blank/F = honest play, bit-identical
+to a build without the panel. Any active field is stamped on the dashboard
+header (`⚠ LAB: …`) so a perturbed reading can never be mistaken for an
+unperturbed one, and λ̂ (the drift-centered reply-grouped revision-independence
+instrument, v3 of `covariance_probe.js`) reads live in the state grid.

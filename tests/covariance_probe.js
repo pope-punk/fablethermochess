@@ -1,11 +1,19 @@
-// Validation of the revision-covariance instrument: does ĉ (the
-// Boltzmann-weighted common-mode fraction of same-parity revisions)
+// Validation of the revision-covariance instruments: do they
 // distinguish correlated hedges from genuine flexibility?
-// Predictions:
-//   - forced positions (everything loses but one idea): ĉ high
-//   - the Alekhine trap line (Black's many replies all condition on the
-//     unresolved exf6 threat): ĉ elevated
-//   - open positions with genuinely independent plans: ĉ low
+//   v1  ĉ: Boltzmann-weighted common-mode fraction of same-parity
+//       revisions. FAILED HONESTLY — the global mean revision is
+//       calibration drift, not hedging (threat resolution reads as
+//       anti-correlation).
+//   v3  λ̂: drift-centered (the v1 defect removed by construction),
+//       then the residual variance is attributed to reply-partition
+//       groups — siblings that share a best reply AND revise together
+//       are one hedge breathing through one killer. λ̂ = the genuinely
+//       independent fraction: the measured deflation factor for the
+//       winner's-curse premium (backup_forms.js, premT_scan.js).
+// Predictions for λ̂:
+//   - the Alekhine trap line: LOW (hedges co-move via exf6)
+//   - the sound line / open middlegame: HIGH (options resolve apart)
+//   - queen en prise: low-ish (one idea; everything else dies together)
 //   node covariance_probe.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
 const E0 = fresh();
@@ -19,13 +27,14 @@ const CASES = [
   ['queen en prise (one idea)',     '4k3/8/8/3q4/8/8/3R4/4K3 w - - 0 1'],
 ];
 
-console.log('position'.padEnd(60) + '   ĉ      S     S_eff   S_reply  n_eff  depth');
+console.log('position'.padEnd(60) + '   ĉ      λ̂      S     S_eff   S_reply  n_eff  depth');
 for (const [label, fen] of CASES) {
   const E = fresh();
   const res = E._runAnalyze({ fen, timeLimit: 3000 });
   const t = res.thermo;
   console.log(label.padEnd(60) +
     (t.covC != null ? t.covC.toFixed(3) : '  —  ').padStart(6) +
+    (t.lamHat != null ? t.lamHat.toFixed(3) : '  —  ').padStart(7) +
     t.S.toFixed(2).padStart(7) +
     (t.effS != null ? t.effS.toFixed(2) : '—').padStart(8) +
     (t.replyS != null ? t.replyS.toFixed(2) : '—').padStart(9) +

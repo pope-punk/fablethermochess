@@ -101,6 +101,20 @@ input[type="range"] {
     cursor: pointer; margin: 0 4px;
 }
 #heatCapVal { font-family: 'Consolas','Menlo',monospace; font-size: 0.85em; color: #7ec8e3; min-width: 2em; display: inline-block; }
+#lab-panel {
+    margin-top: 8px; padding: 6px 10px; background: #16213e;
+    border: 1px dashed #7a5c2e; border-radius: 6px;
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+    font-size: 0.8em;
+}
+#lab-panel .lab-title { color: #e8c987; font-weight: bold; letter-spacing: 0.05em; }
+#lab-panel label { font-size: 1em; color: #9898ac; }
+#lab-panel input[type="number"] {
+    width: 52px; padding: 3px 4px; background: #0f0f1a; color: #e0e0e0;
+    border: 1px solid #3a3a5e; border-radius: 4px; font-family: inherit; font-size: 1em;
+}
+#lab-panel select { padding: 3px 6px; font-size: 1em; }
+#lab-panel.lab-active { border-color: #e0a458; box-shadow: 0 0 6px rgba(224,164,88,0.35); }
 label { font-size: 0.85em; }
 #move-list {
     margin-top: 10px; padding: 8px 10px;
@@ -200,11 +214,31 @@ label { font-size: 0.85em; }
             <option value="us">S_eff (our nodes)</option>
             <option value="both">S_eff (both sides)</option>
         </select>
-        <!-- No temperature/capacity knob: T is measured by the annealing
-             search, not chosen. Longer thinking time = colder engine.
-             Since the sigma_eff scheduler, this is a RATE, not a per-move
-             wall: each move credits the allowance to a clock; frozen
-             decisions bank their remainder; hard ones draw up to 3x extra. -->
+        <!-- No temperature/capacity knob IN PLAY: T is measured by the
+             annealing search, not chosen. Longer thinking time = colder
+             engine. Since the sigma_eff scheduler, this is a RATE, not a
+             per-move wall: each move credits the allowance to a clock;
+             frozen decisions bank their remainder; hard ones draw up to
+             3x extra.
+             The Lab panel below is the experimenter's console, not a game
+             feature: the same external-field hooks the test harness uses
+             (pinT / leafT / themT / premT / backup), applied by hand.
+             Blank = honest play. Active fields are shown in the dashboard
+             header so no reading can be mistaken for an unperturbed one. -->
+    </div>
+    <div id="lab-panel" title="Laboratory external fields — the test harness hooks, hand-applied. Blank/F = honest play (T measured, free-energy backup). Values take effect from the next search; active fields are echoed in the dashboard header.">
+        <span class="lab-title">LAB</span>
+        <label title="pinT: pin the whole bath (search + leaf + thermometer) to this temperature">pinT <input id="labPinT" type="number" step="0.25" min="0" placeholder="&#8212;" onchange="labChanged()"></label>
+        <label title="leafT: price only the leaf optionality T·(lnW_us − lnW_them) at this temperature">leafT <input id="labLeafT" type="number" step="0.25" min="0" placeholder="&#8212;" onchange="labChanged()"></label>
+        <label title="themT: run only the OPPONENT's interior ensembles at this temperature">themT <input id="labThemT" type="number" step="0.25" min="0" placeholder="&#8212;" onchange="labChanged()"></label>
+        <label title="premT: pay only the interior choice premium T·S at this temperature (ensemble stays at the bath). premT→0 is the 'mean' backup; premT=bath is F">premT <input id="labPremT" type="number" step="0.25" min="0" placeholder="&#8212;" onchange="labChanged()"></label>
+        <select id="labBackup" onchange="labChanged()" title="Backup form: which scalar propagates up. F = free energy (premium paid); mean = ⟨Q⟩_π (achieved value, premium withheld); max = quenched; mean-us = asymmetric (known thermometer-runaway pathology, kept for demonstration)">
+            <option value="" selected>F backup</option>
+            <option value="mean">mean &#10216;Q&#10217;</option>
+            <option value="max">max</option>
+            <option value="mean-us">mean-us (!)</option>
+        </select>
+        <button onclick="labReset()" title="Clear all external fields — back to honest play">reset</button>
     </div>
 </div>
 
@@ -1259,6 +1293,14 @@ let THEM_T_OVERRIDE = 0;   // laboratory knob: run the OPPONENT'S interior
 // The ensemble itself — weights, truncation, thermometer, leaf term,
 // absorbing guards — is untouched; only the backed-up scalar changes.
 let BACKUP_MODE = '';      // '' (free energy) | 'mean' | 'max' | 'mean-us'
+// ── Premium-temperature knob (the second winner's-curse experiment) ──
+// Price ONLY the interior choice premium at a counterfactual temperature:
+// the ensemble π stays at the bath (weights, truncation, thermometer all
+// untouched) and the node backs up ⟨Q⟩_π + premT·S(π). premT = bath is
+// exactly F; premT → 0 is the 'mean' backup. This isolates the premium's
+// SCALE from the ensemble it rides on — the missing row of the
+// t_decompose grid. Test-only, like pinT; play never sets it.
+let PREM_T_OVERRIDE = 0;
 function staticEval(g) {
     const base = g.fast_raw_mat();
     if (bathT <= T_FLOOR) return base;     // frozen bath: optionality is worthless
@@ -1803,6 +1845,17 @@ function computeF(Qs, n, cacheKey, tOver, mv, isUs) {
             wSum += w; qSum += w * (Qs[i] - maxQ);
         }
         val = maxQ + qSum / wSum;
+    } else if (PREM_T_OVERRIDE > 0) {
+        // Premium repriced: ensemble at Tn, choice premium paid at premT.
+        // F = ⟨Q⟩_π + premT·S(π); premT = Tn recovers F exactly.
+        let wSum = 0, qSum = 0;
+        for (let i = 0; i < n; i++) {
+            const w = Math.exp((Qs[i] - maxQ) / Tn);
+            wSum += w; qSum += w * (Qs[i] - maxQ);
+        }
+        const meanRel = qSum / wSum;                 // ⟨Q⟩ − maxQ
+        const S = Math.log(wSum) - meanRel / Tn;     // entropy of π
+        val = maxQ + meanRel + PREM_T_OVERRIDE * S;
     } else if (effHere && mv) {
         // effective multiplicity: one microstate per DISTINCT best reply
         // (untagged children stay singletons — conservative)
@@ -2009,6 +2062,7 @@ function annealRoot(g, opts) {
     EFF_PREMIUM = opts.effS === 'us' ? 'us' : !!opts.effS;
     BACKUP_MODE = (opts.backup === 'mean' || opts.backup === 'max' ||
                    opts.backup === 'mean-us') ? opts.backup : '';
+    PREM_T_OVERRIDE = opts.premT > 0 ? opts.premT : 0;
 
     for (let depth = 1; depth <= maxDepth; depth++) {
         hardDeadline = depth === 1 ? Infinity : mainDeadline;
@@ -2089,6 +2143,41 @@ function annealRoot(g, opts) {
                     const c = Math.min(1, (m1 * m1) / (wS * m2));
                     result.covC = result.covC == null ? c : 0.5 * (result.covC + c);
                     result._lastC = c;
+                }
+                // ── λ̂: the independence of sibling revisions (v3) ──
+                // v1 (covC above) reads the GLOBAL common mode and was
+                // validated backwards: it measures calibration drift.
+                // v3 removes the drift first (center by the Boltzmann-
+                // weighted mean revision), then asks how much of the
+                // remaining variance co-moves WITHIN reply-partition
+                // groups — siblings sharing a best reply that also
+                // revise together are one hedge breathing through one
+                // killer. λ̂ = 1 − (within-group common-mode share):
+                // the fraction of the premium's noise that is genuinely
+                // independent, i.e. the measured deflation factor of
+                // the winner's-curse experiment. Measurement only.
+                if (cnt >= 3 && wS > 0) {
+                    const drift = m1 / wS;
+                    const groups = new Map();
+                    let vTot = 0;
+                    for (let i = 0; i < n; i++) {
+                        if (Math.abs(Qs[i]) > MATE_NEAR || Math.abs(moves[i]._pq2) > MATE_NEAR) continue;
+                        const w = Math.exp((Qs[i] - maxQc) / bathT);
+                        const rt = (Qs[i] - moves[i]._pq2) - drift;
+                        vTot += w * rt * rt;
+                        const k = moves[i]._reply !== undefined ? moves[i]._reply : -1 - i;
+                        const g = groups.get(k);
+                        if (g) { g.W += w; g.S1 += w * rt; g.n++; }
+                        else groups.set(k, { W: w, S1: w * rt, n: 1 });
+                    }
+                    if (vTot > 1e-9) {
+                        let vShared = 0;
+                        for (const g of groups.values())
+                            if (g.n >= 2) vShared += (g.S1 * g.S1) / g.W;
+                        const lam = Math.max(0, Math.min(1, 1 - vShared / vTot));
+                        result.lamHat = result.lamHat == null ? lam : 0.5 * (result.lamHat + lam);
+                        result._lastLam = lam;
+                    }
                 }
             }
         }
@@ -2346,6 +2435,7 @@ function analyzeRoot(g, opts) {
              gap: r.gap != null ? r.gap : null, TcHat: r.Tc != null ? r.Tc : null,
              kapRatio: r.kapRatio || 0, bite: r.bite || 0,
              covC: r.covC != null ? r.covC : null,
+             lamHat: r.lamHat != null ? r.lamHat : null,
              effS: r.covC != null ? Math.max(0, S + Math.log(Math.max(1e-6, 1 - r.covC))) : null,
              replyS: (() => {
                  // effective multiplicity: entropy of the opponent-reply
@@ -2376,10 +2466,16 @@ function _runAnalyze(msg) {
         ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: msg.flux || false,
             budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
-            effS: msg.effS, backup: msg.backup }
+            premT: msg.premT, effS: msg.effS, backup: msg.backup }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
-            effS: msg.effS, backup: msg.backup });
+            premT: msg.premT, effS: msg.effS, backup: msg.backup });
+    // Echo the laboratory state this analysis actually ran under, so the
+    // dashboard can display it (external fields must be visible on the
+    // instrument that feels them).
+    out.lab = { pinT: msg.pinT > 0 ? msg.pinT : 0, leafT: msg.leafT > 0 ? msg.leafT : 0,
+                themT: msg.themT > 0 ? msg.themT : 0, premT: msg.premT > 0 ? msg.premT : 0,
+                backup: msg.backup || '', effS: msg.effS === true ? 'both' : (msg.effS || '') };
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
@@ -2537,7 +2633,18 @@ function applyAnalysis(res, engineStats) {
             depthReached: engineStats ? engineStats.depth : null });
         if (res.fen && res.fen !== sfLastRequestedFen) { sfLastRequestedFen = res.fen; sfCurrentPosEval = null; requestSfEval(res.fen, turn); }
     }
-    const source = thermo ? ('Engine evaluation (depth ' + thermo.depth + ', matches play)') : '';
+    let source = thermo ? ('Engine evaluation (depth ' + thermo.depth + ', matches play)') : '';
+    // External-field banner: any active lab knob is stamped on the reading.
+    if (res.lab) {
+        const l = res.lab, parts = [];
+        if (l.pinT) parts.push('pinT=' + l.pinT);
+        if (l.leafT) parts.push('leafT=' + l.leafT);
+        if (l.themT) parts.push('themT=' + l.themT);
+        if (l.premT) parts.push('premT=' + l.premT);
+        if (l.backup) parts.push('backup=' + l.backup);
+        if (l.effS) parts.push('S_eff=' + l.effS);
+        if (parts.length) source += ' · ⚠ LAB: ' + parts.join(', ');
+    }
     lastUw = res.Uw; lastUb = res.Ub; lastThermo = thermo; lastSource = source;
     renderThermoGrid(res.Uw, res.Ub, thermo, source);
     renderMoveHistory();
@@ -2558,8 +2665,8 @@ async function refreshDashboard() {
         renderSchottky(null); renderAnneal(null); renderGraph();
         return;
     }
-    const res = await analyzeAsync({ fen, pastKeys: collectPastKeys(), timeLimit: null,
-        dashDepth: (searchStats.depth > 0 ? searchStats.depth : 2), effS: effMode() });
+    const res = await analyzeAsync(Object.assign({ fen, pastKeys: collectPastKeys(), timeLimit: null,
+        dashDepth: (searchStats.depth > 0 ? searchStats.depth : 2), effS: effMode() }, labOpts()));
     if (gen !== analysisGen || game.fen() !== fen) return;   // stale
     applyAnalysis(res, null);
 }
@@ -2585,6 +2692,32 @@ function effMode() {
     const v = document.getElementById('effmode');
     return v && v.value === 'both' ? true : (v && v.value === 'us' ? 'us' : undefined);
 }
+// ── Laboratory panel: hand-applied external fields ──────────
+// The same hooks the test harness uses (pinT/leafT/themT/premT/backup),
+// read from the Lab panel and passed with every analysis request. Blank
+// and 'F' mean honest play — the engine code path is then bit-identical
+// to a build without the panel. Active fields are echoed back by the
+// analysis (res.lab) and displayed in the dashboard header, so no
+// perturbed reading can be mistaken for an unperturbed one.
+function labOpts() {
+    const num = id => { const el = document.getElementById(id);
+        const v = el ? parseFloat(el.value) : NaN; return v > 0 ? v : undefined; };
+    const bk = document.getElementById('labBackup');
+    return { pinT: num('labPinT'), leafT: num('labLeafT'), themT: num('labThemT'),
+             premT: num('labPremT'), backup: (bk && bk.value) || undefined };
+}
+function labChanged() {
+    const o = labOpts();
+    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup;
+    document.getElementById('lab-panel').classList.toggle('lab-active', !!active);
+    if (!thinking) refreshDashboard();   // re-read the position under the new fields
+}
+function labReset() {
+    for (const id of ['labPinT','labLeafT','labThemT','labPremT'])
+        document.getElementById(id).value = '';
+    document.getElementById('labBackup').value = '';
+    labChanged();
+}
 let uiBank = 0;   // scheduler time bank: frozen decisions fund hard ones
 let lastClock = null;   // last scheduled think: {stop, sigma, gap} for the grid
 async function engineReply() {
@@ -2592,9 +2725,9 @@ async function engineReply() {
     const gen = analysisGen;
     const base = TIME_LIMITS[document.getElementById('difficulty').value];
     const timeLimit = base + Math.min(uiBank, 3 * base);
-    const res = await analyzeAsync({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit,
+    const res = await analyzeAsync(Object.assign({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit,
                                      flux: 'measure', schedule: true, effS: effMode(),
-                                     newGame: moveHistory.length < 2 });
+                                     newGame: moveHistory.length < 2 }, labOpts()));
     if (res && res.timeMs != null) uiBank = Math.max(0, uiBank + base - res.timeMs);
     if (res && res.thermo) lastClock = { stop: res.thermo.stop || 'deadline',
                                          sigma: res.thermo.sigma, gap: res.thermo.gap,
@@ -2609,9 +2742,9 @@ async function engineReply() {
     thinking = false;
     renderBoard();
     if (game.game_over()) { handleGameOver(); refreshDashboard(); return; }
-    const res2 = await analyzeAsync({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit: null,
+    const res2 = await analyzeAsync(Object.assign({ fen: game.fen(), pastKeys: collectPastKeys(), timeLimit: null,
                                       dashDepth: res.depth || 2, flux: 'measure', feedJhat: true,
-                                      effS: effMode() });
+                                      effS: effMode() }, labOpts()));
     if (gen !== analysisGen) return;
     applyAnalysis(res2, { timeMs: res.timeMs, depth: res.depth });
     setStatus('Your move (' + (humanColor === 'w' ? 'White' : 'Black') + ') \u2014 depth ' +
@@ -2840,6 +2973,8 @@ function renderThermoGrid(Uw, Ub, th, source) {
         ['F=\u27E8Q\u27E9+TS', fmt(th.F,4), 'Eval', fmtCp(enginePawns)],
         ['S_reply (n_eff)', th.replyS != null ? fmt(th.replyS,2) + ' (' + fmt(Math.exp(th.replyS),1) + ')' : '\u2014',
          '\u0394S overcount', th.replyS != null ? fmt(th.S - th.replyS,2) : '\u2014'],
+        ['\u03bb\u0302 (indep.)', th.lamHat != null ? fmt(th.lamHat,2) : '\u2014',
+         '\u0109 drift (v1)', th.covC != null ? fmt(th.covC,2) : '\u2014'],
         ['\u0134 opponent', jhStr, 'clock', schedStr],
         ['SF (d'+SF_DEPTH+')', sfStr, '\u0394 (eng\u2212SF)', deltaStr],
     ];
