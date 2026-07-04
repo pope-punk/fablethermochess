@@ -1245,6 +1245,20 @@ let THEM_T_OVERRIDE = 0;   // laboratory knob: run the OPPONENT'S interior
                            // premium) at a counterfactual temperature.
                            // Test-only. The us/them decomposition of the
                            // interior term.
+// ── Backup-form knob (the winner's-curse experiment) ────────
+// Under the Gumbel reading of the softmax, F = T·ln Z is exactly
+// E[max_a(Q_a + T·G_a)] with G_a i.i.d. Gumbel — the value a chooser with
+// value noise T ESTIMATES its best option is worth — while ⟨Q⟩_π = Σ π_a Q_a
+// is what that chooser actually ACHIEVES (it picks a with probability π_a
+// and collects Q_a). The gap is T·S identically: the interior choice
+// premium is, term for term, the optimizer's own estimation bias. The two
+// limits bracket the truth about future revisions: F assumes sibling
+// revisions are INDEPENDENT (full premium), 'max' assumes they are common
+// mode (no premium), 'mean' assumes no future re-choice at all (the
+// quantal-response game value). Test-only, like pinT; play never sets it.
+// The ensemble itself — weights, truncation, thermometer, leaf term,
+// absorbing guards — is untouched; only the backed-up scalar changes.
+let BACKUP_MODE = '';      // '' (free energy) | 'mean' | 'max' | 'mean-us'
 function staticEval(g) {
     const base = g.fast_raw_mat();
     if (bathT <= T_FLOOR) return base;     // frozen bath: optionality is worthless
@@ -1758,7 +1772,7 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
         moves, g.fast_turn() === fluxRootTurn);
 }
 
-function computeF(Qs, n, cacheKey) {
+function computeF(Qs, n, cacheKey, tOver, mv, isUs) {
     let maxQ = Qs[0];
     for (let i = 1; i < n; i++) if (Qs[i] > maxQ) maxQ = Qs[i];
     // Mate scores are absorbing states, not thermal energies. A forced win
@@ -1773,12 +1787,23 @@ function computeF(Qs, n, cacheKey) {
         return maxQ;
     }
     // One bath, one temperature: F is evaluated at the global annealing T.
-    const Tn = (arguments.length > 3 && arguments[3] > 0) ? arguments[3] : bathT;
-    const mv = arguments.length > 4 ? arguments[4] : null;
+    const Tn = tOver > 0 ? tOver : bathT;
     let val;
-    const effHere = EFF_PREMIUM === true ||
-        (EFF_PREMIUM === 'us' && arguments.length > 5 && arguments[5]);
-    if (effHere && mv) {
+    const effHere = EFF_PREMIUM === true || (EFF_PREMIUM === 'us' && isUs);
+    if (BACKUP_MODE === 'max') {
+        // Quenched backup: sibling revisions treated as common mode — the
+        // choice premium cancels in every comparison, so back up the peak.
+        val = maxQ;
+    } else if (BACKUP_MODE === 'mean' || (BACKUP_MODE === 'mean-us' && isUs)) {
+        // Achieved value of a T-noisy chooser: Σ π_a Q_a = F − T·S. The
+        // winner's-curse term is withheld; the ensemble weights stand.
+        let wSum = 0, qSum = 0;
+        for (let i = 0; i < n; i++) {
+            const w = Math.exp((Qs[i] - maxQ) / Tn);
+            wSum += w; qSum += w * (Qs[i] - maxQ);
+        }
+        val = maxQ + qSum / wSum;
+    } else if (effHere && mv) {
         // effective multiplicity: one microstate per DISTINCT best reply
         // (untagged children stay singletons — conservative)
         const gmax = new Map();
@@ -1982,6 +2007,8 @@ function annealRoot(g, opts) {
     qCache.clear();
     replyCache.clear();
     EFF_PREMIUM = opts.effS === 'us' ? 'us' : !!opts.effS;
+    BACKUP_MODE = (opts.backup === 'mean' || opts.backup === 'max' ||
+                   opts.backup === 'mean-us') ? opts.backup : '';
 
     for (let depth = 1; depth <= maxDepth; depth++) {
         hardDeadline = depth === 1 ? Infinity : mainDeadline;
@@ -2349,10 +2376,10 @@ function _runAnalyze(msg) {
         ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: msg.flux || false,
             budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
-            effS: msg.effS }
+            effS: msg.effS, backup: msg.backup }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
-            effS: msg.effS });
+            effS: msg.effS, backup: msg.backup });
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];

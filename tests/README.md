@@ -47,6 +47,7 @@ node tests/suite.js                 # 13 checks: perft, invariants, absorbing st
 | `t_crossing.js` | counterfactual-temperature reranking of a decision (uses the `pinT` lab hook); found the Alekhine blunder crossing at T* ≈ 1.0 = the zero-point floor |
 | `t_decompose.js` | three-knob decomposition (`pinT`/`leafT`/`themT`) of a decision's T-dependence; convicted the *our-side interior choice premium* (~3.75 of the swing) |
 | `covariance_probe.js` | redundancy instruments: v1 revision common-mode (failed honestly — measures drift), v2 reply-partition n_eff (validated: trap 3.5 vs sound 10.6) |
+| `backup_forms.js` | backup-form decomposition (`backup` lab hook): F vs ⟨Q⟩_π ('mean') vs max — F−⟨Q⟩_π = T·S is the winner's-curse identity; 'mean' and 'max' cure the Alekhine blunder at every T, 'mean-us' dies by one-sided ladder (thermometer runaway, as the parity rule predicts) |
 
 ## The material oracle (`ref_engine.js`)
 
@@ -72,4 +73,7 @@ logged with FENs to `tests/blunders_<A>_<B>.json` for diagnosis.
 optionality) · `themT` (retemper only the opponent's interior ensembles) ·
 `shuffleSeed` (seeded root-order permutation) · `effS` (`true`/`'us'`: the
 effective-entropy premium, also exposed as the UI selector) · `leafMu` (retired
-leaf tempo charge, kept for reproducibility).
+leaf tempo charge, kept for reproducibility) · `backup` (`'mean'`/`'max'`/
+`'mean-us'`: interior backup form — what scalar propagates up, with the
+ensemble, thermometer, truncation, and leaf term untouched; see
+`backup_forms.js`). `match.js` accepts backup variants as `cur:mean` etc.

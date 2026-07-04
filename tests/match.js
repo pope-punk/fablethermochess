@@ -37,8 +37,10 @@ function makePlayer(kind, Chess) {
     const refMove = makeRef(Chess);
     return { name: 'ref', move: (fen, ms) => refMove(new Chess(fen), ms) };
   }
-  const E = loadEngine(ENGINES[kind]);
-  return { name: kind, move: (fen, ms, pastKeys) => E._runAnalyze({ fen, timeLimit: ms, pastKeys }).san };
+  // 'cur:mean' / 'cur:max' select a backup-form lab knob (backup_forms.js)
+  const [base, backup] = kind.split(':');
+  const E = loadEngine(ENGINES[base]);
+  return { name: kind, move: (fen, ms, pastKeys) => E._runAnalyze({ fen, timeLimit: ms, pastKeys, backup }).san };
 }
 
 // Deterministic engines repeat one game; a small book restores variety.
