@@ -34,9 +34,25 @@
 //   F    vs oracle: +3 −1 =8   (the standing +2−1=9 within noise)
 //   mean vs oracle: +1 −0 =11  — undefeated but drawish: the colder
 //   max  vs oracle: +1 −0 =11    bath buys less activity to convert
-//   mean vs F head-to-head: 7−3 (=2) for MEAN — the premium-free value
-//   beats the free energy directly while never losing to the material
-//   detector. Gauntlet vs SF-1500 (baseline 7.5/12 measure) pending.
+//   mean vs F head-to-head: 7−3 (=2) for MEAN.
+//
+// GAUNTLET VERDICT (SF-1500, 12 games, 1000 ms, vs 7.5/12 measure
+// baseline): mean 3.5/12 (8 losses by mate), max 5/12 (6 by mate) —
+// both decisively NEGATIVE. Autopsy: the losses come with the engine
+// repeatedly CHECKMATED WHILE AHEAD IN MATERIAL (mean: mated as White
+// at +1100, +100, +90 cp; max: mated holding +710). The material
+// soundness transfers; what vanishes is the danger sense. The interior
+// premium T·S is a menu-collapse gradient: a side being mated feels its
+// options dying many plies before the mate enters the horizon, and F's
+// premium prices that collapse at every interior node. The winner's
+// curse and the danger sense are THE SAME TERM read from opposite
+// sides, so wholesale removal is refuted — the blunder cure must keep
+// the collapse gradient and deflate only the correlated share of the
+// count (measured-independence premium: V = maxQ + λ̂·(T·lnZ − maxQ),
+// λ̂ from drift-centered sibling revision covariance). Consolations
+// that survive the burial: runaway's interior share is real (mean bath
+// 2.9 vs 16.6 gauntlet-wide), and the oracle result shows premium-free
+// values hold material — the premium is king-safety, not piece-safety.
 //
 //   node tests/backup_forms.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }

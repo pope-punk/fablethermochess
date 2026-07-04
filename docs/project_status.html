@@ -91,7 +91,19 @@ engine hangs a knight because the interior choice premium T·ln&nbsp;Z pays it f
 thirty replies that are all fine <i>iff</i> the opponent declines one killer move are one hedge counted thirty
 times. Decomposition (three-knob grid) convicts our own interior ensembles (~3.75 of the swing) — not the leaf
 (~0.3), not opponent softness (~0.8–1.9). The decision flips at T*&nbsp;≈&nbsp;1.0 — <i>exactly the zero-point
-floor</i> — so no honest cooling can fix it. This is the central open problem.</div>
+floor</i> — so no honest cooling can fix it. This is the central open problem.
+<br><br>
+<b class="k">Sharpened by the backup-form experiment (July 2026).</b> The premium has an exact identity:
+under the Gumbel reading of the softmax, F&nbsp;=&nbsp;T·ln&nbsp;Z is what a chooser with value noise T
+<i>estimates</i> its best option is worth, ⟨Q⟩<sub>π</sub> is what it <i>achieves</i>, and
+F&nbsp;−&nbsp;⟨Q⟩<sub>π</sub>&nbsp;=&nbsp;T·S — the interior premium is the optimizer's own estimation bias
+(winner's curse), term for term. Removing it wholesale (mean/max backups, <span class="mono">tests/backup_forms.js</span>)
+cures the blunder at every temperature and never loses to the material oracle — and collapses against Stockfish
+(3.5 and 5&nbsp;/&nbsp;12 vs the 7.5 baseline), <i>mated while ahead in material</i>: the premium is also the
+menu-collapse gradient, the engine's only interior danger sense. The curse and the danger sense are the same
+term read from opposite sides. The surviving direction: keep the premium max-anchored and deflate only its
+correlated share, V&nbsp;=&nbsp;maxQ&nbsp;+&nbsp;λ̂·(T·ln&nbsp;Z&nbsp;−&nbsp;maxQ) with λ̂ the <i>measured</i>
+independence of sibling revisions (a drift-centered redo of the revision-covariance instrument).</div>
 <div class="item prob"><b class="k">The effective-entropy premium doesn't yet cure it.</b> Pricing the premium at
 reply-partition multiplicity (one refutation = one option) is implemented and toggleable in the UI, but on the
 motivating position both variants slightly <i>worsen</i> the margin — interior reply-sharing is pervasive and the
@@ -153,6 +165,9 @@ rules above were carved out of these failures.</p>
 <tr><td>Effective-entropy premium in-search (current, on probation)</td>
     <td class="score">doesn't fix the motivating case (Δ +0.48 → +0.63/+0.95)</td>
     <td>interior reply-sharing discounts sound forcing lines as hard as traps; gauntlet pending</td></tr>
+<tr><td>Backup-form replacement: ⟨Q⟩<sub>π</sub> ('mean') and max backups, ensemble untouched</td>
+    <td class="score">3.5/12 and 5/12 vs the 7.5 baseline (but: cures the Alekhine blunder at every T, undefeated vs the oracle, tames runaway's interior share, mean beat F 7–3 head-to-head)</td>
+    <td>the premium is also the danger sense: without the T·S menu-collapse gradient the engine is mated while ahead in material (8 and 6 mate losses); QRE mean additionally erases deep forced lines (~π<sup>d</sup> — the trébuchet reads 0); head-to-head vs a sibling is not a strength instrument</td></tr>
 </table>
 
 <p class="small">Theory in full: <span class="mono">docs/thermodynamic_chess_theory.html</span> (third edition).

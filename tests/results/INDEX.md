@@ -20,6 +20,8 @@ coupled into Q (retired); `probe` = susceptibility tax (retired);
 | `vs_sf1500_leafmu2.json` | leafmu (structural κ) | 4/12 | v2: worked as designed, worse — mechanism (not tuning) refuted |
 | `vs_sf1500_leafmu3.json` | leafmu (recentered) | 4/12 | v3: parity hypothesis refuted by controlled test; retirement final |
 | `vs_sf1600.json` (+`_report.md`) | baseline | 1/12 | the 1600 cliff (partly SF's nonlinear Elo mapping) |
+| `vs_sf1500_meanback.json` | meanback (⟨Q⟩_π backup) | 3.5/12 | winner's-curse experiment: premium-free backup cures the Alekhine blunder but is mated while ahead in material (8 mate losses) — the premium is the danger sense |
+| `vs_sf1500_maxback.json` | maxback (max backup) | 5/12 | same experiment, quenched backup: same failure mode, milder (6 mate losses); both retired, see `backup_forms.js` |
 
 ## Self-play & fits
 
@@ -32,6 +34,7 @@ coupled into Q (retired); `probe` = susceptibility tax (retired);
 | `fit_JT_sfdata.log` | matched-T refit of the *coupled* anti-SF corpus (supercritical cold bins — treat edge-pinned CIs as artifacts, see log header commits) |
 | `fit_JT_sfmeasure.log` | matched-T refit of the *uncoupled* anti-SF corpus — the deconfounding cell: ratios 0.79→0.82→1.02, zero excluded |
 | `chain.log` | the unattended measurement chain (oracle sanity → SF-1500 rebaseline → cooling scan → SF-1600) |
+| `backup_match_*.log` | backup-form oracle matches + mean-vs-F head-to-head (12 games, 400 ms): mean/max undefeated vs oracle, mean beats F 7–3 directly — yet both lose the gauntlet; head-to-head between siblings is not a strength instrument |
 
 ## Headline numbers to reuse
 
