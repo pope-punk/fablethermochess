@@ -1,0 +1,16 @@
+   cur vs ref → 1/2 ( 61 plies, final mat 210 cp )
+   ref vs cur → 1/2 ( 244 plies, final mat -310 cp )
+   cur vs ref → 1/2 ( 50 plies, final mat 700 cp )
+   ref vs cur → 0-1 ( 96 plies, final mat -700 cp )
+   cur vs ref → 0-1 ( 54 plies, final mat -1020 cp )
+   ref vs cur → 1/2 ( 41 plies, final mat 810 cp )
+   cur vs ref → 1/2 ( 43 plies, final mat -100 cp )
+   ref vs cur → 1/2 ( 98 plies, final mat 1600 cp )
+   cur vs ref → 1-0 ( 244 plies, final mat 900 cp )
+   ref vs cur → 1/2 ( 196 plies, final mat 100 cp )
+   cur vs ref → 1/2 ( 53 plies, final mat -700 cp )
+   ref vs cur → 0-1 ( 124 plies, final mat -510 cp )
+
+SCORE: {"cur":3,"ref":1,"draws":8}
+BLUNDERS (>=250cp lost in 2 plies): {"cur":16,"ref":32}
+blunder positions saved: 48

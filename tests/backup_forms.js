@@ -30,6 +30,14 @@
 // ('meanback' / 'maxback' modes in vs_stockfish.js, 'cur:mean' in
 // match.js).
 //
+// ORACLE MATCHES (12 games, 400 ms, results/backup_match_*.log):
+//   F    vs oracle: +3 −1 =8   (the standing +2−1=9 within noise)
+//   mean vs oracle: +1 −0 =11  — undefeated but drawish: the colder
+//   max  vs oracle: +1 −0 =11    bath buys less activity to convert
+//   mean vs F head-to-head: 7−3 (=2) for MEAN — the premium-free value
+//   beats the free energy directly while never losing to the material
+//   detector. Gauntlet vs SF-1500 (baseline 7.5/12 measure) pending.
+//
 //   node tests/backup_forms.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
 const E0 = fresh();

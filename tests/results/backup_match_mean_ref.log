@@ -1,0 +1,16 @@
+   cur:mean vs ref → 1/2 ( 31 plies, final mat -210 cp )
+   ref vs cur:mean → 1/2 ( 103 plies, final mat 100 cp )
+   cur:mean vs ref → 1/2 ( 244 plies, final mat 100 cp )
+   ref vs cur:mean → 1/2 ( 104 plies, final mat 200 cp )
+   cur:mean vs ref → 1/2 ( 61 plies, final mat -900 cp )
+   ref vs cur:mean → 1/2 ( 68 plies, final mat 310 cp )
+   cur:mean vs ref → 1/2 ( 126 plies, final mat -2100 cp )
+   ref vs cur:mean → 1/2 ( 154 plies, final mat 1310 cp )
+   cur:mean vs ref → 1/2 ( 39 plies, final mat -210 cp )
+   ref vs cur:mean → 1/2 ( 100 plies, final mat 300 cp )
+   cur:mean vs ref → 1/2 ( 95 plies, final mat -310 cp )
+   ref vs cur:mean → 0-1 ( 150 plies, final mat -1310 cp )
+
+SCORE: {"cur:mean":1,"ref":0,"draws":11}
+BLUNDERS (>=250cp lost in 2 plies): {"cur:mean":30,"ref":20}
+blunder positions saved: 50
