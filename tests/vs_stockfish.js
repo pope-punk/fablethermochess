@@ -26,7 +26,10 @@ const BASINSCHED = MODE === 'basinsched';    // schedule, but freeze on the top-
 const LEAFMU = MODE === 'leafmu';            // measure + leaf tempo prior (kappa = live T-hat_c), fixed time
 const BACKUP = MODE === 'meanback' ? 'mean' : MODE === 'maxback' ? 'max'
              : MODE === 'basinback' ? 'basin' : undefined;   // backup-form knob, fixed time
-const HOP = MODE === 'hop' || MODE === 'hopalloc' || MODE === 'allocsched';   // basin-hopping truncation (kinetics only)
+const HOP = MODE === 'hop' || MODE === 'hopalloc';   // basin-hopping truncation (kinetics only)
+// allocsched = alloc + schedule WITHOUT hop: the fixed-time decomposition
+// read 7.5 (alloc) vs 6 (hopalloc) vs 7.5 (baseline) - the interior hop
+// dedup carried the whole cost, so the marriage leg drops it.
 const ALLOC = MODE === 'alloc' || MODE === 'hopalloc' || MODE === 'allocsched';  // root allocation (kinetics only)
 const SCHEDULE = MODE === 'schedule' || BASINSCHED || MODE === 'allocsched';  // measure + sigma_eff time management with banking
 const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC;
