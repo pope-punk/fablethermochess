@@ -22,6 +22,7 @@ coupled into Q (retired); `probe` = susceptibility tax (retired);
 | `vs_sf1600.json` (+`_report.md`) | baseline | 1/12 | the 1600 cliff (partly SF's nonlinear Elo mapping) |
 | `vs_sf1500_meanback.json` | meanback (⟨Q⟩_π backup) | 3.5/12 | winner's-curse experiment: premium-free backup cures the Alekhine blunder but is mated while ahead in material (8 mate losses) — the premium is the danger sense |
 | `vs_sf1500_maxback.json` | maxback (max backup) | 5/12 | same experiment, quenched backup: same failure mode, milder (6 mate losses); both retired, see `backup_forms.js` |
+| `vs_sf1500_basinsched.json` | basinsched (basin-gap freeze) | 7.5/12 | vs the 9/12 schedule baseline: no gain, possibly mild cost — and underpowered by design for a rare-firing criterion change (owner's call, correct). Scheduler criterion retired; basin work redirected at the interior premium |
 
 ## Self-play & fits
 
