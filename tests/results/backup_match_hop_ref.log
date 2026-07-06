@@ -1,1 +1,16 @@
    cur:hop vs ref → 1/2 ( 64 plies, final mat -820 cp )
+   ref vs cur:hop → 1/2 ( 165 plies, final mat -310 cp )
+   cur:hop vs ref → 1/2 ( 50 plies, final mat 700 cp )
+   ref vs cur:hop → 1/2 ( 59 plies, final mat 210 cp )
+   cur:hop vs ref → 1/2 ( 58 plies, final mat -1510 cp )
+   ref vs cur:hop → 1/2 ( 36 plies, final mat 510 cp )
+   cur:hop vs ref → 0-1 ( 98 plies, final mat -1820 cp )
+   ref vs cur:hop → 1-0 ( 109 plies, final mat 1500 cp )
+   cur:hop vs ref → 1/2 ( 47 plies, final mat -10 cp )
+   ref vs cur:hop → 1/2 ( 148 plies, final mat 1310 cp )
+   cur:hop vs ref → 1/2 ( 96 plies, final mat -1600 cp )
+   ref vs cur:hop → 1/2 ( 18 plies, final mat 100 cp )
+
+SCORE: {"cur:hop":0,"ref":2,"draws":10}
+BLUNDERS (>=250cp lost in 2 plies): {"cur:hop":31,"ref":19}
+blunder positions saved: 50

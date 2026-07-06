@@ -16,6 +16,28 @@
 //   4. certifications unaffected (hop off = bit-identical; hop on =
 //      still deterministic)
 //
+// LADDER VERDICT (negative, autopsied):
+//   oracle: 0W 2L 10D, 31 blunders (F baseline: +2−1=9, 16) — the first
+//     configuration of the whole program to LOSE games to the material
+//     detector. Every value-side experiment kept material soundness;
+//     hop broke it. The failure is tactical resolution, not valuation:
+//     a killer misranked 3rd+ that shares a (ranking-depth, coarse)
+//     basin with a resolved sibling keeps its optimistic shallow value
+//     inside Z, and material gets hung.
+//   gauntlet: 5.5/12 vs 7.5 baseline, 6 mate losses (and, curiously,
+//     2 castles — the most in any fixed-time run).
+//   the diagnosed feedback: hop → shallow-tail flapping across
+//     iterations → hotter bath (mean T 19.2 vs 16.6 in play; 2.4–3.0
+//     vs 1.7 in analysis) → wider value cohorts (diameter = live T) →
+//     MORE merging → more flapping. The protocol heats the thermometer
+//     that sets the protocol's own coarse-graining scale.
+//   v2 candidates, unbuilt: merge at diameter T₀ (the lattice quantum,
+//     fixed — kills the feedback, merges only true near-degenerates,
+//     no new constants) + require mk ≥ 4 to merge (poorly-measured
+//     coordinates stay singletons). The Alekhine-at-1s result and the
+//     85%-synonym measurement stand; the operating point, not the
+//     idea, failed.
+//
 //   node tests/basin_hop.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
 const E0 = fresh();

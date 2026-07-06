@@ -24,6 +24,7 @@ coupled into Q (retired); `probe` = susceptibility tax (retired);
 | `vs_sf1500_maxback.json` | maxback (max backup) | 5/12 | same experiment, quenched backup: same failure mode, milder (6 mate losses); both retired, see `backup_forms.js` |
 | `vs_sf1500_basinsched.json` | basinsched (basin-gap freeze) | 7.5/12 | vs the 9/12 schedule baseline: no gain, possibly mild cost — and underpowered by design for a rare-firing criterion change (owner's call, correct). Scheduler criterion retired; basin work redirected at the interior premium |
 | `vs_sf1500_basinback.json` | basinback (interior basin premium) | 6/12 | best of the premium deflations (oracle +2−1=9 — conversion kept, unlike mean/max; one mated-while-ahead loss vs mean's three; bath 8.8 vs 16.6) but still −1.5 vs the 7.5 baseline. The four-point ladder now reads 7.5 (full premium) > 6 (plans) > 5 (none, max) > 3.5 (none, mean): strength orders by premium size |
+| `vs_sf1500_hop.json` | hop (basin-hopping truncation, kinetics) | 5.5/12 | negative with a sharp autopsy: oracle 0W 2L 10D with 31 blunders — the only configuration ever to lose to the material detector; killers deduped away on coarse ranking-depth basins keep optimistic shallow values in Z. Feedback diagnosed: hop → tail flapping → hotter bath → wider cohorts (diameter = live T) → more merging. v2 (T₀ diameter + mk≥4 merge gate) recorded in `basin_hop.js`, unbuilt |
 
 ## Self-play & fits
 

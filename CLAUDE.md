@@ -70,9 +70,12 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   **basin-hopping truncation** (`hop`, `tests/basin_hop.js`) — one deep
   representative per plan in the same 3T window, values untouched; 85% of
   the dominant set measured as synonyms; the Alekhine decision turns sound
-  at 1 s for 165k nodes (pure width needs 5M at d5). Gauntlet A/B vs the
-  7.5/12 measure baseline: `vs_sf1500_hop.json`. Watch the declared
-  protocol–thermometer interaction (bath runs warmer under hop).
+  at 1 s for 165k nodes (pure width needs 5M at d5). v1 ladder NEGATIVE
+  (oracle 0W 2L — the only config ever to lose to the material detector;
+  gauntlet 5.5/12): killers deduped on coarse ranking-depth basins keep
+  optimistic shallow values in Z, and the protocol heats the thermometer
+  that sets its own coarse-graining (live-T cohort diameter). v2 candidates
+  recorded in `tests/basin_hop.js` (T₀ diameter + mk≥4 merge gate), unbuilt.
 
 - **S_eff premium gauntlet**: the effective-entropy mechanism (UI toggle, off by
   default) awaits its A/B ladder after interactive testing. It does NOT fix the
