@@ -1,0 +1,5 @@
+=== cur:hop vs ref (12 games, 400ms) ===
+   cur:hop vs ref → 1/2 ( 61 plies, final mat 210 cp )
+   ref vs cur:hop → 0-1 ( 184 plies, final mat -1210 cp )
+   cur:hop vs ref → 1/2 ( 50 plies, final mat 700 cp )
+   ref vs cur:hop → 1/2 ( 231 plies, final mat -100 cp )

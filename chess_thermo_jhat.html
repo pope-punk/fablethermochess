@@ -2560,7 +2560,20 @@ function annealRoot(g, opts) {
             // partner and no measured basin coordinates either, and an
             // unguarded depth-2 basin freeze was seen to change the
             // move (e6 for Nc6 at 40 ms on the sound Alekhine line).
-            let gap = nq[0] - nq[1];
+            // Under alloc the decision gap is between FRESH values only:
+            // a frozen child's standing value is not a measured
+            // alternative, and a stale reading must neither fake a
+            // frozen decision (premature bank) nor hide one.
+            let gap;
+            if (ALLOC_MODE && depth >= 3) {
+                let q1 = -Infinity, q2 = -Infinity;
+                for (let i = 0; i < n; i++) {
+                    if (moves[i]._fd !== depth) continue;
+                    if (nq[i] > q1) { q2 = q1; q1 = nq[i]; }
+                    else if (nq[i] > q2) q2 = nq[i];
+                }
+                gap = q2 > -Infinity ? q1 - q2 : 0;
+            } else gap = nq[0] - nq[1];
             if (opts.basinSched && depth >= 3) {
                 const bs = measureBasins(moves, nq, n, bathT);
                 result.nbasins = bs.nb;
@@ -2712,8 +2725,23 @@ function analyzeRoot(g, opts) {
     // probed (dominant) set: an unprobed tail move must not win the argmax
     // merely because its brittleness was never measured.
     const selN = (opts.probe && r.probed > 0) ? r.probed : n;
-    let maxQ = Qs[0], bestIdx = 0;
-    for (let i = 1; i < selN; i++) if (Qs[i] > maxQ) { maxQ = Qs[i]; bestIdx = i; }
+    // Root allocation: selection stays inside the RE-MEASURED set — the
+    // same rule. A frozen child's standing value remains in Z (it prices
+    // the ensemble) but may not be argmax: on the final iteration the
+    // fresh representatives can drop BELOW a synonym frozen at its
+    // shallow optimism, and no later iteration exists to correct the
+    // ranking — the diagnosed v1 disease (optimistic shallow values kept
+    // in Z), reappearing at the root exactly once per search, on the
+    // move that would actually be played. You may only choose between
+    // alternatives measured at decision resolution.
+    const selOK = (opts.alloc && r.depth >= 3)
+        ? (i => r.moves[i]._fd === r.depth) : (() => true);
+    let maxQ = -Infinity, bestIdx = -1;
+    for (let i = 0; i < selN; i++) {
+        if (Qs[i] > maxQ) maxQ = Qs[i];
+        if (selOK(i) && (bestIdx < 0 || Qs[i] > Qs[bestIdx])) bestIdx = i;
+    }
+    if (bestIdx < 0) bestIdx = 0;   // guard: no fresh child recorded (cannot occur — top two are always live)
     for (let i = selN; i < n; i++) if (Qs[i] > maxQ) maxQ = Qs[i];   // maxQ for π/F only
 
     // Absorbing-state root: a forced mate (for either side) freezes the
