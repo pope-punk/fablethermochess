@@ -54,6 +54,43 @@
 //   5. certifications unaffected (all knobs off = bit-identical;
 //      knobs on = still deterministic)
 //
+// ── v2 LADDER VERDICT (July 2026) ──
+//   Instruments: hopalloc cuts nodes 5.0M→690k at fixed d4 (middlegame),
+//     12.9× at startpos; at 1 s depth rises d3→d4 (startpos, Alekhine),
+//     d2→d3 (middlegame); startpos reaches d5 at 2 s; the Alekhine cure
+//     arrives through depth at 8 s (d5, plays Ne4 = the fixed-d5 F
+//     choice) vs ~26 s for pure width. In play (gauntlet traces) mean
+//     depth 3.43→4.16, a d6–d9 band appears (123 moves vs 26).
+//   One repaired disease en route: on the FINAL iteration a synonym
+//     frozen at shallow optimism can outrank the freshly-dropped
+//     representatives, and no later iteration corrects it — the played
+//     move was a stale needle (Alekhine 8 s: played the also-losing d5
+//     pawn push off a stale −3.84). Fix: selection stays inside the
+//     re-measured set (the probe-stage rule); frozen values price Z but
+//     may not be argmax. With it, selection follows fixed-depth F.
+//   Oracle gate (12 games, 400 ms; F baseline +2−1=9, 16 blunders;
+//     v1 hop was 0W 2L, 31): hop v2 +3−1=8 (17 bl), alloc +3−0=9
+//     (22 bl, undefeated), hopalloc +2−1=9 (20 bl). Material soundness
+//     restored — the T₀ diameter and mk≥4 gate fixed what the v1
+//     autopsy diagnosed.
+//   Gauntlets (fixed time 1000 ms, vs the 7.5/12 measure baseline):
+//     alloc 7.5/12 (W7 D1 L4, EQUAL — and cooler: mean T 8.2 vs 16.6,
+//     runaway share 2.8% vs 4.1%, 11/12 decisive) >
+//     hopalloc 6/12 (5 mate losses, none mated-while-ahead) >
+//     hop v1 5.5/12. The interior hop dedup carries the whole cost;
+//     ROOT ALLOCATION ALONE IS STRENGTH-NEUTRAL KINETICS.
+//   T-at-depth forensics (hopalloc): median T at matched depth is
+//     IDENTICAL to baseline (d3 1.66 vs 1.71, d4 1.96 vs 2.00) — v2's
+//     fixed merge scale really did cut the v1 feedback; the hotter mean
+//     was the documented runaway tail (7.9% vs 4.1% of moves at T>20,
+//     reached-deeper decided positions) plus depth-mixture selection.
+//   The strength lesson: depth is no longer the binding constraint —
+//     the evaluation is. hopalloc's extra depth surfaced F's own
+//     self-indulgence more sharply (early queen moves 2.83/game vs
+//     2.25 baseline vs 2.17 alloc; the QGD-W/KI-W/English-W losses all
+//     feature queen dances). Deeper annealing into the same landscape
+//     optimizes its flaws; it does not heal them.
+//
 //   node tests/basin_hop.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
 const E0 = fresh();
