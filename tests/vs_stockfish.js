@@ -25,7 +25,8 @@ const PROBE = MODE === 'probe';
 const BASINSCHED = MODE === 'basinsched';    // schedule, but freeze on the top-two BASIN gap
 const SCHEDULE = MODE === 'schedule' || BASINSCHED;  // measure + sigma_eff time management with banking
 const LEAFMU = MODE === 'leafmu';            // measure + leaf tempo prior (kappa = live T-hat_c), fixed time
-const BACKUP = MODE === 'meanback' ? 'mean' : MODE === 'maxback' ? 'max' : undefined;  // backup-form knob, fixed time
+const BACKUP = MODE === 'meanback' ? 'mean' : MODE === 'maxback' ? 'max'
+             : MODE === 'basinback' ? 'basin' : undefined;   // backup-form knob, fixed time
 const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined;
 
 const OPENINGS = [
