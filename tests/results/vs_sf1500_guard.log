@@ -1,2 +1,17 @@
 Gauntlet: engine (1000 ms/move, tempo-flux ON) vs Stockfish 18 @ Elo 1500 (200 ms/move)
 Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)
+  Italian complex              engine as White → 1-0     (77 plies, checkmate, 43s)
+  Italian complex              engine as Black → 0-1     (74 plies, checkmate, 42s)
+  Queen's Gambit Declined      engine as White → 0-1     (124 plies, checkmate, 78s)
+  Queen's Gambit Declined      engine as Black → 1-0     (59 plies, checkmate, 34s)
+  Sicilian (Najdorf setup)     engine as White → 0-1     (36 plies, checkmate, 20s)
+  Sicilian (Najdorf setup)     engine as Black → 0-1     (92 plies, checkmate, 54s)
+  King's Indian                engine as White → 1/2-1/2 (117 plies, threefold repetition, 74s)
+  King's Indian                engine as Black → 1-0     (107 plies, checkmate, 66s)
+  French                       engine as White → 1-0     (145 plies, checkmate, 92s)
+  French                       engine as Black → 0-1     (158 plies, checkmate, 101s)
+  English (reversed Sicilian)  engine as White → 0-1     (74 plies, checkmate, 44s)
+  English (reversed Sicilian)  engine as Black → 1/2-1/2 (114 plies, threefold repetition, 70s)
+
+FINAL SCORE vs Stockfish 1500: {"engine":5,"stockfish":5,"draws":2}
+results written to results/vs_sf1500_guard.json

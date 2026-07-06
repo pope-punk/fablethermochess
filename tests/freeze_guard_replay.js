@@ -38,6 +38,29 @@
 //       d3 cheap, not the loss of the freeze.
 //   P4. Freezes at d3+ are untouched by construction.
 //
+// ── GAUNTLET VERDICT (negative, autopsied — July 2026) ──
+//   guard mode: 6/12 vs the 9/12 schedule baseline (W5 D2 L5, 5 mate
+//   losses vs 2; bath 3.3 vs 5.7). The guard did its clock job exactly
+//   as registered: d2 freezes 115 → 2 (the quiet hatch), deferrals
+//   fire at d3 (69), total freezes halved (the d3 re-check disconfirms
+//   half the claims), mean spend nearly unchanged (984 vs 966 ms).
+//   BUT the pre-registered hypothesis is REFUTED by its own metric:
+//   the freeze→eval-drop rate is 32% vs 29% — d3-confirmed freezes
+//   are exactly as unstable as raw d2 ones. The instability is not a
+//   missing-parity-partner artifact; it is horizon-generic in this
+//   evaluation landscape. And the target class recurred with the
+//   guard ON: English-W mated at +1010 — on FULL-DEADLINE moves, not
+//   freezes: the engine marched its king Kb4–Kb5–Kc6–Kc7–Kd7 at
+//   evals +10…+13 into the net. The clock was never the disease;
+//   F prices an open king as an entropy BONUS (mobility), and every
+//   scheduler pathology traced this session is downstream of that.
+//   Scheduler-criterion ladder now: schedule 9 > basinsched 7.5 >
+//   allocsched 6.5 ≈ guard 6 — four modifications in a row read
+//   negative at n=12. Recorded honestly: either σ_eff-as-is is a
+//   sharp local optimum, or the single 9/12 run was a favorable draw
+//   (±1.7 at n=12); an n=24 schedule rebaseline would settle which
+//   and is the cheap next measurement. The guard is RETIRED.
+//
 // Replay limitation, declared: trace records carry β only when the
 // engine's own reading gate passed (n_μ ≥ 8 AND n_tax ≥ 4), so a null
 // β here cannot distinguish "unmeasured subtree" (deny) from

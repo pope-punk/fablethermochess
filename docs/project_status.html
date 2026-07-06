@@ -144,12 +144,20 @@ with a d6–d9 band (123 moves vs 26) at the same 1 s — and scored <i>lower</i
 scored equal. Deeper annealing into the same landscape optimizes F's own flaws more sharply (the hopalloc run
 played <i>more</i> early queen moves, 2.83/game vs 2.25 — the self-indulgence premium, surfaced by depth); it does
 not heal them. <b class="k">The binding constraint is the evaluation, not the search kinetics.</b></div>
-<div class="item prob"><b class="k">The scheduler freezes shallowest exactly where attacks build.</b> 80% of σ_eff
-freezes fire at depth 2 in both scheduled configs — a forcing capture sequence makes the top-two gap huge (material
-in hand) while the uncertainty that matters (a mating net beyond d2) is invisible to σ_eff, which prices value
-noise, not horizon risk. Documented instance: allocsched QGD-W, frozen at d2 in 174–493 ms through Qxg7/Qxh8/Qxg8,
-mated at +590 — the banked time was spent one ply after it could have helped. The freeze criterion may need an
-absorbing-risk guard (menu-collapse rate?) beside the value-gap one; unbuilt.</div>
+<div class="item prob"><b class="k">The scheduler freezes shallowest exactly where attacks build — and the guard
+that should fix it didn't, for a reason that matters.</b> 80% of σ_eff freezes fire at depth 2; a forcing capture
+sequence makes the top-two gap huge while the mating net beyond d2 is invisible to σ_eff (documented: allocsched
+QGD-W, frozen at d2 through Qxg7/Qxh8/Qxg8, mated at +590). The absorbing-risk guard was then built and tested
+(pre-registered, <span class="mono">tests/freeze_guard_replay.js</span>): deny d2 freezes whose chosen future reads
+adverse beyond counting error or unmeasured; defer to d3, where a parity-confirmed revision exists. The clock
+mechanics worked exactly as designed (d2 freezes 115→2, deferrals nearly free) — and the gauntlet read 6/12 vs 9,
+with the hypothesis refuted by its own metric: <b class="k">d3-confirmed freezes are exactly as unstable as raw d2
+ones (32% vs 29% eval-drop rate)</b>, and the catastrophe class recurred on <i>full-deadline</i> moves (English-W
+mated at +1010 after marching its king Kb4→Kd7 at evals +10…+13). The clock was never the disease: F prices an
+open king as an entropy <i>bonus</i> (mobility), so every scheduler pathology traced here is downstream of the
+evaluation. Scheduler ladder: 9 (σ_eff as-is) &gt; 7.5 &gt; 6.5 ≈ 6 — four criterion modifications in a row read
+negative at n=12. Either σ_eff-as-is is a sharp local optimum, or the single 9/12 run was a favorable draw; an
+n=24 schedule rebaseline would settle which, cheaply.</div>
 <div class="item prob"><b class="k">J is hard to pin down.</b> A 64-move window carries ±1.75 of error by
 information-theoretic necessity; supercritical fits are unidentifiable (the bistable branch fits anything).
 The estimator is honest about this, but per-game opponent reads stay coarse.</div>

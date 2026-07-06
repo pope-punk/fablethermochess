@@ -83,10 +83,23 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   stands), and exposed a scheduler blind spot: ~80% of σ_eff freezes fire at
   depth 2 in every config, and capture sequences freeze the clock exactly
   where mating nets build beyond the horizon (one loss mated at +590) — see
-  status page §3. Candidate next legs, unbuilt: alloc at longer time
-  controls / SF-1600 (does neutral-at-1s become positive when depth
-  differentials grow?); an absorbing-risk guard beside the σ_eff value-gap
-  criterion.
+  status page §3. The absorbing-risk guard was then BUILT and RETIRED
+  (July 2026, pre-registered in `tests/freeze_guard_replay.js`, gauntlet
+  6/12 vs 9): the clock mechanics worked exactly as designed (d2 freezes
+  115→2, deferred to d3 nearly free) but d3-confirmed freezes proved
+  exactly as unstable as d2 ones (32% vs 29% eval-drop rate), and the
+  catastrophe class recurred on FULL-DEADLINE moves (mated at +1010 after
+  a voluntary king march at +10 evals). The clock was never the disease:
+  F prices an open king as an entropy bonus. Scheduler-criterion ladder:
+  9 (σ_eff as-is) > 7.5 (basinsched) > 6.5 (allocsched) ≈ 6 (guard) —
+  four modifications in a row negative at n=12; either σ_eff-as-is is a
+  sharp local optimum or the single 9/12 run was a favorable draw (±1.7
+  at n=12). Candidate next legs, unbuilt: an n=24 schedule rebaseline
+  (cheap, settles the 9/12 question); alloc at longer time controls /
+  SF-1600 (does neutral-at-1s become positive when depth differentials
+  grow?). Every road this session — kinetics, clock — dead-ends at the
+  same wall: the evaluation's mispricing of exposure (open king = mobility
+  = entropy bonus), i.e. the self-indulgence problem below.
 
 - **S_eff premium gauntlet**: the effective-entropy mechanism (UI toggle, off by
   default) awaits its A/B ladder after interactive testing. It does NOT fix the
