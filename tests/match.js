@@ -38,11 +38,15 @@ function makePlayer(kind, Chess) {
     return { name: 'ref', move: (fen, ms) => refMove(new Chess(fen), ms) };
   }
   // 'cur:mean' / 'cur:max' / 'cur:basin' select a backup-form lab knob
-  // (backup_forms.js); 'cur:hop' selects the basin-hopping truncation
-  // (basin_hop.js — kinetics, not a backup form)
+  // (backup_forms.js); 'cur:hop' the basin-hopping truncation, 'cur:alloc'
+  // the root allocation, 'cur:hopalloc' both (basin_hop.js — kinetics,
+  // not backup forms)
   const [base, variant] = kind.split(':');
   const E = loadEngine(ENGINES[base]);
-  const opts = variant === 'hop' ? { hop: true } : { backup: variant };
+  const opts = variant === 'hop' ? { hop: true }
+             : variant === 'alloc' ? { alloc: true }
+             : variant === 'hopalloc' ? { hop: true, alloc: true }
+             : { backup: variant };
   return { name: kind, move: (fen, ms, pastKeys) => E._runAnalyze(Object.assign({ fen, timeLimit: ms, pastKeys }, opts)).san };
 }
 
