@@ -1,1 +1,16 @@
    cur:basin vs ref → 1-0 ( 35 plies, final mat -500 cp )
+   ref vs cur:basin → 1/2 ( 104 plies, final mat 1500 cp )
+   cur:basin vs ref → 1/2 ( 31 plies, final mat 0 cp )
+   ref vs cur:basin → 1-0 ( 95 plies, final mat 1810 cp )
+   cur:basin vs ref → 1/2 ( 35 plies, final mat 0 cp )
+   ref vs cur:basin → 1/2 ( 64 plies, final mat 410 cp )
+   cur:basin vs ref → 1/2 ( 27 plies, final mat -110 cp )
+   ref vs cur:basin → 1/2 ( 24 plies, final mat 0 cp )
+   cur:basin vs ref → 1/2 ( 27 plies, final mat -100 cp )
+   ref vs cur:basin → 1/2 ( 86 plies, final mat 3110 cp )
+   cur:basin vs ref → 1/2 ( 82 plies, final mat 0 cp )
+   ref vs cur:basin → 0-1 ( 64 plies, final mat -1620 cp )
+
+SCORE: {"cur:basin":2,"ref":1,"draws":9}
+BLUNDERS (>=250cp lost in 2 plies): {"cur:basin":26,"ref":13}
+blunder positions saved: 39
