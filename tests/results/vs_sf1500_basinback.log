@@ -7,3 +7,11 @@ Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)
   Sicilian (Najdorf setup)     engine as White → 0-1     (74 plies, checkmate, 50s)
   Sicilian (Najdorf setup)     engine as Black → 1-0     (91 plies, checkmate, 61s)
   King's Indian                engine as White → 1-0     (91 plies, checkmate, 61s)
+  King's Indian                engine as Black → 0-1     (92 plies, checkmate, 61s)
+  French                       engine as White → 0-1     (168 plies, checkmate, 115s)
+  French                       engine as Black → 1-0     (149 plies, checkmate, 102s)
+  English (reversed Sicilian)  engine as White → 1/2-1/2 (195 plies, threefold repetition, 135s)
+  English (reversed Sicilian)  engine as Black → 0-1     (60 plies, checkmate, 39s)
+
+FINAL SCORE vs Stockfish 1500: {"engine":5,"stockfish":5,"draws":2}
+results written to results/vs_sf1500_basinback.json

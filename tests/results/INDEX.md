@@ -23,6 +23,7 @@ coupled into Q (retired); `probe` = susceptibility tax (retired);
 | `vs_sf1500_meanback.json` | meanback (⟨Q⟩_π backup) | 3.5/12 | winner's-curse experiment: premium-free backup cures the Alekhine blunder but is mated while ahead in material (8 mate losses) — the premium is the danger sense |
 | `vs_sf1500_maxback.json` | maxback (max backup) | 5/12 | same experiment, quenched backup: same failure mode, milder (6 mate losses); both retired, see `backup_forms.js` |
 | `vs_sf1500_basinsched.json` | basinsched (basin-gap freeze) | 7.5/12 | vs the 9/12 schedule baseline: no gain, possibly mild cost — and underpowered by design for a rare-firing criterion change (owner's call, correct). Scheduler criterion retired; basin work redirected at the interior premium |
+| `vs_sf1500_basinback.json` | basinback (interior basin premium) | 6/12 | best of the premium deflations (oracle +2−1=9 — conversion kept, unlike mean/max; one mated-while-ahead loss vs mean's three; bath 8.8 vs 16.6) but still −1.5 vs the 7.5 baseline. The four-point ladder now reads 7.5 (full premium) > 6 (plans) > 5 (none, max) > 3.5 (none, mean): strength orders by premium size |
 
 ## Self-play & fits
 
