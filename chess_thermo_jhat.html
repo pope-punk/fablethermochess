@@ -2585,7 +2585,46 @@ function annealRoot(g, opts) {
             const chi = bathT > jr.Tc ? jr.b / (2 * (bathT - jr.Tc)) : Infinity;
             const sigma = bathT * Math.sqrt(1 + (mubar * chi) * (mubar * chi));
             result.sigma = sigma; result.gap = gap; result.Tc = jr.Tc;
-            if (sigma < gap) { result.stop = 'frozen'; break; }
+            if (sigma < gap) {
+                // ── Absorbing-risk guard (opts.riskGuard) ──────────
+                // σ_eff prices value noise — the residual of COMPLETED
+                // measurements — and is blind to what deeper search has
+                // not seen. A freeze at depth 2 is a claim made on a
+                // value that has NEVER been same-parity confirmed (d2
+                // vs d1 is cross-parity: the same reason the
+                // thermometer skips depth 2), and 80% of all freezes
+                // fire there; the documented +590 catastrophe froze at
+                // d2 through β = −1 readings while the mating net
+                // lived at d5. Deny the d2 freeze when the chosen
+                // future's measured flux is adverse beyond its own
+                // counting error (β < −SE, the regime split's test) or
+                // its subtree is unmeasured (nμ < 8, the instrument's
+                // sample floor); the decision defers to depth 3, where
+                // a parity-confirmed revision exists and has entered
+                // the thermometer. Well-sampled quiet futures (nμ ≥ 8,
+                // n_tax < 4: no current, no risk) freeze as before.
+                // Pre-registered and replayed against the recorded
+                // runs before implementation (freeze_guard_replay.js):
+                // denies all three catastrophe freezes; β at d2 is
+                // structurally ≤ 0 (the shallow census reads mostly
+                // our own exposure), so contested d2 freezes defer
+                // almost wholesale — the deferred iteration is
+                // cheapest exactly where the position is forced.
+                let deny = false;
+                if (opts.riskGuard && depth === 2) {
+                    const f0 = moves[0]._flux;   // best-first: the would-be decision
+                    if (!f0) deny = true;
+                    else {
+                        const nmu0 = f0.cu + f0.ct, ntax0 = f0.tu + f0.tt;
+                        if (nmu0 < 8) deny = true;
+                        else if (ntax0 >= 4) {
+                            const b0 = (f0.tt - f0.tu) / ntax0;
+                            deny = b0 < -Math.sqrt(Math.max(0, 1 - b0 * b0) / ntax0);
+                        }
+                    }
+                }
+                if (!deny) { result.stop = 'frozen'; break; }
+            }
             const a = result.anneal;
             if (bathT > 20 && a.length >= 3 &&
                 a[a.length - 1].T > a[a.length - 2].T && a[a.length - 2].T > a[a.length - 3].T) {
@@ -2835,6 +2874,7 @@ function _runAnalyze(msg) {
     const th = analyzeRoot(g, msg.timeLimit != null
         ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: msg.flux || false,
             budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
+            riskGuard: !!msg.riskGuard,
             basinSched: !!msg.basinSched, hop: !!msg.hop, alloc: !!msg.alloc,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
             premT: msg.premT, effS: msg.effS, backup: msg.backup }
