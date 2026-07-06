@@ -27,7 +27,8 @@ const SCHEDULE = MODE === 'schedule' || BASINSCHED;  // measure + sigma_eff time
 const LEAFMU = MODE === 'leafmu';            // measure + leaf tempo prior (kappa = live T-hat_c), fixed time
 const BACKUP = MODE === 'meanback' ? 'mean' : MODE === 'maxback' ? 'max'
              : MODE === 'basinback' ? 'basin' : undefined;   // backup-form knob, fixed time
-const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined;
+const HOP = MODE === 'hop';                  // basin-hopping truncation (kinetics only), fixed time
+const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP;
 
 const OPENINGS = [
   { name: 'Italian complex',       line: ['e4', 'e5', 'Nf3', 'Nc6'] },
@@ -98,10 +99,10 @@ async function playGame(sf, opening, engineIsWhite) {
     if (engineToMove) {
       const allowed = SCHEDULE ? ENGINE_MS + Math.min(bank, 3 * ENGINE_MS) : ENGINE_MS;
       const res = E._runAnalyze({ fen: g.fen(), timeLimit: allowed, pastKeys: keys.slice(0, -1),
-                                  probe: PROBE, schedule: SCHEDULE, basinSched: BASINSCHED,
+                                  probe: PROBE, schedule: SCHEDULE, basinSched: BASINSCHED, hop: HOP,
                                   newGame: (SCHEDULE || LEAFMU) && engFirst,
                                   leafMu: LEAFMU, backup: BACKUP,
-                                  flux: (MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined) ? 'measure' : FLUX });
+                                  flux: (MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP) ? 'measure' : FLUX });
       engFirst = false;
       // income is BASE per move; a draw from the bank is real expenditure
       // (the first A/B credited moves with their own draw — a perpetual

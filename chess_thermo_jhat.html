@@ -239,8 +239,10 @@ label { font-size: 0.85em; }
             <option value="mean-us">mean-us (!)</option>
             <option value="basin">basin premium</option>
         </select>
-        <label title="basin clock: the scheduler freezes on the top-two BASIN gap (nearest genuinely different plan) instead of the top-two move gap — synonyms don't earn thinking time. Experimental; A/B pending." style="cursor:pointer">
+        <label title="basin clock: the scheduler freezes on the top-two BASIN gap (nearest genuinely different plan) instead of the top-two move gap — synonyms don't earn thinking time. Retired at 7.5/12 vs the 9/12 baseline; kept for reproduction." style="cursor:pointer">
             <input type="checkbox" id="labBasinSched" onchange="labChanged()"> basin clock</label>
+        <label title="basin hop: kinetics only — each interior node fully recurses ONE deep representative per plan inside the same 3T window (cohort-mates keep shallow values in Z's tail); the width saved becomes depth. Values untouched; as T→0 this is exactly the default truncation." style="cursor:pointer">
+            <input type="checkbox" id="labHop" onchange="labChanged()"> basin hop</label>
         <button onclick="labReset()" title="Clear all external fields — back to honest play">reset</button>
     </div>
 </div>
@@ -1317,6 +1319,22 @@ let PREM_T_OVERRIDE = 0;
 // degrades to F. All bracketing is gated on the mode: honest play
 // carries zero overhead. Test-only, like every backup form.
 const basinCache = new Map();
+// ── Basin-hopping truncation (protocol knob: opts.hop) ──────
+// The kinetic use of the basin structure. The default truncation fully
+// recurses the top-16 children inside the 3T window — which in a broad
+// position can be sixteen synonyms of one plan, a sampler stuck mixing
+// inside a single metastable well. With hop on, the dominant set is
+// deduplicated by basin: one deep representative per plan inside the
+// same thermal window (the representative is the plan's best-ranked
+// member); cohort-mates keep their shallow ranking values in the tail
+// of Z, exactly as the tail always has. The width saved is spent as
+// depth by the deepening loop itself — no extension rule, no value
+// touched anywhere. The top-two rule is untouched (verifying the
+// runner-up still catches shallow misrankings), and as T → 0 the
+// cohorts shrink to singletons, recovering the default truncation
+// exactly: the protocol leaves the equilibrium invariant.
+let HOP_MODE = false;
+let hopFull = 0, hopSkip = 0;   // per-search kinetics accounting
 function staticEval(g) {
     const base = g.fast_raw_mat();
     if (bathT <= T_FLOOR) return base;     // frozen bath: optionality is worthless
@@ -1882,7 +1900,7 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
 
     let Qs;
 
-    const basinMode = BACKUP_MODE === 'basin';
+    const basinMode = BACKUP_MODE === 'basin' || HOP_MODE;
     if (depth === 1) {
         // Depth 1: quiescence is already the cheapest eval, nothing to truncate.
         Qs = new Array(n);
@@ -1934,12 +1952,23 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
         order.sort((a, b) => quickQs[b] - quickQs[a]);   // move ordering (#4)
 
         Qs = quickQs.slice();
-        for (let r = 0; r < n && r < TRUNC_MAX; r++) {
+        // Basin-hopping (opts.hop): dedupe the dominant set by plan.
+        // Basins come from the ranking pass — its values and its census
+        // brackets — so the hop decision costs no extra search.
+        let hopOf = null, hopRep = null;
+        if (HOP_MODE) {
+            hopOf = measureBasins(moves, quickQs, n, bathT, true).basinOf;
+            hopRep = new Set();
+        }
+        let recursed = 0;
+        for (let r = 0; r < n; r++) {
+            if (recursed >= TRUNC_MAX) break;
             const i = order[r];
             // Always resolve the top TWO children fully, whatever the
             // temperature: verifying the runner-up is what catches a
             // shallow misranking of the best move.
             if (r > 1 && quickQs[i] < threshold) break;   // past the dominant set
+            if (hopRep && r > 1 && hopRep.has(hopOf[i])) { hopSkip++; continue; }  // synonym: shallow value stands
             const m0 = basinMode ? cenMatSum : 0, k0 = basinMode ? cenMatCnt : 0,
                   u0 = basinMode ? taxUs : 0, h0 = basinMode ? taxThem : 0;
             g.fast_make(moves[i]);
@@ -1954,6 +1983,8 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
                     if (basinCache.size < THERMO_CACHE_MAX) basinCache.set(ck, bf);
                 } else if (basinCache.has(ck)) moves[i]._flux = basinCache.get(ck);
             }
+            if (hopRep) { hopRep.add(hopOf[i]); hopFull++; }
+            recursed++;
             // (no thermometer sample here: depth−1 vs depth−2 is a
             // cross-parity pair — it would read the entropy ladder)
         }
@@ -2245,6 +2276,8 @@ function annealRoot(g, opts) {
     BACKUP_MODE = (opts.backup === 'mean' || opts.backup === 'max' ||
                    opts.backup === 'mean-us' || opts.backup === 'basin') ? opts.backup : '';
     PREM_T_OVERRIDE = opts.premT > 0 ? opts.premT : 0;
+    HOP_MODE = !!opts.hop;
+    hopFull = 0; hopSkip = 0;
 
     for (let depth = 1; depth <= maxDepth; depth++) {
         hardDeadline = depth === 1 ? Infinity : mainDeadline;
@@ -2641,6 +2674,7 @@ function analyzeRoot(g, opts) {
              lamHat: r.lamHat != null ? r.lamHat : null,
              nBasins: basins.nb, Sbasin: basins.Sb, gapB: basins.gapB,
              basinOf: basins.basinOf, nbSched: r.nbasins != null ? r.nbasins : null,
+             hopFull: HOP_MODE ? hopFull : null, hopSkip: HOP_MODE ? hopSkip : null,
              effS: r.covC != null ? Math.max(0, S + Math.log(Math.max(1e-6, 1 - r.covC))) : null,
              replyS: (() => {
                  // effective multiplicity: entropy of the opponent-reply
@@ -2670,10 +2704,11 @@ function _runAnalyze(msg) {
     const th = analyzeRoot(g, msg.timeLimit != null
         ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: msg.flux || false,
             budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
-            basinSched: !!msg.basinSched,
+            basinSched: !!msg.basinSched, hop: !!msg.hop,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
             premT: msg.premT, effS: msg.effS, backup: msg.backup }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
+            hop: !!msg.hop,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
             premT: msg.premT, effS: msg.effS, backup: msg.backup });
     // Echo the laboratory state this analysis actually ran under, so the
@@ -2682,7 +2717,7 @@ function _runAnalyze(msg) {
     out.lab = { pinT: msg.pinT > 0 ? msg.pinT : 0, leafT: msg.leafT > 0 ? msg.leafT : 0,
                 themT: msg.themT > 0 ? msg.themT : 0, premT: msg.premT > 0 ? msg.premT : 0,
                 backup: msg.backup || '', effS: msg.effS === true ? 'both' : (msg.effS || ''),
-                basinSched: !!msg.basinSched };
+                basinSched: !!msg.basinSched, hop: !!msg.hop };
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
@@ -2851,6 +2886,7 @@ function applyAnalysis(res, engineStats) {
         if (l.backup) parts.push('backup=' + l.backup);
         if (l.effS) parts.push('S_eff=' + l.effS);
         if (l.basinSched) parts.push('basin clock');
+        if (l.hop) parts.push('basin hop');
         if (parts.length) source += ' · ⚠ LAB: ' + parts.join(', ');
     }
     lastUw = res.Uw; lastUb = res.Ub; lastThermo = thermo; lastSource = source;
@@ -2912,13 +2948,15 @@ function labOpts() {
         const v = el ? parseFloat(el.value) : NaN; return v > 0 ? v : undefined; };
     const bk = document.getElementById('labBackup');
     const bs = document.getElementById('labBasinSched');
+    const hp = document.getElementById('labHop');
     return { pinT: num('labPinT'), leafT: num('labLeafT'), themT: num('labThemT'),
              premT: num('labPremT'), backup: (bk && bk.value) || undefined,
-             basinSched: (bs && bs.checked) || undefined };
+             basinSched: (bs && bs.checked) || undefined,
+             hop: (hp && hp.checked) || undefined };
 }
 function labChanged() {
     const o = labOpts();
-    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup || o.basinSched;
+    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup || o.basinSched || o.hop;
     document.getElementById('lab-panel').classList.toggle('lab-active', !!active);
     if (!thinking) refreshDashboard();   // re-read the position under the new fields
 }
@@ -2927,6 +2965,7 @@ function labReset() {
         document.getElementById(id).value = '';
     document.getElementById('labBackup').value = '';
     document.getElementById('labBasinSched').checked = false;
+    document.getElementById('labHop').checked = false;
     labChanged();
 }
 let uiBank = 0;   // scheduler time bank: frozen decisions fund hard ones

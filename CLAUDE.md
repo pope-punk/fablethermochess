@@ -63,10 +63,16 @@ compared with `node tests/ab_compare.js` against the relevant baseline
 - **The basin program**: continuations grouped into strategic cohorts
   ("plans") by inherent structure — value cohorts at resolution T, split by
   census material flow and initiative regime (`tests/basins.js`, validated on
-  the trap line). Next steps: the basin-gap scheduler A/B
-  (`vs_sf1500_basinsched.json` vs the 9/12 schedule baseline), then the
-  interior basin premium (count basins, not moves — needs per-node census
-  brackets in `thermoSearch`).
+  the trap line). Statics uses are settled and retired: the scheduler
+  criterion (7.5/12 vs 9) and the interior premium (6/12 vs 7.5; the ladder
+  7.5 F > 6 basin > 5 max > 3.5 mean says strength orders by premium size —
+  the free energy over nominal moves stays). The surviving use is KINETICS:
+  **basin-hopping truncation** (`hop`, `tests/basin_hop.js`) — one deep
+  representative per plan in the same 3T window, values untouched; 85% of
+  the dominant set measured as synonyms; the Alekhine decision turns sound
+  at 1 s for 165k nodes (pure width needs 5M at d5). Gauntlet A/B vs the
+  7.5/12 measure baseline: `vs_sf1500_hop.json`. Watch the declared
+  protocol–thermometer interaction (bath runs warmer under hop).
 
 - **S_eff premium gauntlet**: the effective-entropy mechanism (UI toggle, off by
   default) awaits its A/B ladder after interactive testing. It does NOT fix the
