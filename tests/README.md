@@ -21,7 +21,7 @@ node tests/suite.js                 # 13 checks: perft, invariants, absorbing st
 | `ref_engine.js` | the **material oracle**: alpha-beta over pure classical material (see below) |
 | `baselines/engine_v1_prescribedC.js` | frozen first-edition engine, regression opponent |
 | `match.js` | engine-vs-engine matches (`cur` vs `ref`/`v1`), blunder scanner |
-| `vs_stockfish.js` | SF-18 WASM gauntlet at UCI_Elo; modes `'' / probe / flux / measure / schedule / leafmu`; writes incremental JSON to `results/` |
+| `vs_stockfish.js` | SF-18 WASM gauntlet at UCI_Elo; modes `'' / probe / flux / measure / schedule / basinsched / leafmu / meanback / maxback / basinback / hop / alloc / hopalloc / allocsched`; writes incremental JSON to `results/` |
 | `sf_report.js` | gauntlet JSON → readable results book (md + print-ready html) |
 | `ab_compare.js` | A/B two gauntlet JSONs (score, castles, mate losses, mean T) |
 | `speedbench.js` | node/depth benchmarks on standard positions |
@@ -51,7 +51,7 @@ node tests/suite.js                 # 13 checks: perft, invariants, absorbing st
 | `premT_scan.js` | the premium-temperature leg (`premT` hook): global premium repricing crosses at premT ≈ 0.75–1.0 — the zero-point floor again, from the premium axis — so no global scale separates blunder-cure from danger-sense; the cure must be per-node (λ̂) |
 | `basins.js` | the basin instrument (inherent structures): root moves clustered into "plans" — value cohorts of diameter ≤ T, split by census material flow (⟨ΔM⟩, diameter ≤ 1♙) and initiative regime (β vs own SE). Validated: trap = {dxe5, Ng4} vs 27 knight-losers in 2 basins, S_b = 0.97 vs S = 3.10. Basin-gap scheduler (`basinsched` gauntlet mode, `basinSched` opt) freezes on the top-two PLAN gap, depth ≥ 3 guard — retired at 7.5/12 vs the 9/12 schedule baseline |
 | `basin_premium.js` | the interior basin premium (`backup:'basin'`): plans, not moves, in every Z. Cures the Alekhine at every T, keeps the trébuchet visible, tames runaway, keeps oracle conversion (+2−1=9) — and 6/12 vs 7.5 at the gauntlet. The four-point ladder 7.5 (F) > 6 (basin) > 5 (max) > 3.5 (mean): strength orders by premium size; statics interventions retired |
-| `basin_hop.js` | basin-hopping truncation (`hop` opt, `'hop'` gauntlet mode): KINETICS — one deep representative per plan inside the same 3T window, cohort-mates keep shallow tail values, top-two rule intact, values untouched (T→0 recovers default truncation exactly). Measured: 85% of the dominant set are synonyms (2.7–6.4× node cut at fixed depth); at 1 s the Alekhine decision is sound (d4 vs d3, Δ = −0.45) — the cure bought kinetically for 165k nodes where pure width needs 5M at d5. Bath runs warmer under hop (protocol–thermometer interaction, declared) |
+| `basin_hop.js` | basin-hopping truncation (`hop` opt) + root allocation (`alloc` opt): KINETICS — values touched nowhere, width converted to depth. hop v1 (one deep representative per plan, cohorts at live-T diameter) was NEGATIVE: oracle 0W 2L — killers deduped on coarse basins kept optimistic shallow values in Z, and the protocol heated the thermometer that set its own coarse-graining. v2 repairs (no new constants): cohorts merge at the zero-point diameter T₀ (fixed by geometry — feedback cut) and only moves with mk ≥ 4 census samples may merge. `alloc` is the scheduler brought inside the move: the root obeys the same dominant-set truncation law as every interior node (3T window, top two always, TRUNC_MAX cap; the previous iteration is the root's free ranking pass); frozen children keep their standing value in Z, feed no thermometer sample (freshness-parity guard `_fd/_fd2`), and may not be argmax (selection stays inside the re-measured set — the probe-stage rule; without it the root replays the v1 disease once per search, on the played move). Measured (hop+alloc): 5.0M→690k nodes at fixed d4 (middlegame); at 1 s depth rises d3→d4 (startpos, Alekhine root), d2→d3 (middlegame); the Alekhine cure arrives through depth at 8 s (d5, plays Ne4) vs ~26 s for pure width |
 
 ## The material oracle (`ref_engine.js`)
 
@@ -83,7 +83,13 @@ ensemble, thermometer, truncation, and leaf term untouched; see
 `backup_forms.js`) · `premT` (pay only the interior choice premium T·S at a
 counterfactual temperature; ensemble stays at the bath — `premT→0` is the
 `'mean'` backup, `premT=bath` is F; see `premT_scan.js`).
-`match.js` accepts backup variants as `cur:mean` etc.
+`hop` (basin-hopping truncation v2: one deep representative per plan,
+cohorts at the T₀ diameter, mk ≥ 4 merge gate) and `alloc` (root
+allocation: the interior dominant-set truncation law applied to the root;
+fresh-gated selection) are kinetics-only protocol knobs — ensemble
+parameters/attention under constitution rule 3, never values.
+`match.js` accepts backup variants as `cur:mean` etc., and the kinetics
+knobs as `cur:hop` / `cur:alloc` / `cur:hopalloc`.
 
 The app now carries a **Lab panel** (dashed amber console under the game
 controls): the same hooks, hand-applied. Blank/F = honest play, bit-identical
