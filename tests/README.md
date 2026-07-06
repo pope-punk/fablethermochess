@@ -49,6 +49,7 @@ node tests/suite.js                 # 13 checks: perft, invariants, absorbing st
 | `covariance_probe.js` | redundancy instruments: v1 revision common-mode (failed honestly — measures drift), v2 reply-partition n_eff (validated: trap 3.5 vs sound 10.6), v3 λ̂ drift-centered reply-grouped independence (validated on all five predictions: trap 0.60 / sound 0.91 / middlegame 0.92 / Q-en-prise 0.56 / startpos 0.87 — orders correctly exactly where v1 ordered backwards) |
 | `backup_forms.js` | backup-form decomposition (`backup` lab hook): F vs ⟨Q⟩_π ('mean') vs max — F−⟨Q⟩_π = T·S is the winner's-curse identity; 'mean' and 'max' cure the Alekhine blunder at every T, 'mean-us' dies by one-sided ladder (thermometer runaway, as the parity rule predicts); gauntlets 3.5 & 5/12 — the premium is also the danger sense |
 | `premT_scan.js` | the premium-temperature leg (`premT` hook): global premium repricing crosses at premT ≈ 0.75–1.0 — the zero-point floor again, from the premium axis — so no global scale separates blunder-cure from danger-sense; the cure must be per-node (λ̂) |
+| `basins.js` | the basin instrument (inherent structures): root moves clustered into "plans" — value cohorts of diameter ≤ T, split by census material flow (⟨ΔM⟩, diameter ≤ 1♙) and initiative regime (β vs own SE). Validated: trap = {dxe5, Ng4} vs 27 knight-losers in 2 basins, S_b = 0.97 vs S = 3.10. Basin-gap scheduler (`basinsched` gauntlet mode, `basinSched` opt) freezes on the top-two PLAN gap, depth ≥ 3 guard |
 
 ## The material oracle (`ref_engine.js`)
 

@@ -238,6 +238,8 @@ label { font-size: 0.85em; }
             <option value="max">max</option>
             <option value="mean-us">mean-us (!)</option>
         </select>
+        <label title="basin clock: the scheduler freezes on the top-two BASIN gap (nearest genuinely different plan) instead of the top-two move gap — synonyms don't earn thinking time. Experimental; A/B pending." style="cursor:pointer">
+            <input type="checkbox" id="labBasinSched" onchange="labChanged()"> basin clock</label>
         <button onclick="labReset()" title="Clear all external fields — back to honest play">reset</button>
     </div>
 </div>
@@ -1345,6 +1347,17 @@ let fluxRootTurn = 'w';
 let muSumUs = 0, muCntUs = 0, muSumThem = 0, muCntThem = 0;
 let taxUs = 0, taxThem = 0;
 
+// ── Census material flow: the basin coordinate ──────────────
+// Every quiescence entry node is an inherent structure — what a
+// continuation relaxes to under the T = 0 quench — and its material
+// delta from the root is the exchange pattern of that future. Sampled
+// at every census entry (a property of the position, recomputed on
+// cache hits for free), bracketed per root child exactly like the μ
+// field: each root move carries the measured material flow of its own
+// subtree, ⟨ΔM⟩ and spread. Root-POV, Q units (1♙ = 2).
+let cenMatSum = 0, cenMatCnt = 0, cenMatM2 = 0;
+let CEN_MAT_ROOT = 0;
+
 // ── Leaf tempo prior (channel 3: horizon priors) ────────────
 // The leaf already prices sub-horizon OPTIONALITY (T·lnW). This prices
 // sub-horizon INITIATIVE: a census leaf whose quiet stance was refuted
@@ -1510,6 +1523,12 @@ function quiesce(g, alpha, beta, qd) {
     // nodes sit mid-capture-chain and are taxed almost by definition.
     const census = qd === 24;
     const mover = census ? g.fast_turn() : null;
+    if (census) {
+        // material flow sample: position property, taken every visit
+        // (cache hits included) so the sampling matches the μ census
+        const cm = (mover === fluxRootTurn ? g.fast_raw_mat() : -g.fast_raw_mat()) - CEN_MAT_ROOT;
+        cenMatSum += cm; cenMatCnt++; cenMatM2 += cm * cm;
+    }
 
     // Transposition probe. On a usable hit at an entry node, REPLAY the
     // stored census reading so the flux statistics keep their sampling.
@@ -1609,6 +1628,107 @@ function quiesce(g, alpha, beta, qd) {
     qStore(qKey, alpha, alpha <= alphaOrig ? 2 : 0, qd, census, chi, taxed);
     return (LEAF_RATIO && census && Math.abs(alpha) < MATE_NEAR)
         ? alpha - LEAF_RATIO * bathT * ((taxed ? 1 : 0) - LEAF_TAXRATE) : alpha;
+}
+
+// ── Basin measurement (the inherent-structure instrument) ───
+// Partition the root ensemble into BASINS: cohorts of continuations
+// that are strategically one plan, so "thirty ways to lose a knight"
+// weigh as one alternative against the moves that don't. The grouping
+// is counting and measurement only, and the coarse-graining scale IS
+// the temperature:
+//   1. VALUE COHORTS — leader clusters on Q of DIAMETER ≤ T: moves the
+//      bath cannot tell apart are candidates for one plan. (Diameter,
+//      not link: single-linkage chains continuous spectra into one
+//      basin — measured on the trap line, 29/30 moves including the
+//      defender. A cohort may not span more than the bath resolves.)
+//      As the search cools the cohorts shrink, and basins refine
+//      continuously toward individual moves (the minimax limit).
+//   2. MATERIAL FLOW — within a cohort, leader clusters of diameter ≤
+//      one pawn (the smallest real exchange quantum) on the measured
+//      census exchange pattern ⟨ΔM⟩ (each subtree's quenched material
+//      delta, importance-weighted by the search's own attention).
+//   3. INITIATIVE REGIME — split by the sign of the subtree's measured
+//      flux β read against its own counting error (+ / 0 / −): futures
+//      where we own the forcing initiative are a different plan from
+//      futures where we defend, whatever the material says.
+// Absorbing (mate-scored) moves never merge; a move whose coordinates
+// are unmeasured stays a singleton (unmeasured = unmerged). Reported:
+// basin count, basin entropy S_b (the strategic multiplicity), and the
+// top-two BASIN gap — the value distance to the nearest genuinely
+// different plan, which is what a decision is actually between.
+function measureBasins(moves, Qs, n, T) {
+    const basinOf = new Array(n).fill(-1);
+    let nb = 0;
+    const idx = [];
+    for (let i = 0; i < n; i++) idx.push(i);
+    idx.sort((a, b) => Qs[b] - Qs[a]);
+
+    let cohort = [];
+    const flushCohort = () => {
+        if (!cohort.length) return;
+        const members = cohort.map(i => {
+            const f = moves[i]._flux;
+            let mat = null, reg = 0;
+            if (f && f.mk >= 4) mat = f.ms / f.mk;
+            if (f) {
+                const nt = f.tu + f.tt;
+                if (nt >= 4) {
+                    const b = (f.tt - f.tu) / nt;
+                    const se = Math.sqrt(Math.max(0, 1 - b * b) / nt);
+                    reg = b > se ? 1 : (b < -se ? -1 : 0);
+                }
+            }
+            return { i, mat, reg };
+        });
+        for (const reg of [-1, 0, 1]) {
+            const ms = members.filter(m => m.reg === reg);
+            if (!ms.length) continue;
+            const known = ms.filter(m => m.mat != null).sort((a, b) => a.mat - b.mat);
+            let cur = [];
+            for (let k = 0; k < known.length; k++) {
+                // leader cluster: group diameter capped at one pawn
+                if (cur.length && known[k].mat - cur[0].mat > PAWN_XRAY) {
+                    for (const m of cur) basinOf[m.i] = nb;
+                    nb++; cur = [];
+                }
+                cur.push(known[k]);
+            }
+            if (cur.length) { for (const m of cur) basinOf[m.i] = nb; nb++; }
+            for (const m of ms) if (m.mat == null) basinOf[m.i] = nb++;
+        }
+        cohort = [];
+    };
+    for (let r = 0; r < idx.length; r++) {
+        const i = idx[r];
+        if (Math.abs(Qs[i]) > MATE_NEAR) { flushCohort(); basinOf[i] = nb++; continue; }
+        // leader cluster: cohort diameter capped at the bath resolution
+        if (cohort.length && (Qs[cohort[0]] - Qs[i]) > T) flushCohort();
+        cohort.push(i);
+    }
+    flushCohort();
+
+    // Basin masses at the bath temperature, best members, and the gap
+    // between the top two PLANS (not the top two moves).
+    let maxQ = -Infinity;
+    for (let i = 0; i < n; i++) if (Qs[i] > maxQ) maxQ = Qs[i];
+    const bQ = new Array(nb).fill(-Infinity), bP = new Array(nb).fill(0);
+    let zSum = 0;
+    for (let i = 0; i < n; i++) {
+        const w = Math.exp((Qs[i] - maxQ) / T);
+        zSum += w; bP[basinOf[i]] += w;
+        if (Qs[i] > bQ[basinOf[i]]) bQ[basinOf[i]] = Qs[i];
+    }
+    let Sb = 0;
+    for (let b = 0; b < nb; b++) {
+        const p = bP[b] / zSum;
+        if (p > 1e-15) Sb -= p * Math.log(p);
+    }
+    let q1 = -Infinity, q2 = -Infinity;
+    for (let b = 0; b < nb; b++) {
+        if (bQ[b] > q1) { q2 = q1; q1 = bQ[b]; }
+        else if (bQ[b] > q2) q2 = bQ[b];
+    }
+    return { nb, Sb, basinOf, gapB: nb > 1 ? q1 - q2 : null };
 }
 
 // ── Schottky measurement (dashboard instrument) ────────────
@@ -2012,6 +2132,8 @@ function annealRoot(g, opts) {
     taxTotal = 0; taxTaken = 0;
     fluxRootTurn = g.fast_turn();
     muSumUs = 0; muCntUs = 0; muSumThem = 0; muCntThem = 0; taxUs = 0; taxThem = 0;
+    cenMatSum = 0; cenMatCnt = 0; cenMatM2 = 0;
+    CEN_MAT_ROOT = g.fast_raw_mat();   // root-POV reference for the flow coordinate
     bathT = T_ZERO;                // zero-point: never colder than one quantum
 
     const moves = g.fast_moves();
@@ -2079,13 +2201,15 @@ function annealRoot(g, opts) {
             // search's own expansion policy is the importance weighting.
             const s0 = muSumUs, c0 = muCntUs, s1 = muSumThem, c1 = muCntThem;
             const t0 = taxUs, t1 = taxThem;
+            const m0 = cenMatSum, k0 = cenMatCnt, v0 = cenMatM2;
             g.fast_make(moves[i]);
             if (depth === 1) moves[i]._pq2 = -g.fast_raw_mat();   // static baseline (same parity as depth 1)
             Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys, moves[i]));
             g.fast_undo();
             moves[i]._flux = { su: muSumUs - s0, cu: muCntUs - c0,
                                st: muSumThem - s1, ct: muCntThem - c1,
-                               tu: taxUs - t0, tt: taxThem - t1 };
+                               tu: taxUs - t0, tt: taxThem - t1,
+                               ms: cenMatSum - m0, mk: cenMatCnt - k0, m2: cenMatM2 - v0 };
             // Depth 1 always runs to completion (it is nearly free): a partial
             // first iteration would leave undefined values and an arbitrary move.
             if (depth > 1 && (searchAborted || performance.now() > mainDeadline)) { timedOut = true; break; }
@@ -2195,9 +2319,12 @@ function annealRoot(g, opts) {
         result.T = bathT;
         result.depth = depth;
         // Cooling trace: one point per completed iteration (the annealing
-        // schedule as it actually happened, for the dashboard).
+        // schedule as it actually happened, for the dashboard), with the
+        // basin count — cooling refines the landscape's basin structure.
+        const bTrace = measureBasins(moves, nq, n, bathT);
         result.anneal.push({ d: depth, T: bathT, bestQ: nq[0],
-                             c: result._lastC != null ? +result._lastC.toFixed(3) : null });
+                             c: result._lastC != null ? +result._lastC.toFixed(3) : null,
+                             nb: bTrace.nb });
 
         // ── σ_eff scheduler: thinking time as the latent heat of decision ──
         // A decision is safe when the uncertainty of the value gap between
@@ -2228,7 +2355,22 @@ function annealRoot(g, opts) {
             if (Math.abs(nq[0]) > MATE_NEAR || Math.abs(nq[1]) > MATE_NEAR) {
                 // no freeze/runaway decisions on absorbing gaps
             } else {
-            const gap = nq[0] - nq[1];
+            // The decision gap. Default: top two MOVES. basinSched: top
+            // two BASINS — two moves inside one basin are one plan, and
+            // distinguishing synonyms is not worth thinking time; the
+            // gap that matters is to the nearest genuinely different
+            // plan. Two guards: a single-basin root never freezes by
+            // gap (nothing measured to decide between), and the basin
+            // gap only gates from depth ≥ 3 — depth 2 has no thermometer
+            // partner and no measured basin coordinates either, and an
+            // unguarded depth-2 basin freeze was seen to change the
+            // move (e6 for Nc6 at 40 ms on the sound Alekhine line).
+            let gap = nq[0] - nq[1];
+            if (opts.basinSched && depth >= 3) {
+                const bs = measureBasins(moves, nq, n, bathT);
+                result.nbasins = bs.nb;
+                gap = (bs.nb > 1) ? bs.gapB : 0;
+            }
             const jr = jhatRead();
             const cnt = muCntUs + muCntThem;
             const mubar = cnt > 0 ? (muSumUs + muSumThem) / cnt : 0;
@@ -2399,6 +2541,7 @@ function analyzeRoot(g, opts) {
     const TS = T * S;
 
     const schottky = measureSchottky(Qs, n, T);
+    const basins = measureBasins(r.moves, Qs, n, T);
 
     // Chemical potential of the tempo at the root — the initiative,
     // priced by the same formula as every piece. SAME-PARITY comparison:
@@ -2436,6 +2579,8 @@ function analyzeRoot(g, opts) {
              kapRatio: r.kapRatio || 0, bite: r.bite || 0,
              covC: r.covC != null ? r.covC : null,
              lamHat: r.lamHat != null ? r.lamHat : null,
+             nBasins: basins.nb, Sbasin: basins.Sb, gapB: basins.gapB,
+             basinOf: basins.basinOf, nbSched: r.nbasins != null ? r.nbasins : null,
              effS: r.covC != null ? Math.max(0, S + Math.log(Math.max(1e-6, 1 - r.covC))) : null,
              replyS: (() => {
                  // effective multiplicity: entropy of the opponent-reply
@@ -2465,6 +2610,7 @@ function _runAnalyze(msg) {
     const th = analyzeRoot(g, msg.timeLimit != null
         ? { deadline: now() + msg.timeLimit, probe: !!msg.probe, flux: msg.flux || false,
             budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
+            basinSched: !!msg.basinSched,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
             premT: msg.premT, effS: msg.effS, backup: msg.backup }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
@@ -2475,7 +2621,8 @@ function _runAnalyze(msg) {
     // instrument that feels them).
     out.lab = { pinT: msg.pinT > 0 ? msg.pinT : 0, leafT: msg.leafT > 0 ? msg.leafT : 0,
                 themT: msg.themT > 0 ? msg.themT : 0, premT: msg.premT > 0 ? msg.premT : 0,
-                backup: msg.backup || '', effS: msg.effS === true ? 'both' : (msg.effS || '') };
+                backup: msg.backup || '', effS: msg.effS === true ? 'both' : (msg.effS || ''),
+                basinSched: !!msg.basinSched };
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
@@ -2643,6 +2790,7 @@ function applyAnalysis(res, engineStats) {
         if (l.premT) parts.push('premT=' + l.premT);
         if (l.backup) parts.push('backup=' + l.backup);
         if (l.effS) parts.push('S_eff=' + l.effS);
+        if (l.basinSched) parts.push('basin clock');
         if (parts.length) source += ' · ⚠ LAB: ' + parts.join(', ');
     }
     lastUw = res.Uw; lastUb = res.Ub; lastThermo = thermo; lastSource = source;
@@ -2703,12 +2851,14 @@ function labOpts() {
     const num = id => { const el = document.getElementById(id);
         const v = el ? parseFloat(el.value) : NaN; return v > 0 ? v : undefined; };
     const bk = document.getElementById('labBackup');
+    const bs = document.getElementById('labBasinSched');
     return { pinT: num('labPinT'), leafT: num('labLeafT'), themT: num('labThemT'),
-             premT: num('labPremT'), backup: (bk && bk.value) || undefined };
+             premT: num('labPremT'), backup: (bk && bk.value) || undefined,
+             basinSched: (bs && bs.checked) || undefined };
 }
 function labChanged() {
     const o = labOpts();
-    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup;
+    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup || o.basinSched;
     document.getElementById('lab-panel').classList.toggle('lab-active', !!active);
     if (!thinking) refreshDashboard();   // re-read the position under the new fields
 }
@@ -2716,6 +2866,7 @@ function labReset() {
     for (const id of ['labPinT','labLeafT','labThemT','labPremT'])
         document.getElementById(id).value = '';
     document.getElementById('labBackup').value = '';
+    document.getElementById('labBasinSched').checked = false;
     labChanged();
 }
 let uiBank = 0;   // scheduler time bank: frozen decisions fund hard ones
@@ -2975,6 +3126,8 @@ function renderThermoGrid(Uw, Ub, th, source) {
          '\u0394S overcount', th.replyS != null ? fmt(th.S - th.replyS,2) : '\u2014'],
         ['\u03bb\u0302 (indep.)', th.lamHat != null ? fmt(th.lamHat,2) : '\u2014',
          '\u0109 drift (v1)', th.covC != null ? fmt(th.covC,2) : '\u2014'],
+        ['basins (plans)', th.nBasins != null ? th.nBasins + ' \u00b7 S_b ' + fmt(th.Sbasin,2) : '\u2014',
+         '\u0394 basins\u2081\u2082', th.gapB != null ? fmt(th.gapB,2) : '\u2014'],
         ['\u0134 opponent', jhStr, 'clock', schedStr],
         ['SF (d'+SF_DEPTH+')', sfStr, '\u0394 (eng\u2212SF)', deltaStr],
     ];
@@ -3035,14 +3188,24 @@ function renderMoveProbs(th) {
 
     const indexed = [];
     for (let i=0;i<th.moves.length;i++)
-        indexed.push({ move:th.moves[i], prob:th.probs[i], q:th.Qs[i], isBest:i===th.bestIdx });
+        indexed.push({ move:th.moves[i], prob:th.probs[i], q:th.Qs[i], isBest:i===th.bestIdx,
+                       basin: th.basinOf ? th.basinOf[i] : null });
     indexed.sort((a,b) => b.prob - a.prob);
 
     let maxP = 0;
     for (let i=0;i<indexed.length;i++) if (indexed[i].prob>maxP) maxP=indexed[i].prob;
 
+    // Basin tags: label the plans in \u03C0-mass order (b1 = the plan carrying
+    // the most ensemble weight), so cohort structure reads at a glance.
+    const basinLabel = {};
+    if (th.basinOf) {
+        let next = 1;
+        for (const x of indexed)
+            if (x.basin != null && basinLabel[x.basin] === undefined) basinLabel[x.basin] = 'b' + (next++);
+    }
+
     let html = '<table class="prob-table"><tr><th>Move</th><th style="text-align:right">Q (\u2659)</th>' +
-               '<th style="text-align:right">\u03C0</th><th class="prob-bar-cell"></th></tr>';
+               '<th style="text-align:right">\u03C0</th><th style="text-align:right" title="basin: strategically-one-plan cohort (value within T + same material flow + same initiative regime)">basin</th><th class="prob-bar-cell"></th></tr>';
     const show = Math.min(indexed.length, 20);
     for (let i=0; i<show; i++) {
         const x = indexed[i];
@@ -3052,10 +3215,11 @@ function renderMoveProbs(th) {
         const cls = x.isBest ? ' class="best-move-row"' : '';
         html += '<tr'+cls+'><td>'+(x.isBest?'\u25B6 ':'')+x.move+'</td><td style="text-align:right">'+sign+fmt(qs,2)+
                 '</td><td style="text-align:right">'+fmt(x.prob,3)+
+                '</td><td style="text-align:right;color:#9898ac">'+(x.basin != null ? basinLabel[x.basin] : '')+
                 '</td><td class="prob-bar-cell"><div class="prob-bar" style="width:'+barW.toFixed(1)+'%"></div></td></tr>';
     }
     if (indexed.length > 20)
-        html += '<tr><td colspan="4" style="color:#666">... '+(indexed.length-20)+' more</td></tr>';
+        html += '<tr><td colspan="5" style="color:#666">... '+(indexed.length-20)+' more</td></tr>';
     html += '</table>';
     el.innerHTML = html;
 }

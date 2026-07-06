@@ -60,6 +60,14 @@ compared with `node tests/ab_compare.js` against the relevant baseline
 
 ## Open threads (as of July 2026)
 
+- **The basin program**: continuations grouped into strategic cohorts
+  ("plans") by inherent structure — value cohorts at resolution T, split by
+  census material flow and initiative regime (`tests/basins.js`, validated on
+  the trap line). Next steps: the basin-gap scheduler A/B
+  (`vs_sf1500_basinsched.json` vs the 9/12 schedule baseline), then the
+  interior basin premium (count basins, not moves — needs per-node census
+  brackets in `thermoSearch`).
+
 - **S_eff premium gauntlet**: the effective-entropy mechanism (UI toggle, off by
   default) awaits its A/B ladder after interactive testing. It does NOT fix the
   Alekhine case (recorded); the question is net strength.
