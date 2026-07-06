@@ -87,7 +87,12 @@ counterfactual temperature; ensemble stays at the bath — `premT→0` is the
 cohorts at the T₀ diameter, mk ≥ 4 merge gate) and `alloc` (root
 allocation: the interior dominant-set truncation law applied to the root;
 fresh-gated selection) are kinetics-only protocol knobs — ensemble
-parameters/attention under constitution rule 3, never values.
+parameters/attention under constitution rule 3, never values. Ladder
+verdicts (July 2026): interior hop dedup retired (6/12 vs 7.5 with hop;
+depth bought, strength lost to sharpened self-indulgence); `alloc` alone
+is strength-neutral (7.5/12 = baseline) with the coolest bath of any
+config and runaway nearly halved in play; `allocsched` (alloc+schedule)
+read 6.5 vs the 9 schedule baseline — not validated, baseline stands.
 `match.js` accepts backup variants as `cur:mean` etc., and the kinetics
 knobs as `cur:hop` / `cur:alloc` / `cur:hopalloc`.
 

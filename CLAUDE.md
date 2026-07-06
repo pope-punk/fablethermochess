@@ -52,30 +52,41 @@ compared with `node tests/ab_compare.js` against the relevant baseline
 - Develop on the designated feature branch; commit early with descriptive messages;
   push after each coherent unit of work.
 - Test-only laboratory hooks in the engine (`pinT`, `leafT`, `themT`, `premT`,
-  `backup`, `shuffleSeed`) are never set by play. The app's Lab panel exposes
-  them to the experimenter's hand; any active field is stamped on the dashboard
-  reading (`⚠ LAB: …`), and blank = honest play.
+  `backup`, `shuffleSeed`) and the kinetics protocol knobs (`hop`, `alloc`,
+  `basinSched`) are never set by play. The app's Lab panel exposes them to the
+  experimenter's hand; any active field is stamped on the dashboard reading
+  (`⚠ LAB: …`), and blank = honest play.
 - Results files: incremental JSON written during runs; long runs go in background
   with logs under `tests/results/`; every experiment gets committed win or lose.
 
 ## Open threads (as of July 2026)
 
-- **The basin program**: continuations grouped into strategic cohorts
-  ("plans") by inherent structure — value cohorts at resolution T, split by
-  census material flow and initiative regime (`tests/basins.js`, validated on
-  the trap line). Statics uses are settled and retired: the scheduler
-  criterion (7.5/12 vs 9) and the interior premium (6/12 vs 7.5; the ladder
-  7.5 F > 6 basin > 5 max > 3.5 mean says strength orders by premium size —
-  the free energy over nominal moves stays). The surviving use is KINETICS:
-  **basin-hopping truncation** (`hop`, `tests/basin_hop.js`) — one deep
-  representative per plan in the same 3T window, values untouched; 85% of
-  the dominant set measured as synonyms; the Alekhine decision turns sound
-  at 1 s for 165k nodes (pure width needs 5M at d5). v1 ladder NEGATIVE
-  (oracle 0W 2L — the only config ever to lose to the material detector;
-  gauntlet 5.5/12): killers deduped on coarse ranking-depth basins keep
-  optimistic shallow values in Z, and the protocol heats the thermometer
-  that sets its own coarse-graining (live-T cohort diameter). v2 candidates
-  recorded in `tests/basin_hop.js` (T₀ diameter + mk≥4 merge gate), unbuilt.
+- **The basin program — kinetics ladder complete (July 2026)**: continuations
+  grouped into strategic cohorts ("plans") by inherent structure
+  (`tests/basins.js`). Statics uses retired earlier (scheduler criterion
+  7.5/12 vs 9; interior premium 6/12 vs 7.5). Kinetics (`tests/basin_hop.js`):
+  hop v2 (T₀ merge diameter + mk≥4 gate + fresh-gated selection) restored
+  material soundness (oracle +2−1=9 vs v1's 0W 2L) and cut the v1 thermometer
+  feedback (T-at-depth clean vs baseline), bought real depth in play
+  (mean 3.43→4.16, d6–d9 band, the Alekhine cured kinetically at 8 s vs
+  ~26 s pure width) — and still lost the gauntlet (6/12 vs 7.5): the bought
+  depth sharpened F's own self-indulgence (early-queen tilt 2.83 vs
+  2.25/game). Interior hop dedup RETIRED. The SURVIVOR is **root allocation**
+  (`alloc`): the root obeys the interior dominant-set truncation law — the
+  scheduler brought inside the move; frozen children price Z but feed no
+  thermometer sample and may not be argmax. 7.5/12 = baseline exactly,
+  coolest bath of any config (mean T 8.2 vs 16.6), thermal runaway in play
+  nearly halved (2.8% vs 4.1% at T>20). Strength-neutral kinetics: depth is
+  now purchasable at no cost; the EVALUATION is the binding constraint. The
+  allocsched marriage read 6.5/12 vs the 9 schedule baseline (no interaction
+  mechanism found; n=12 underpowered; NOT validated — the schedule baseline
+  stands), and exposed a scheduler blind spot: ~80% of σ_eff freezes fire at
+  depth 2 in every config, and capture sequences freeze the clock exactly
+  where mating nets build beyond the horizon (one loss mated at +590) — see
+  status page §3. Candidate next legs, unbuilt: alloc at longer time
+  controls / SF-1600 (does neutral-at-1s become positive when depth
+  differentials grow?); an absorbing-risk guard beside the σ_eff value-gap
+  criterion.
 
 - **S_eff premium gauntlet**: the effective-entropy mechanism (UI toggle, off by
   default) awaits its A/B ladder after interactive testing. It does NOT fix the
@@ -83,6 +94,8 @@ compared with `node tests/ab_compare.js` against the relevant baseline
 - **The central open problem**: "self-indulgence" — the interior choice premium
   prices nominal rather than effective multiplicity; decision flips at T* ≈ 1.0 =
   the zero-point floor (see status page §3 and `tests/t_decompose.js`).
-- **Thermal runaway** in decided positions: documented, cut in analysis, uncured.
+- **Thermal runaway** in decided positions: documented, cut in analysis, uncured —
+  but nearly halved in play under `alloc` (deeper quenching of decided positions;
+  2.8% vs 4.1% of moves at T>20, runaway clock-stops 13 vs 30).
 - Deferred by user: master-games corpus run (measure J / criticality ratio on
   human games).

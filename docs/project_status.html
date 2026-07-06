@@ -84,6 +84,17 @@ n<sub>eff</sub>&nbsp;=&nbsp;10.6 at identical nominal entropy).</div>
 phase marker, annealing trace, phase strip, μ board overlay, opponent-Ĵ row, clock row, redundancy row. The test
 harness carries counterfactual knobs (pin the bath; reprice only the leaf; retemper only the opponent) — external
 fields for decomposition experiments. Everything reproducible from <span class="mono">tests/</span>.</div>
+<div class="item win"><b class="k">Root allocation (the scheduler brought inside the move).</b> The root was the
+one node exempt from its own truncation law — all n children re-searched full-width every iteration while every
+interior node keeps only its dominant set. The <span class="mono">alloc</span> protocol applies the interior law to
+the root (3T window re-cut per iteration, top two always live, TRUNC_MAX cap); frozen children keep their standing
+value in Z, feed no thermometer sample (freshness-parity guard), and may not be argmax (selection stays inside the
+re-measured set — without that rule the played move can be a stale needle, measured and repaired). Verdict:
+<b class="k">strength-neutral kinetics</b> — 7.5/12 vs the 7.5 fixed-time baseline with a d8–d9 band appearing in
+play, the coolest bath of any config (mean T 8.2 vs 16.6), <b class="k">thermal-runaway share nearly halved in play
+(2.8% vs 4.1% of moves at T&gt;20; runaway clock-stops 13 vs 30)</b> — deeper quenching of decided positions
+mitigates an open problem. Depth is now purchasable at no strength cost; what depth buys is bounded by the
+evaluation (below).</div>
 
 <h2>3 · Current problems</h2>
 <div class="item prob"><b class="k">Self-indulgence (the Alekhine blunder).</b> 1.e4 Nf6 2.e5 d6?? 3.exf6 — the
@@ -126,9 +137,19 @@ motivating position both variants slightly <i>worsen</i> the margin — interior
 sound line is itself forcing. Instrument validated; mechanism on probation pending the gauntlet.</div>
 <div class="item prob"><b class="k">Thermal runaway in decided positions.</b> The T·ln&nbsp;W feedback can boil the
 bath (T&nbsp;~&nbsp;10²–10⁴) in won/lost positions. Documented, excluded from fits by declared cuts, uncured.</div>
-<div class="item prob"><b class="k">The SF-1600 cliff.</b> 7–9/12 at Elo 1500 collapses to 1/12 at 1600 (partly
-Stockfish's nonlinear strength mapping, partly real). Depth is bounded by softmax breadth — full-width Z reaches
-d2–d4 in middlegames where alpha-beta reaches d8+.</div>
+<div class="item prob"><b class="k">The SF-1600 cliff — no longer a depth problem.</b> 7–9/12 at Elo 1500 collapses
+to 1/12 at 1600 (partly Stockfish's nonlinear strength mapping, partly real). The kinetics hypothesis ("depth is
+bounded by softmax breadth") has now been tested: basin-hop v2 + root allocation bought mean play depth 3.43 → 4.16
+with a d6–d9 band (123 moves vs 26) at the same 1 s — and scored <i>lower</i> (6/12), while depth-neutral alloc
+scored equal. Deeper annealing into the same landscape optimizes F's own flaws more sharply (the hopalloc run
+played <i>more</i> early queen moves, 2.83/game vs 2.25 — the self-indulgence premium, surfaced by depth); it does
+not heal them. <b class="k">The binding constraint is the evaluation, not the search kinetics.</b></div>
+<div class="item prob"><b class="k">The scheduler freezes shallowest exactly where attacks build.</b> 80% of σ_eff
+freezes fire at depth 2 in both scheduled configs — a forcing capture sequence makes the top-two gap huge (material
+in hand) while the uncertainty that matters (a mating net beyond d2) is invisible to σ_eff, which prices value
+noise, not horizon risk. Documented instance: allocsched QGD-W, frozen at d2 in 174–493 ms through Qxg7/Qxh8/Qxg8,
+mated at +590 — the banked time was spent one ply after it could have helped. The freeze criterion may need an
+absorbing-risk guard (menu-collapse rate?) beside the value-gap one; unbuilt.</div>
 <div class="item prob"><b class="k">J is hard to pin down.</b> A 64-move window carries ±1.75 of error by
 information-theoretic necessity; supercritical fits are unidentifiable (the bistable branch fits anything).
 The estimator is honest about this, but per-game opponent reads stay coarse.</div>
@@ -184,6 +205,15 @@ rules above were carved out of these failures.</p>
 <tr><td>Backup-form replacement: ⟨Q⟩<sub>π</sub> ('mean') and max backups, ensemble untouched</td>
     <td class="score">3.5/12 and 5/12 vs the 7.5 baseline (but: cures the Alekhine blunder at every T, undefeated vs the oracle, tames runaway's interior share, mean beat F 7–3 head-to-head)</td>
     <td>the premium is also the danger sense: without the T·S menu-collapse gradient the engine is mated while ahead in material (8 and 6 mate losses); QRE mean additionally erases deep forced lines (~π<sup>d</sup> — the trébuchet reads 0); head-to-head vs a sibling is not a strength instrument</td></tr>
+<tr><td>Basin-hop v1 (interior dedup, live-T cohort diameter)</td>
+    <td class="score">5.5/12; oracle 0W 2L — the only config ever to lose to the material detector</td>
+    <td>killers misranked 3rd+ hid behind resolved siblings in coarse thermal cohorts; the protocol heated the thermometer that set its own coarse-graining scale</td></tr>
+<tr><td>Basin-hop v2 interior dedup (T₀ diameter, mk≥4 gate, fresh-gated selection), with root allocation</td>
+    <td class="score">6/12 vs 7.5 (but: oracle soundness restored +2−1=9; T-at-depth clean — the v1 feedback IS cut; depth 3.43→4.16 in play; the Alekhine cured kinetically at 8 s vs 26 s)</td>
+    <td>the kinetics worked and the strength didn't follow: shallow cohort-mate values in every interior Z at fixed time, and the bought depth sharpened F's self-indulgence (early-queen tilt) — depth is not the binding constraint. Root allocation ALONE is neutral and survives (7.5/12)</td></tr>
+<tr><td>allocsched (root allocation + σ_eff scheduler, no hop)</td>
+    <td class="score">6.5/12 vs the 9/12 schedule baseline, 5 mate losses (one at +590)</td>
+    <td>no interaction mechanism found (freeze telemetry matches the baseline: ~80% of freezes at d2 in both; banking similar; bath cooler) — underpowered n=12 or a real cost, both recorded; the marriage is NOT validated and the schedule baseline stands. Byproduct: exposed the d2-freeze-on-capture-gaps scheduler blind spot (§3)</td></tr>
 </table>
 
 <p class="small">Theory in full: <span class="mono">docs/thermodynamic_chess_theory.html</span> (third edition).
