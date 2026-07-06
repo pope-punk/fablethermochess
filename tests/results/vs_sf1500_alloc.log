@@ -2,3 +2,5 @@ Gauntlet: engine (1000 ms/move, tempo-flux ON) vs Stockfish 18 @ Elo 1500 (200 m
 Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)
   Italian complex              engine as White → 1-0     (67 plies, checkmate, 40s)
   Italian complex              engine as Black → 0-1     (72 plies, checkmate, 46s)
+  Queen's Gambit Declined      engine as White → 1/2-1/2 (115 plies, threefold repetition, 79s)
+  Queen's Gambit Declined      engine as Black → 0-1     (52 plies, checkmate, 34s)
