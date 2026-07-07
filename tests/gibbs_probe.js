@@ -44,6 +44,34 @@
 //       activity earns less at hot baths — does the engine still
 //       convert edges?); the detector decides.
 //
+// ── LADDER VERDICT AT SF-1500 (negative — and the meta-law, July 2026) ──
+//   probes: Alekhine CURED at d4 (Nd5, Δ −0.31) with the interior
+//     premium fully intact; fine70 converts faster (45 plies); all
+//     certifications green.
+//   oracle: +3−3=6 tied (borderline pass; draws swindled from −2810,
+//     −1500, −1410; blunders 24 vs 16).
+//   gauntlet: 3.5/12 vs the 7.5 baseline (W3 D1 L8, 8 mate losses,
+//     two mated-while-ahead at +210/+690). The autopsy FALSIFIES the
+//     mechanism's own theory in the field: early queen moves went UP
+//     (3.17/game vs 2.25 — the indulgence lives in the interior
+//     premium, deliberately untouched), and the runaway share DOUBLED
+//     (8.6% at T>20): the asymmetric leaf is UNBOUNDED at runaway
+//     temperatures — T·lnW_them ≈ 95 units at T=28 against a frozen
+//     T₀·lnW_us ≈ 3.4 — so hot positions become opponent-mobility-
+//     phobic and the thermometer feeds on the swings. A bounded
+//     them-price might repair this, but is not obviously derivable
+//     without tuning; recorded, unbuilt.
+//   THE META-LAW (three-for-three): every Alekhine cure — premium
+//     removal (mean 3.5), premium-by-resolution (sigma 3.5), leaf
+//     exchange-rate with premium intact (gibbs 3.5) — scores exactly
+//     3.5/12 at SF-1500/1s, regardless of mechanism. Whatever makes
+//     the engine decline d6 also makes it lose these games: T-scaled
+//     optionality-seeking is NET-POSITIVE at these stakes, and the
+//     Alekhine is its tail risk — the premium's insurance cost. This
+//     reframes the cure program as an OPERATING-POINT question: the
+//     cures' value should be retested where the baseline collapses
+//     (the SF-1600 cliff, baseline 1/12) — vs_sf1600_gibbs.json.
+//
 //   node tests/gibbs_probe.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
 const E0 = fresh();
