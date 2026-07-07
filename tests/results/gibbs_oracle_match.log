@@ -1,2 +1,17 @@
 === cur:gibbs vs ref (12 games, 400ms) ===
    cur:gibbs vs ref → 1/2 ( 33 plies, final mat -200 cp )
+   ref vs cur:gibbs → 1-0 ( 95 plies, final mat 1300 cp )
+   cur:gibbs vs ref → 1-0 ( 63 plies, final mat 620 cp )
+   ref vs cur:gibbs → 1/2 ( 66 plies, final mat 200 cp )
+   cur:gibbs vs ref → 0-1 ( 54 plies, final mat -1020 cp )
+   ref vs cur:gibbs → 1/2 ( 94 plies, final mat 2810 cp )
+   cur:gibbs vs ref → 1/2 ( 73 plies, final mat -1410 cp )
+   ref vs cur:gibbs → 0-1 ( 46 plies, final mat -910 cp )
+   cur:gibbs vs ref → 1-0 ( 183 plies, final mat 700 cp )
+   ref vs cur:gibbs → 1-0 ( 55 plies, final mat 1110 cp )
+   cur:gibbs vs ref → 1/2 ( 70 plies, final mat -1500 cp )
+   ref vs cur:gibbs → 1/2 ( 12 plies, final mat 0 cp )
+
+SCORE: {"cur:gibbs":3,"ref":3,"draws":6}
+BLUNDERS (>=250cp lost in 2 plies): {"cur:gibbs":24,"ref":19}
+blunder positions saved: 43
