@@ -135,8 +135,11 @@ async function playGame(sf, opening, engineIsWhite) {
           rec.spentMs = res.timeMs;
           rec.stop = t.stop || 'deadline';
           if (t.sigma != null) { rec.sigma = +t.sigma.toFixed(2); rec.gapQ = +t.gap.toFixed(2); }
-          if (t.jhat) { rec.jhatJ = +t.jhat.J.toFixed(2); rec.jhatTc = +t.jhat.Tc.toFixed(2); }
         }
+        // The opponent thermometer runs live in every timed search; log it
+        // in every flux mode so any run doubles as a J-corpus (the
+        // paradigm-gate question needs J-at-Elo distributions).
+        if (t.jhat) { rec.jhatJ = +t.jhat.J.toFixed(2); rec.jhatTc = +t.jhat.Tc.toFixed(2); }
         if (FLUX && t.beta) {
           rec.beta = t.beta[t.bestIdx] != null ? +t.beta[t.bestIdx].toFixed(3) : null;
           rec.dmu = t.dmu[t.bestIdx] != null ? +t.dmu[t.bestIdx].toFixed(3) : null;
