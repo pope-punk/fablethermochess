@@ -101,27 +101,29 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   same wall: the evaluation's mispricing of exposure (open king = mobility
   = entropy bonus), i.e. the self-indulgence problem below.
 
-- **The Gibbs paradigm (July 2026) — the cliff is broken and pricing is
-  opponent-dependent**: G = U + T₀·lnW_us − T·lnW_them (opts.gibbs,
-  `tests/gibbs_probe.js`) — our activity as zero-point (degeneracy) pressure
-  work, geometry-derived; their optionality alone at the measured bath price;
-  roles root-anchored (parity-safe); ≡ Helmholtz at T = T₀; interior premium
-  untouched. Cures the Alekhine at d4 with the premium intact (unique),
-  converts faster, castles — and at SF-1600 scores **4.5/12 vs the baseline's
-  1/12 (zero wins)**: first 1600 wins ever, largest differential in program
-  history. At SF-1500 it reads 3.5/12 — THE META-LAW (three-for-three: mean,
-  sigma, gibbs all 3.5 at 1500): every Alekhine cure loses to soft opposition;
-  T-scaled optionality-seeking is net-positive there and the blunder is its
-  insurance cost. **Optimal optionality pricing is opponent-dependent** (as
-  the measured J already said). Autopsied flaws, recorded: early-queen rate up
-  at 1500 (the indulgence lives in the interior premium, untouched by design);
-  the asymmetric leaf unbounded at runaway T (them-term ~95 units at T=28 vs
-  frozen us-term; a bounded them-price is not derivable without tuning —
-  unbuilt). Open next legs: sigma at 1600 (cure-class vs Gibbs-specific —
-  running at session end); Ĵ-gated paradigm selection (the opponent
-  thermometer already measures who we face: Helmholtz vs soft, Gibbs vs
-  punishing — the constitution allows instruments as ensemble parameters);
-  1600-measure rebaseline for a cleaner comparator.
+- **The Gibbs paradigm (July 2026) — built, laddered, honestly graded**:
+  G = U + T₀·lnW_us − T·lnW_them (opts.gibbs, `tests/gibbs_probe.js`) — our
+  activity as zero-point (degeneracy) pressure work, geometry-derived; their
+  optionality alone at the measured bath price; roles root-anchored
+  (parity-safe); ≡ Helmholtz at T = T₀; interior premium untouched. Cures the
+  Alekhine at d4 with the premium intact (unique among cures), converts
+  faster, castles. Ladder: 3.5/12 at SF-1500 — THE META-LAW (three-for-three:
+  mean, sigma, gibbs all 3.5 at 1500): every Alekhine cure loses to soft
+  opposition; T-scaled optionality-seeking is net-positive there and the
+  blunder is its insurance cost. At SF-1600: initially read as "the cliff
+  broken" (4.5 vs the recorded 1/12) — **CORRECTED same-session by a
+  same-harness rebaseline: the current 1600 baseline is 3.5/12, so
+  Gibbs-at-1600 is +1.0 at n=12, suggestive and unresolved**. What survives:
+  the sign flip (−4 at 1500, +1 at 1600), Gibbs-structure-specificity (sigma
+  at 1600 reads 2/12 — the premium-intact + opponent-dominant-leaf
+  combination is what moves, not Alekhine-cures generically), mate losses
+  10→6, and the first Ĵ-at-Elo corpus (jhat now logged in every flux mode:
+  T̂c>0 on 45% of moves at 1600 vs 12–39% at 1500 — weak Elo discrimination).
+  Autopsied flaws, recorded: early-queen rate up at 1500 (the indulgence
+  lives in the interior premium, untouched by design); the asymmetric leaf
+  unbounded at runaway T (a bounded them-price is not derivable without
+  tuning — unbuilt). Next measurements before any Ĵ-gated paradigm selector:
+  n=24 at 1600, or stronger opposition.
 - **S_eff premium gauntlet**: the effective-entropy mechanism (UI toggle, off by
   default) awaits its A/B ladder after interactive testing. It does NOT fix the
   Alekhine case (recorded); the question is net strength.
