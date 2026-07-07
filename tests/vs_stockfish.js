@@ -25,7 +25,8 @@ const PROBE = MODE === 'probe';
 const BASINSCHED = MODE === 'basinsched';    // schedule, but freeze on the top-two BASIN gap
 const LEAFMU = MODE === 'leafmu';            // measure + leaf tempo prior (kappa = live T-hat_c), fixed time
 const BACKUP = MODE === 'meanback' ? 'mean' : MODE === 'maxback' ? 'max'
-             : MODE === 'basinback' ? 'basin' : undefined;   // backup-form knob, fixed time
+             : MODE === 'basinback' ? 'basin'
+             : MODE === 'quenched' ? 'quenched' : undefined;   // backup-form knob, fixed time
 const HOP = MODE === 'hop' || MODE === 'hopalloc';   // basin-hopping truncation (kinetics only)
 // allocsched = alloc + schedule WITHOUT hop: the fixed-time decomposition
 // read 7.5 (alloc) vs 6 (hopalloc) vs 7.5 (baseline) - the interior hop

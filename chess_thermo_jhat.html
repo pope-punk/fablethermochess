@@ -232,12 +232,13 @@ label { font-size: 0.85em; }
         <label title="leafT: price only the leaf optionality T·(lnW_us − lnW_them) at this temperature">leafT <input id="labLeafT" type="number" step="0.25" min="0" placeholder="&#8212;" onchange="labChanged()"></label>
         <label title="themT: run only the OPPONENT's interior ensembles at this temperature">themT <input id="labThemT" type="number" step="0.25" min="0" placeholder="&#8212;" onchange="labChanged()"></label>
         <label title="premT: pay only the interior choice premium T·S at this temperature (ensemble stays at the bath). premT→0 is the 'mean' backup; premT=bath is F">premT <input id="labPremT" type="number" step="0.25" min="0" placeholder="&#8212;" onchange="labChanged()"></label>
-        <select id="labBackup" onchange="labChanged()" title="Backup form: which scalar propagates up. F = free energy (premium paid); mean = ⟨Q⟩_π (achieved value, premium withheld); max = quenched; mean-us = asymmetric (known thermometer-runaway pathology, kept for demonstration)">
+        <select id="labBackup" onchange="labChanged()" title="Backup form: which scalar propagates up. F = free energy (premium paid); mean = ⟨Q⟩_π (achieved value, premium withheld); max = quenched-to-zero; mean-us = asymmetric (known thermometer-runaway pathology, kept for demonstration); basin = plans-not-moves in Z; quenched = the nested-GEV premium — within each measured reply-group at μT (μ=√λ̂, the measured independence of sibling revisions), across groups at the bath T. μ=1 is F exactly; μ→0 is the effective-multiplicity premium exactly.">
             <option value="" selected>F backup</option>
             <option value="mean">mean &#10216;Q&#10217;</option>
             <option value="max">max</option>
             <option value="mean-us">mean-us (!)</option>
             <option value="basin">basin premium</option>
+            <option value="quenched">quenched (&#956;=&#8730;&#955;&#770;)</option>
         </select>
         <label title="basin clock: the scheduler freezes on the top-two BASIN gap (nearest genuinely different plan) instead of the top-two move gap — synonyms don't earn thinking time. Retired at 7.5/12 vs the 9/12 baseline; kept for reproduction." style="cursor:pointer">
             <input type="checkbox" id="labBasinSched" onchange="labChanged()"> basin clock</label>
@@ -1418,6 +1419,37 @@ let hopFull = 0, hopSkip = 0;   // per-search kinetics accounting
 // zone (king activity is the whole game there — fine70 and the
 // trébuchet gate the change).
 let EXK_MODE = false;   // false | 'leaf' | 'z' | true
+// ── The quenched premium (backup: 'quenched') ───────────────
+// F = T·ln Z is the ANNEALED free energy of the move ensemble: under
+// the Gumbel reading (the winner's-curse identity), it is the expected
+// max over options with INDEPENDENT value noise — as if the opponent's
+// refutation were a thermal variable we may average over while keeping
+// every option. But the killer reply is not a fluctuation; it is a
+// frozen fact about the position — QUENCHED disorder — and thirty
+// moves that are all fine iff the opponent declines one killer are
+// thirty spins riding one disorder realization. Jensen: the annealed
+// average always overestimates. That gap IS the self-indulgence
+// disease, term for term.
+// For Gumbel noise the quenched (correlated) expected max has an exact
+// closed form — the nested/GEV partition function: group moves by
+// their measured refutation (the reply partition, per node, already
+// tagged); price flexibility WITHIN a hedge at the reduced temperature
+// μT (its members cannot beat the frozen disorder independently), and
+// ACROSS plans at the full bath T:
+//     V = T·ln Σ_g e^{F_g/T},  F_g = μT·ln Σ_{a∈g} e^{Q_a/μT}
+// μ = 1 recovers F exactly (the nested sum collapses); μ → 0 is the
+// effective-multiplicity premium exactly (one microstate per
+// refutation): F and effS are the two poles of one family, and the
+// interpolation is not chosen but MEASURED — λ̂ (v3, drift-centered,
+// reply-grouped, validated on five predictions) is by definition the
+// independent-VARIANCE share of the premium's noise, so the noise
+// SCALE is μ = √λ̂. λ̂ acts as an ensemble parameter (a temperature
+// ratio — rule 3's legal category), never as an energy; Q is touched
+// nowhere and maxQ ≤ V ≤ F always, so the menu-collapse danger sense
+// stays anchored. The grouping is per-node and measured — exactly the
+// per-node discrimination the premT scan proved a global rescale
+// lacks. Test-only, like every backup form; play never sets it.
+let LAMBDA_LIVE = 1;    // damped live λ̂ (1 = unmeasured = undeflated)
 function staticEval(g) {
     const base = g.fast_raw_mat();
     if (bathT <= T_FLOOR) return base;     // frozen bath: optionality is worthless
@@ -2171,6 +2203,23 @@ function computeF(Qs, n, cacheKey, tOver, mv, isUs) {
         let expSum = 0;
         for (const qg of gmax.values()) expSum += Math.exp((qg - maxQ) / Tn);
         val = maxQ + Tn * Math.log(expSum);
+    } else if (BACKUP_MODE === 'quenched' && mv) {
+        // Quenched premium (see the LAMBDA_LIVE note): nested-GEV Z —
+        // within each reply-group at μT, across groups at T, μ = √λ̂.
+        // Untagged children stay singletons (conservative: no measured
+        // refutation, no measured correlation). μ = 1 is F exactly.
+        const mu = Math.sqrt(Math.max(0, Math.min(1, LAMBDA_LIVE)));
+        const Tin = Math.max(mu * Tn, T_FLOOR);
+        const gsum = new Map();   // per-group Σ e^{(Q−maxQ)/μT}
+        for (let i = 0; i < n; i++) {
+            const k = mv[i] && mv[i]._reply !== undefined ? mv[i]._reply : -1 - i;
+            const w = Math.exp((Qs[i] - maxQ) / Tin);
+            gsum.set(k, (gsum.get(k) || 0) + w);
+        }
+        let expSum = 0;
+        for (const s of gsum.values())
+            expSum += Math.exp(Tin * Math.log(s) / Tn);   // e^{(F_g−maxQ)/T}
+        val = maxQ + Tn * Math.log(expSum);
     } else if ((EXK_MODE === true || EXK_MODE === 'z') && mv) {
         // exK: the king's moves enter Z as ONE microstate — its best
         // member. One actuator, one option; the absorbing coordinate
@@ -2381,7 +2430,8 @@ function annealRoot(g, opts) {
     basinCache.clear();
     EFF_PREMIUM = opts.effS === 'us' ? 'us' : !!opts.effS;
     BACKUP_MODE = (opts.backup === 'mean' || opts.backup === 'max' ||
-                   opts.backup === 'mean-us' || opts.backup === 'basin') ? opts.backup : '';
+                   opts.backup === 'mean-us' || opts.backup === 'basin' ||
+                   opts.backup === 'quenched') ? opts.backup : '';
     PREM_T_OVERRIDE = opts.premT > 0 ? opts.premT : 0;
     HOP_MODE = !!opts.hop;
     ALLOC_MODE = !!opts.alloc;
@@ -2543,6 +2593,9 @@ function annealRoot(g, opts) {
                         const lam = Math.max(0, Math.min(1, 1 - vShared / vTot));
                         result.lamHat = result.lamHat == null ? lam : 0.5 * (result.lamHat + lam);
                         result._lastLam = lam;
+                        // live λ̂ for the quenched premium: damped like
+                        // the thermometer, read by computeF next iteration
+                        LAMBDA_LIVE = 0.5 * (LAMBDA_LIVE + lam);
                     }
                 }
             }
@@ -2920,7 +2973,7 @@ function analyzeRoot(g, opts) {
 // move to play and the dashboard state — they can never disagree.
 function _runAnalyze(msg) {
     PAST_KEYS = msg.pastKeys || [];       // played-game repetition keys (see collectPastKeys)
-    if (msg.newGame) { jhatReset(); biteReset(); LEAF_TAXRATE = -1; }   // per-game instrument state
+    if (msg.newGame) { jhatReset(); biteReset(); LEAF_TAXRATE = -1; LAMBDA_LIVE = 1; }   // per-game instrument state
     const g = new Chess(msg.fen);
     const out = { turn: g.turn(), fen: g.fen(), gameOver: g.game_over() };
     if (out.gameOver) return out;
