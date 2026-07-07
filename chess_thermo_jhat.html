@@ -253,6 +253,8 @@ label { font-size: 0.85em; }
             <option value="z">exK Z</option>
             <option value="both">exK both</option>
         </select>
+        <label title="Gibbs leaf: G = U + T₀·lnW_us − T·lnW_them, root-anchored. Our activity is priced as zero-point (degeneracy) pressure work — geometry, cooling-proof — while the opponent's optionality alone pays the measured bath price. Equals the Helmholtz leaf exactly at T = T₀; diverges only as the bath heats, and the divergence is the self-indulgence channel. Interior premium untouched." style="cursor:pointer">
+            <input type="checkbox" id="labGibbs" onchange="labChanged()"> Gibbs leaf</label>
         <button onclick="labReset()" title="Clear all external fields — back to honest play">reset</button>
     </div>
 </div>
@@ -1491,6 +1493,40 @@ let NODE_LAM = -1;
 // values it has already measured cold. Test-only, like every backup
 // form; play never sets it.
 let NODE_SIG = null;   // per-child σ array for this node's computeF (sigma mode)
+// ── The Gibbs leaf (opts.gibbs): G = U + P·V − T·S_them ──────
+// The measured law (six deflation ladders, see sigma_probe.js) says
+// the premium's FUNCTION in play is strategic pressure, not thermal
+// optimism — so give our activity the thermodynamic term whose
+// function is mechanical work. The Helmholtz leaf prices BOTH sides'
+// optionality at the bath temperature, differentially:
+//     F-leaf = U + T·(lnW_us − lnW_them)
+// The Gibbs leaf decouples the two roles:
+//     G-leaf = U + P·lnW_us − T·lnW_them
+//   · THEIR optionality is genuinely thermal for us — every reply they
+//     hold is a source of noise in our forecast — and keeps the full
+//     measured bath price (the danger sense, now alone on the T dial:
+//     a hot bath amplifies the cost of their freedom and the reward
+//     for cornering them, not the worth of our own shuffling).
+//   · OUR activity is priced at the ZERO-POINT PRESSURE P = T₀: a
+//     quantum gas at T → 0 keeps degeneracy pressure set by its level
+//     spacing, and the evaluation lattice's spacing is already derived
+//     from geometry (one square of x-ray reach). Strategic drive that
+//     survives convergence IS degeneracy pressure. P is geometry, not
+//     an instrument — μ̄/β/T̂c as energies died three times (rule 3).
+// Roles are ROOT-ANCHORED (us = the deliberating side, fixed per
+// search like the μ census), not mover-alternating: with P ≠ T the
+// mover-alternating form carries a symmetric component that flips
+// sign with leaf parity — the exact disease that executed the
+// one-sided tempo charges thrice (rule 4). Root-anchoring removes it;
+// caches are per-search, so the TT stays coherent.
+// CORRESPONDENCE: at the bath floor T = T₀ the Gibbs leaf equals the
+// Helmholtz leaf exactly — the paradigms diverge only as the bath
+// heats, and the divergence is precisely the self-indulgence channel.
+// The interior premium is untouched at the full bath T: the measured
+// law is respected — nothing is subtracted from what F pays itself;
+// the leaf's exchange rate between the two sides' futures is what
+// changes. Test-only until its ladder reads.
+let GIBBS_MODE = false;
 function staticEval(g) {
     const base = g.fast_raw_mat();
     if (bathT <= T_FLOOR) return base;     // frozen bath: optionality is worthless
@@ -1498,10 +1534,20 @@ function staticEval(g) {
     const c = g.fast_mob_counts();
     const exk = EXK_MODE === true || EXK_MODE === 'leaf';
     const w = exk ? c.mw - c.kw : c.mw, b = exk ? c.mb - c.kb : c.mb;
+    const Tl = LEAF_T_OVERRIDE > 0 ? LEAF_T_OVERRIDE : bathT;
+    if (GIBBS_MODE) {
+        // Gibbs leaf (see the GIBBS_MODE note): root-anchored roles,
+        // our log-volume at the zero-point pressure, theirs at the bath.
+        const mover = g.fast_turn();
+        const wUs = fluxRootTurn === 'w' ? w : b;
+        const wThem = fluxRootTurn === 'w' ? b : w;
+        const gRoot = T_ZERO * Math.log(wUs + 1) - Tl * Math.log(wThem + 1);
+        return base + (mover === fluxRootTurn ? gRoot : -gRoot);
+    }
     const opt = (g.fast_turn() === 'w')
         ? Math.log(w + 1) - Math.log(b + 1)
         : Math.log(b + 1) - Math.log(w + 1);
-    return base + (LEAF_T_OVERRIDE > 0 ? LEAF_T_OVERRIDE : bathT) * opt;
+    return base + Tl * opt;
 }
 
 // ── Quiescence Search ──────────────────────────────────────
@@ -2572,6 +2618,7 @@ function annealRoot(g, opts) {
     HOP_MODE = !!opts.hop;
     ALLOC_MODE = !!opts.alloc;
     EXK_MODE = (opts.exK === 'leaf' || opts.exK === 'z') ? opts.exK : !!opts.exK;
+    GIBBS_MODE = !!opts.gibbs;
     hopFull = 0; hopSkip = 0;
 
     for (let depth = 1; depth <= maxDepth; depth++) {
@@ -3120,12 +3167,12 @@ function _runAnalyze(msg) {
             budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
             riskGuard: !!msg.riskGuard,
             basinSched: !!msg.basinSched, hop: !!msg.hop, alloc: !!msg.alloc,
-            exK: msg.exK,
+            exK: msg.exK, gibbs: !!msg.gibbs,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
             premT: msg.premT, effS: msg.effS, backup: msg.backup }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
             hop: !!msg.hop, alloc: !!msg.alloc,
-            exK: msg.exK,
+            exK: msg.exK, gibbs: !!msg.gibbs,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
             premT: msg.premT, effS: msg.effS, backup: msg.backup });
     // Echo the laboratory state this analysis actually ran under, so the
@@ -3135,7 +3182,7 @@ function _runAnalyze(msg) {
                 themT: msg.themT > 0 ? msg.themT : 0, premT: msg.premT > 0 ? msg.premT : 0,
                 backup: msg.backup || '', effS: msg.effS === true ? 'both' : (msg.effS || ''),
                 basinSched: !!msg.basinSched, hop: !!msg.hop, alloc: !!msg.alloc,
-                exK: msg.exK === true ? 'both' : (msg.exK || '') };
+                exK: msg.exK === true ? 'both' : (msg.exK || ''), gibbs: !!msg.gibbs };
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
@@ -3307,6 +3354,7 @@ function applyAnalysis(res, engineStats) {
         if (l.hop) parts.push('basin hop');
         if (l.alloc) parts.push('root alloc');
         if (l.exK) parts.push('exK=' + l.exK);
+        if (l.gibbs) parts.push('Gibbs leaf');
         if (parts.length) source += ' · ⚠ LAB: ' + parts.join(', ');
     }
     lastUw = res.Uw; lastUb = res.Ub; lastThermo = thermo; lastSource = source;
@@ -3372,16 +3420,18 @@ function labOpts() {
     const al = document.getElementById('labAlloc');
     const xk = document.getElementById('labExK');
     const xkv = xk && xk.value ? (xk.value === 'both' ? true : xk.value) : undefined;
+    const gb = document.getElementById('labGibbs');
     return { pinT: num('labPinT'), leafT: num('labLeafT'), themT: num('labThemT'),
              premT: num('labPremT'), backup: (bk && bk.value) || undefined,
              basinSched: (bs && bs.checked) || undefined,
              hop: (hp && hp.checked) || undefined,
              alloc: (al && al.checked) || undefined,
-             exK: xkv };
+             exK: xkv,
+             gibbs: (gb && gb.checked) || undefined };
 }
 function labChanged() {
     const o = labOpts();
-    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup || o.basinSched || o.hop || o.alloc || o.exK;
+    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup || o.basinSched || o.hop || o.alloc || o.exK || o.gibbs;
     document.getElementById('lab-panel').classList.toggle('lab-active', !!active);
     if (!thinking) refreshDashboard();   // re-read the position under the new fields
 }
@@ -3393,6 +3443,7 @@ function labReset() {
     document.getElementById('labHop').checked = false;
     document.getElementById('labAlloc').checked = false;
     document.getElementById('labExK').value = '';
+    document.getElementById('labGibbs').checked = false;
     labChanged();
 }
 let uiBank = 0;   // scheduler time bank: frozen decisions fund hard ones

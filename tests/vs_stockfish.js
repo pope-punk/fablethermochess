@@ -35,8 +35,9 @@ const HOP = MODE === 'hop' || MODE === 'hopalloc';   // basin-hopping truncation
 const ALLOC = MODE === 'alloc' || MODE === 'hopalloc' || MODE === 'allocsched';  // root allocation (kinetics only)
 const GUARD = MODE === 'guard';              // schedule + absorbing-risk freeze guard (freeze_guard_replay.js)
 const EXK = MODE === 'exk' ? true : MODE === 'exkleaf' ? 'leaf' : MODE === 'exkz' ? 'z' : undefined;  // king moves carry no entropy (fixed time)
+const GIBBS = MODE === 'gibbs';              // Gibbs leaf: G = U + T0*lnW_us - T*lnW_them, root-anchored (fixed time)
 const SCHEDULE = MODE === 'schedule' || BASINSCHED || MODE === 'allocsched' || GUARD;  // measure + sigma_eff time management with banking
-const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC || EXK !== undefined;
+const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC || EXK !== undefined || GIBBS;
 
 const OPENINGS = [
   { name: 'Italian complex',       line: ['e4', 'e5', 'Nf3', 'Nc6'] },
@@ -108,10 +109,10 @@ async function playGame(sf, opening, engineIsWhite) {
       const allowed = SCHEDULE ? ENGINE_MS + Math.min(bank, 3 * ENGINE_MS) : ENGINE_MS;
       const res = E._runAnalyze({ fen: g.fen(), timeLimit: allowed, pastKeys: keys.slice(0, -1),
                                   probe: PROBE, schedule: SCHEDULE, basinSched: BASINSCHED, hop: HOP,
-                                  alloc: ALLOC, riskGuard: GUARD, exK: EXK,
+                                  alloc: ALLOC, riskGuard: GUARD, exK: EXK, gibbs: GIBBS,
                                   newGame: (SCHEDULE || LEAFMU) && engFirst,
                                   leafMu: LEAFMU, backup: BACKUP,
-                                  flux: (MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC || EXK !== undefined) ? 'measure' : FLUX });
+                                  flux: (MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC || EXK !== undefined || GIBBS) ? 'measure' : FLUX });
       engFirst = false;
       // income is BASE per move; a draw from the bank is real expenditure
       // (the first A/B credited moves with their own draw — a perpetual
