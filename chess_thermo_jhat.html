@@ -239,6 +239,7 @@ label { font-size: 0.85em; }
             <option value="mean-us">mean-us (!)</option>
             <option value="basin">basin premium</option>
             <option value="quenched">quenched (&#956;=&#8730;&#955;&#770;)</option>
+            <option value="sigma">&#963;-premium (per-option noise)</option>
         </select>
         <label title="basin clock: the scheduler freezes on the top-two BASIN gap (nearest genuinely different plan) instead of the top-two move gap — synonyms don't earn thinking time. Retired at 7.5/12 vs the 9/12 baseline; kept for reproduction." style="cursor:pointer">
             <input type="checkbox" id="labBasinSched" onchange="labChanged()"> basin clock</label>
@@ -1450,6 +1451,46 @@ let EXK_MODE = false;   // false | 'leaf' | 'z' | true
 // per-node discrimination the premT scan proved a global rescale
 // lacks. Test-only, like every backup form; play never sets it.
 let LAMBDA_LIVE = 1;    // damped live λ̂ (1 = unmeasured = undeflated)
+// Per-node λ̂ (quenched v2): the pooled root λ̂ proved too coarse — it
+// averages a trap hedge's near-total internal correlation with the
+// honest groups' independence, and the one group that needed μ→0 got
+// μ≈0.9 (probe record in quenched_probe.js). But the transposition
+// table already holds the same-parity revision history of EVERY node:
+// a child's fresh full value lives at depth−1 and its parity partner
+// at depth−3 is still cached from the previous iteration (annealing
+// with hysteresis); at depth = 2 the partner is the static material
+// baseline — the same seed pair the root thermometer uses. So each
+// interior node can run the v3 independence recipe (drift-centered,
+// reply-grouped, Boltzmann-weighted) on its own children for one Map
+// lookup per child. Nodes without ≥3 measured pairs fall back to the
+// damped global λ̂; unmeasured = undeflated. Set per node just before
+// its computeF; −1 = no node-local reading.
+let NODE_LAM = -1;
+// ── The heteroscedastic premium (backup: 'sigma') ────────────
+// The adjudication measurement (quenched_probe.js) split the central
+// disease in two: the trap face IS a correlation overcount (λ̂ 0.57)
+// but self-heals exactly when it becomes measurable; the open face
+// (post-exf6, 29 moves, λ̂ 0.81) is HONESTLY independent optionality
+// among known-bad options — 29 resolved ways to be down a knight,
+// priced at the global bath T as if still uncertain. The missing
+// state variable: the ensemble has ONE temperature but the
+// microstates have DIFFERENT residual uncertainties. The winner's-
+// curse premium of option a should ride its OWN measured noise σ_a —
+// a resolved option (deep, stable, small same-parity revision) has
+// nothing left to be optimistic about; only frontier options deserve
+// the full quantum. The exact identity F − ⟨Q⟩_π = T·S generalizes:
+//     V = ⟨Q⟩_π + Σ_a π_a · σ_a · (−ln π_a)
+// with the ensemble π untouched at the bath T (the premT pattern) and
+// σ_a = √(rev_a² + T₀²) — each child's same-parity revision riding
+// the zero-point quantum, the SAME functional form as the bath itself
+// (bathT = √(measT² + T₀²)); no new constants. σ_a = T for all a
+// recovers F exactly; unmeasured children (frontier, tails) keep
+// σ = bathT — unmeasured = undeflated. The accumulated entropy
+// ladder along RESOLVED lines collapses to the frontier layer only:
+// the engine stops paying itself, level after level, for menus whose
+// values it has already measured cold. Test-only, like every backup
+// form; play never sets it.
+let NODE_SIG = null;   // per-child σ array for this node's computeF (sigma mode)
 function staticEval(g) {
     const base = g.fast_raw_mat();
     if (bathT <= T_FLOOR) return base;     // frozen bath: optionality is worthless
@@ -2021,8 +2062,11 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
     }
 
     let Qs;
+    let nodeLam = -1;    // node-local λ̂ (quenched mode); −1 = unmeasured
+    let nodeSig = null;  // per-child σ (sigma mode); null = no child measured
 
     const basinMode = BACKUP_MODE === 'basin' || HOP_MODE;
+    const QUENCH = BACKUP_MODE === 'quenched' || BACKUP_MODE === 'sigma';
     if (depth === 1) {
         // Depth 1: quiescence is already the cheapest eval, nothing to truncate.
         Qs = new Array(n);
@@ -2086,6 +2130,12 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
             hopRep = new Set();
         }
         let recursed = 0;
+        // Quenched mode: same-parity revision samples for the node-local
+        // λ̂ (see the NODE_LAM note). The child's fresh full value is at
+        // depth−1; its parity partner at depth−3 is still in the TT from
+        // the previous iteration; at depth = 2 the partner is the static
+        // material baseline (the root thermometer's own seed pair).
+        const revS = QUENCH ? new Array(n).fill(null) : null;
         for (let r = 0; r < n; r++) {
             if (recursed >= TRUNC_MAX) break;
             const i = order[r];
@@ -2097,9 +2147,20 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
             const m0 = basinMode ? cenMatSum : 0, k0 = basinMode ? cenMatCnt : 0,
                   u0 = basinMode ? taxUs : 0, h0 = basinMode ? taxThem : 0;
             g.fast_make(moves[i]);
-            const ck = basinMode ? g.fast_hash() * 128 + (depth - 1) : 0;
+            const chash = (basinMode || QUENCH) ? g.fast_hash() : 0;
+            const ck = basinMode ? chash * 128 + (depth - 1) : 0;
+            let revP = null;
+            if (QUENCH) {
+                if (depth === 2) revP = -g.fast_raw_mat();     // static baseline, this-node POV
+                else {
+                    const c3 = thermoCache.get(chash * 128 + (depth - 3));
+                    if (c3 !== undefined) revP = -c3;          // child POV → this-node POV
+                }
+            }
             Qs[i] = -tickMate(thermoSearch(g, depth - 1, pathKeys, moves[i]));
             g.fast_undo();
+            if (revS && revP != null && Math.abs(revP) < MATE_NEAR && Math.abs(Qs[i]) < MATE_NEAR)
+                revS[i] = Qs[i] - revP;
             if (basinMode) {
                 const bf = { ms: cenMatSum - m0, mk: cenMatCnt - k0,
                              tu: taxUs - u0, tt: taxThem - h0 };
@@ -2114,6 +2175,55 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
             // cross-parity pair — it would read the entropy ladder)
         }
         pathKeys.delete(posKey);
+
+        // Node-local λ̂: the v3 recipe (drift-centered, reply-grouped,
+        // Boltzmann-weighted) run on this node's own children. The
+        // entropy ladder cancels in each sample (same-parity pair) and
+        // calibration drift cancels in the centering; what remains is
+        // the co-movement of sibling revisions within reply groups —
+        // hedges breathing through one killer read λ̂ → 0, independent
+        // plans read λ̂ → 1. cnt ≥ 3 is the root instrument's own gate.
+        if (revS) {
+            let maxQc = -Infinity;
+            for (let i = 0; i < n; i++) if (revS[i] != null && Qs[i] > maxQc) maxQc = Qs[i];
+            if (Number.isFinite(maxQc)) {
+                let wS = 0, m1 = 0, cnt = 0;
+                for (let i = 0; i < n; i++) {
+                    if (revS[i] == null) continue;
+                    const w = Math.exp((Qs[i] - maxQc) / bathT);
+                    wS += w; m1 += w * revS[i]; cnt++;
+                }
+                if (cnt >= 3 && wS > 0) {
+                    const drift = m1 / wS;
+                    const groups = new Map();
+                    let vTot = 0;
+                    for (let i = 0; i < n; i++) {
+                        if (revS[i] == null) continue;
+                        const w = Math.exp((Qs[i] - maxQc) / bathT);
+                        const rt = revS[i] - drift;
+                        vTot += w * rt * rt;
+                        const k2 = moves[i]._reply !== undefined ? moves[i]._reply : -1 - i;
+                        const gg = groups.get(k2);
+                        if (gg) { gg.W += w; gg.S1 += w * rt; gg.n++; }
+                        else groups.set(k2, { W: w, S1: w * rt, n: 1 });
+                    }
+                    if (vTot > 1e-9) {
+                        let vShared = 0;
+                        for (const gg of groups.values())
+                            if (gg.n >= 2) vShared += (gg.S1 * gg.S1) / gg.W;
+                        nodeLam = Math.max(0, Math.min(1, 1 - vShared / vTot));
+                    }
+                }
+            }
+            // Per-child σ for the heteroscedastic premium: each child's
+            // same-parity revision riding the zero-point quantum — the
+            // same functional form as the bath (√(meas² + T₀²)).
+            for (let i = 0; i < n; i++) {
+                if (revS[i] == null) continue;
+                if (!nodeSig) nodeSig = new Array(n).fill(-1);
+                nodeSig[i] = Math.sqrt(revS[i] * revS[i] + T_ZERO * T_ZERO);
+            }
+        }
     }
 
     // Reply tagging for the redundancy instrument: when this node is a
@@ -2128,6 +2238,8 @@ function thermoSearch(g, depth, pathKeys, tagMove) {
         if (tagMove !== undefined) tagMove._reply = rk;
         if (replyCache.size < THERMO_CACHE_MAX) replyCache.set(key, rk);
     }
+    NODE_LAM = nodeLam;   // read (and only read) by the quenched branch of computeF
+    NODE_SIG = nodeSig;   // per-child σ for the sigma branch (null when unmeasured)
     return computeF(Qs, n, key,
         (THEM_T_OVERRIDE > 0 && g.fast_turn() !== fluxRootTurn) ? THEM_T_OVERRIDE : 0,
         moves, g.fast_turn() === fluxRootTurn);
@@ -2203,12 +2315,36 @@ function computeF(Qs, n, cacheKey, tOver, mv, isUs) {
         let expSum = 0;
         for (const qg of gmax.values()) expSum += Math.exp((qg - maxQ) / Tn);
         val = maxQ + Tn * Math.log(expSum);
+    } else if (BACKUP_MODE === 'sigma') {
+        // Heteroscedastic premium (see the NODE_SIG note): the ensemble
+        // π stays at the bath; each microstate's entropy contribution is
+        // priced at its OWN measured residual noise. σ_a = Tn for all a
+        // recovers F exactly; resolved children (small revisions) stop
+        // paying the winner's curse; unmeasured children keep σ = bath.
+        let wSum = 0, qSum = 0;
+        const ws = new Array(n);
+        for (let i = 0; i < n; i++) {
+            const w = Math.exp((Qs[i] - maxQ) / Tn);
+            ws[i] = w; wSum += w; qSum += w * (Qs[i] - maxQ);
+        }
+        let prem = 0;
+        for (let i = 0; i < n; i++) {
+            const p = ws[i] / wSum;
+            if (p <= 1e-15) continue;
+            const sig = (NODE_SIG && NODE_SIG[i] >= 0) ? NODE_SIG[i] : Tn;
+            prem += p * sig * (-Math.log(p));
+        }
+        val = maxQ + qSum / wSum + prem;
     } else if (BACKUP_MODE === 'quenched' && mv) {
         // Quenched premium (see the LAMBDA_LIVE note): nested-GEV Z —
         // within each reply-group at μT, across groups at T, μ = √λ̂.
         // Untagged children stay singletons (conservative: no measured
         // refutation, no measured correlation). μ = 1 is F exactly.
-        const mu = Math.sqrt(Math.max(0, Math.min(1, LAMBDA_LIVE)));
+        // λ̂ is hierarchical: this node's own reading when its children
+        // carried ≥3 same-parity revision pairs (NODE_LAM), else the
+        // damped global instrument — the finest measured level speaks.
+        const lamEff = NODE_LAM >= 0 ? NODE_LAM : LAMBDA_LIVE;
+        const mu = Math.sqrt(Math.max(0, Math.min(1, lamEff)));
         const Tin = Math.max(mu * Tn, T_FLOOR);
         const gsum = new Map();   // per-group Σ e^{(Q−maxQ)/μT}
         for (let i = 0; i < n; i++) {
@@ -2431,7 +2567,7 @@ function annealRoot(g, opts) {
     EFF_PREMIUM = opts.effS === 'us' ? 'us' : !!opts.effS;
     BACKUP_MODE = (opts.backup === 'mean' || opts.backup === 'max' ||
                    opts.backup === 'mean-us' || opts.backup === 'basin' ||
-                   opts.backup === 'quenched') ? opts.backup : '';
+                   opts.backup === 'quenched' || opts.backup === 'sigma') ? opts.backup : '';
     PREM_T_OVERRIDE = opts.premT > 0 ? opts.premT : 0;
     HOP_MODE = !!opts.hop;
     ALLOC_MODE = !!opts.alloc;

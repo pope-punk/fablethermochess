@@ -1,2 +1,10 @@
 === cur:quenched vs ref (12 games, 400ms) ===
    cur:quenched vs ref → 1/2 ( 61 plies, final mat 210 cp )
+   ref vs cur:quenched → 0-1 ( 160 plies, final mat -1310 cp )
+   cur:quenched vs ref → 1/2 ( 50 plies, final mat 700 cp )
+   ref vs cur:quenched → 1/2 ( 147 plies, final mat 0 cp )
+   cur:quenched vs ref → 0-1 ( 54 plies, final mat -1020 cp )
+   ref vs cur:quenched → 1/2 ( 41 plies, final mat 810 cp )
+   cur:quenched vs ref → 1/2 ( 43 plies, final mat -100 cp )
+   ref vs cur:quenched → 1/2 ( 98 plies, final mat 1600 cp )
+   cur:quenched vs ref → 1-0 ( 244 plies, final mat 900 cp )
