@@ -1,2 +1,17 @@
 === cur:exkleaf vs ref (12 games, 400ms) ===
    cur:exkleaf vs ref → 1/2 ( 63 plies, final mat 210 cp )
+   ref vs cur:exkleaf → 0-1 ( 244 plies, final mat -600 cp )
+   cur:exkleaf vs ref → 0-1 ( 86 plies, final mat -1520 cp )
+   ref vs cur:exkleaf → 1/2 ( 80 plies, final mat 100 cp )
+   cur:exkleaf vs ref → 1/2 ( 78 plies, final mat -2420 cp )
+   ref vs cur:exkleaf → 1/2 ( 38 plies, final mat 810 cp )
+   cur:exkleaf vs ref → 1/2 ( 55 plies, final mat -110 cp )
+   ref vs cur:exkleaf → 1/2 ( 83 plies, final mat 1500 cp )
+   cur:exkleaf vs ref → 1-0 ( 244 plies, final mat 500 cp )
+   ref vs cur:exkleaf → 1-0 ( 71 plies, final mat 1000 cp )
+   cur:exkleaf vs ref → 1/2 ( 63 plies, final mat -500 cp )
+   ref vs cur:exkleaf → 1/2 ( 160 plies, final mat 900 cp )
+
+SCORE: {"cur:exkleaf":2,"ref":2,"draws":8}
+BLUNDERS (>=250cp lost in 2 plies): {"cur:exkleaf":27,"ref":27}
+blunder positions saved: 54
