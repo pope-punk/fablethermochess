@@ -33,6 +33,32 @@
 //   Alekhine root (hedge disease, not king): Δ(d6−Nd5) +1.02 → +0.94
 //     under exK — essentially unchanged, as predicted.
 //
+// ── LADDER VERDICT (exK='leaf', negative — July 2026) ──
+//   oracle: +2−2=8, 27 blunders (F baseline +2−1=9, 16) — tied match
+//     (borderline pass; v1 hop LOST 0W2L/31) but blunder inflation
+//     says the leaf recount measurably degrades tactical valuation.
+//   gauntlet: 6/12 vs the 7.5 measure baseline (W4 D4 L4; 2 castles,
+//     the most in any fixed-time run). The threefold draws were
+//     defensive SALVATIONS (−690/−200 material, one escape from −28),
+//     not blown wins — the cost is upstream: fewer winning positions
+//     reached at all. T-at-depth: d3 clean (1.74 vs 1.71), d4 hotter
+//     (4.61 vs 2.00), runaway share 6.6% vs 4.1%.
+//   Reading: the king's leaf move count carries real evaluative
+//     signal — plausibly BOTH our exposure (the targeted pathology)
+//     and the opponent's cornering (their king's vanishing menu is
+//     the approach to the absorbing state — the mate-proximity
+//     gradient). Removing it side-symmetrically removes both; a
+//     one-sided removal would be the parity violation that killed
+//     the tempo charges thrice. Either the exposure-reward share is
+//     smaller than the signal share, or n=12 cannot resolve it.
+//   Both surfaces now retired: 'z' on the endgame gate (a won K+P
+//     ending LOST), 'leaf' on the gauntlet. The recurring motif
+//     hardens: every entropy term is one number read from opposite
+//     sides — the premium is the danger sense (backup forms), the
+//     exposure bonus is the cornering gradient (exK). Deflations of
+//     F's own accounting have now lost five ladders in a row; the
+//     evaluation's cure, if it exists, is not a subtraction.
+//
 //   node tests/exk_probe.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
 const E0 = fresh();

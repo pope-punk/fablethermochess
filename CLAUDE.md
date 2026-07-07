@@ -106,7 +106,14 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   Alekhine case (recorded); the question is net strength.
 - **The central open problem**: "self-indulgence" — the interior choice premium
   prices nominal rather than effective multiplicity; decision flips at T* ≈ 1.0 =
-  the zero-point floor (see status page §3 and `tests/t_decompose.js`).
+  the zero-point floor (see status page §3 and `tests/t_decompose.js`). The exK
+  experiment (July 2026, `tests/exk_probe.js`) extended the pattern to the king:
+  excluding king moves from entropy ('z' interior recount) LOSES a won K+P ending
+  (endgame gate, pre-gauntlet); the 'leaf' surface read 6/12 vs 7.5 with oracle
+  blunders 27 vs 16. The king's move count is one number carrying two signals —
+  our exposure AND their cornering (the mate-proximity gradient). Five entropy-
+  deflation ladders in a row now negative (mean, max, basin, effS-on-probation,
+  exK): the evaluation's cure, if it exists, is not a subtraction.
 - **Thermal runaway** in decided positions: documented, cut in analysis, uncured —
   but nearly halved in play under `alloc` (deeper quenching of decided positions;
   2.8% vs 4.1% of moves at T>20, runaway clock-stops 13 vs 30).
