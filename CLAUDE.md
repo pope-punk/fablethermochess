@@ -104,16 +104,32 @@ compared with `node tests/ab_compare.js` against the relevant baseline
 - **S_eff premium gauntlet**: the effective-entropy mechanism (UI toggle, off by
   default) awaits its A/B ladder after interactive testing. It does NOT fix the
   Alekhine case (recorded); the question is net strength.
-- **The central open problem**: "self-indulgence" — the interior choice premium
-  prices nominal rather than effective multiplicity; decision flips at T* ≈ 1.0 =
-  the zero-point floor (see status page §3 and `tests/t_decompose.js`). The exK
-  experiment (July 2026, `tests/exk_probe.js`) extended the pattern to the king:
-  excluding king moves from entropy ('z' interior recount) LOSES a won K+P ending
-  (endgame gate, pre-gauntlet); the 'leaf' surface read 6/12 vs 7.5 with oracle
-  blunders 27 vs 16. The king's move count is one number carrying two signals —
-  our exposure AND their cornering (the mate-proximity gradient). Five entropy-
-  deflation ladders in a row now negative (mean, max, basin, effS-on-probation,
-  exK): the evaluation's cure, if it exists, is not a subtraction.
+- **The central open problem — now with a measured law (July 2026)**: the
+  premium-deflation program is CLOSED, six ladders deep. The quenched premium
+  (nested-GEV over the reply partition, μ=√λ̂ — `tests/quenched_probe.js`)
+  formalized F as the ANNEALED free energy and the killer refutation as
+  quenched disorder; its adjudication measurement split the disease in two
+  (trap face = correlation, λ̂ 0.57, self-heals on resolution; open face =
+  honestly independent resolved options overpriced at the bath T). That led
+  to the heteroscedastic premium (`tests/sigma_probe.js`, backup 'sigma'):
+  V = ⟨Q⟩_π + Σ π_a·σ_a·(−ln π_a) with σ_a per child from same-parity TT
+  revisions riding the zero-point quantum — THE FIRST MECHANISM EVER to cure
+  the Alekhine at honest temperatures (d4 plays Nd5; pinT-sound 1.0–3.0;
+  fine70 converts FASTER) — and it collapsed in the gauntlet at 3.5/12,
+  tied-worst with 'mean' (7 mate losses; two games lost from the opening).
+  THE LAW: the interior choice premium at the full bath temperature is
+  load-bearing at exactly its uncorrected size — deflation by count (mean
+  3.5), structure (basin 6), category (exK-leaf 6), measured correlation
+  (quenched: no cure), or measured per-option resolution (sigma 3.5) all
+  read negative; the Alekhine cure and the strength collapse are one dial.
+  The Gumbel/winner's-curse reading explains the premium's FORM; its
+  FUNCTION in play is strategic — nominal flexibility exerts real pressure
+  on an adversary who must answer it, and it keeps paying after values
+  resolve. Any future cure must ADD what F cannot see (rule-3-legal
+  channels: ensemble parameters, attention, time) rather than subtract what
+  it overpays. New certified instrumentation from this program, available
+  to any future mechanism: per-child same-parity revisions mined from the
+  TT's own history (σ_a), and per-node λ̂.
 - **Thermal runaway** in decided positions: documented, cut in analysis, uncured —
   but nearly halved in play under `alloc` (deeper quenching of decided positions;
   2.8% vs 4.1% of moves at T>20, runaway clock-stops 13 vs 30).

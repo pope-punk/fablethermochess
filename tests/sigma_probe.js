@@ -40,9 +40,32 @@
 //     conversion: the opponent's known-junk options stop earning
 //     premium, so progress reads clearer).
 //   Determinism: PASS.
-// Ladder next: oracle match (the danger-sense question — mean/max
-// died mated-while-ahead; sigma keeps the premium at the frontier
-// where the uncertainty actually lives), then the fixed-time gauntlet.
+// ── LADDER VERDICT (negative — the sharpest one yet, July 2026) ──
+//   oracle: +3−2=7, 24 blunders — match won, draws swindled from −1410
+//     and −2800, no wholesale danger-sense loss at oracle level.
+//   gauntlet: 3.5/12 vs the 7.5 measure baseline (W2 D3 L7, 7 mate
+//     losses) — tied with 'mean' for the worst score in the program's
+//     history. One mated-while-ahead (+710); two games lost FROM THE
+//     OPENING (last non-losing eval at ply 4 and 7) — the mean-family
+//     signature: without the full premium the engine loses the early
+//     initiative fight. Bath cool (5.1), runaway 4.4%: not a
+//     thermometer story.
+//   THE LAW, six ladders deep: the interior choice premium at the
+//     full bath temperature is load-bearing at exactly its uncorrected
+//     size. Every deflation — by count (mean 3.5), by structure (basin
+//     6), by category (exK-leaf 6), by measured correlation (quenched:
+//     no cure), or by measured per-option resolution (sigma 3.5, the
+//     first-ever honest-T Alekhine cure) — reads negative. The cure
+//     and the collapse are ONE DIAL: at these stakes the blunder is
+//     cheaper than any yet-discovered price for removing it. The
+//     Gumbel/winner's-curse reading explains the premium's FORM, but
+//     its empirical FUNCTION in play is strategic, not statistical —
+//     it keeps paying off after values resolve, i.e. nominal
+//     flexibility exerts real pressure on an adversary who must
+//     answer it. What remains of the σ machinery: the per-child
+//     same-parity revision instrument (TT-history mining) and the
+//     per-node λ̂ — new certified instrumentation, available to any
+//     future mechanism.
 //
 //   node tests/sigma_probe.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
