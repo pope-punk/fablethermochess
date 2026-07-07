@@ -1,2 +1,17 @@
 === cur:sigma vs ref (12 games, 400ms) ===
    cur:sigma vs ref → 1/2 ( 33 plies, final mat -200 cp )
+   ref vs cur:sigma → 1-0 ( 95 plies, final mat 1300 cp )
+   cur:sigma vs ref → 1-0 ( 63 plies, final mat 620 cp )
+   ref vs cur:sigma → 1/2 ( 91 plies, final mat 600 cp )
+   cur:sigma vs ref → 1/2 ( 124 plies, final mat -1410 cp )
+   ref vs cur:sigma → 0-1 ( 56 plies, final mat 500 cp )
+   cur:sigma vs ref → 1/2 ( 117 plies, final mat -700 cp )
+   ref vs cur:sigma → 0-1 ( 116 plies, final mat -1000 cp )
+   cur:sigma vs ref → 1/2 ( 123 plies, final mat -610 cp )
+   ref vs cur:sigma → 1-0 ( 55 plies, final mat 1110 cp )
+   cur:sigma vs ref → 1/2 ( 80 plies, final mat -2800 cp )
+   ref vs cur:sigma → 1/2 ( 18 plies, final mat 100 cp )
+
+SCORE: {"cur:sigma":3,"ref":2,"draws":7}
+BLUNDERS (>=250cp lost in 2 plies): {"cur:sigma":24,"ref":19}
+blunder positions saved: 43
