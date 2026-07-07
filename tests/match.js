@@ -46,6 +46,9 @@ function makePlayer(kind, Chess) {
   const opts = variant === 'hop' ? { hop: true }
              : variant === 'alloc' ? { alloc: true }
              : variant === 'hopalloc' ? { hop: true, alloc: true }
+             : variant === 'exk' ? { exK: true }
+             : variant === 'exkleaf' ? { exK: 'leaf' }
+             : variant === 'exkz' ? { exK: 'z' }
              : { backup: variant };
   return { name: kind, move: (fen, ms, pastKeys) => E._runAnalyze(Object.assign({ fen, timeLimit: ms, pastKeys }, opts)).san };
 }

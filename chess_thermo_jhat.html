@@ -245,6 +245,12 @@ label { font-size: 0.85em; }
             <input type="checkbox" id="labHop" onchange="labChanged()"> basin hop</label>
         <label title="root alloc: the scheduler brought inside the move — the root obeys the same dominant-set truncation law as every interior node (3T window, top two always, TRUNC_MAX cap). Frozen children keep their standing value in Z and feed no thermometer sample; the width saved becomes depth. With basin hop also on, the live window is deduplicated by plan." style="cursor:pointer">
             <input type="checkbox" id="labAlloc" onchange="labChanged()"> root alloc</label>
+        <select id="labExK" onchange="labChanged()" title="exK: the absorbing coordinate carries no entropy. The energy side already prices king mobility at zero ('walking it into the open is rewarded with no safety offset'); mate is the vanishing of the king's menu, so the king's move count is the order parameter of the absorbing transition, not thermal option supply. leaf = exclude king moves from both sides' leaf mobility counts; Z = king moves enter every interior partition function as ONE microstate (best member); both = the full mechanism. Exposure stops being rewarded; nothing is penalized.">
+            <option value="">exK —</option>
+            <option value="leaf">exK leaf</option>
+            <option value="z">exK Z</option>
+            <option value="both">exK both</option>
+        </select>
         <button onclick="labReset()" title="Clear all external fields — back to honest play">reset</button>
     </div>
 </div>
@@ -1014,9 +1020,12 @@ var Chess = function(fen) {
       return { Uw:Mw, Ub:Mb };
     },
     /* Pseudo-legal move counts per side, one board scan, no allocation:
-     * the microstate count W of each side's bare move ensemble. */
+     * the microstate count W of each side's bare move ensemble. Also
+     * returns each side's KING share (kw/kb) separately, so the exK
+     * mechanism can exclude the absorbing coordinate from the leaf
+     * entropy while the bite instrument keeps reading the full menu. */
     fast_mob_counts: function() {
-      var mw = 0, mb = 0, NOFF = PIECE_OFFSETS.n, KOFF = PIECE_OFFSETS.k;
+      var mw = 0, mb = 0, kw = 0, kb = 0, NOFF = PIECE_OFFSETS.n, KOFF = PIECE_OFFSETS.k;
       for (var i = SQUARES.a8; i <= SQUARES.h1; i++) {
         if (i & 0x88) { i += 7; continue; }
         var p = board[i]; if (p == null) continue;
@@ -1039,6 +1048,7 @@ var Chess = function(fen) {
             sq = i + offs[k];
             if (!(sq & 0x88) && (board[sq] == null || board[sq].color !== p.color)) cnt++;
           }
+          if (t === 'k') { if (p.color === WHITE) kw = cnt; else kb = cnt; }
         } else {
           var dirs = PIECE_OFFSETS[t];
           for (k = 0; k < dirs.length; k++) {
@@ -1051,7 +1061,7 @@ var Chess = function(fen) {
         }
         if (p.color === WHITE) mw += cnt; else mb += cnt;
       }
-      return { mw: mw, mb: mb };
+      return { mw: mw, mb: mb, kw: kw, kb: kb };
     },
     /* Null move (pass): flips the side to move and clears en passant,
      * touching no pieces — the perturbation used by the tempo-
@@ -1380,14 +1390,44 @@ let HOP_MODE = false;
 // ordinary quenched deepening.
 let ALLOC_MODE = false;
 let hopFull = 0, hopSkip = 0;   // per-search kinetics accounting
+// ── exK: the absorbing coordinate carries no entropy (opts.exK) ──
+// The energy side already declares the king's mobility valueless:
+// PIECE_BASE['k'] = 0, "walking it into the open is rewarded with no
+// safety offset." The entropy channels then undo that decision — the
+// leaf pays T·lnW for the same walk, and every interior Z counts king
+// shuffles as microstates. But mate is DEFINED as the vanishing of the
+// king's menu: the king's move count is the order parameter of the
+// absorbing transition, not a thermal option supply, and rule 2 says
+// absorbing states are not thermal. exK extends that rule from the
+// absorbing state to the absorbing coordinate:
+//   'leaf' — king moves are excluded from both sides' leaf mobility
+//            counts (side-symmetric by construction, rule 4);
+//   'z'    — at every interior node the king's moves enter Z as ONE
+//            microstate (their best member): the king is one actuator,
+//            and its menu is one option — repositioning the boundary
+//            condition, not strategic multiplicity;
+//   true   — both.
+// Exposure thereby stops being REWARDED (an open king no longer earns
+// more entropy than a tucked one); it is not actively penalized — no
+// king-safety term, no threat modulation, no constants. Checks read
+// MORE forcing (an in-check node's escape fan collapses to one
+// microstate), so the menu-collapse danger sense sharpens rather than
+// blunts. Instruments (bite, μ census) keep reading the full menu.
+// The known limits, recorded before the ladder: this cannot touch the
+// queen-mobility share of self-indulgence, and endgames are the risk
+// zone (king activity is the whole game there — fine70 and the
+// trébuchet gate the change).
+let EXK_MODE = false;   // false | 'leaf' | 'z' | true
 function staticEval(g) {
     const base = g.fast_raw_mat();
     if (bathT <= T_FLOOR) return base;     // frozen bath: optionality is worthless
     if (g.fast_in_check()) return base;
     const c = g.fast_mob_counts();
+    const exk = EXK_MODE === true || EXK_MODE === 'leaf';
+    const w = exk ? c.mw - c.kw : c.mw, b = exk ? c.mb - c.kb : c.mb;
     const opt = (g.fast_turn() === 'w')
-        ? Math.log(c.mw + 1) - Math.log(c.mb + 1)
-        : Math.log(c.mb + 1) - Math.log(c.mw + 1);
+        ? Math.log(w + 1) - Math.log(b + 1)
+        : Math.log(b + 1) - Math.log(w + 1);
     return base + (LEAF_T_OVERRIDE > 0 ? LEAF_T_OVERRIDE : bathT) * opt;
 }
 
@@ -2131,6 +2171,20 @@ function computeF(Qs, n, cacheKey, tOver, mv, isUs) {
         let expSum = 0;
         for (const qg of gmax.values()) expSum += Math.exp((qg - maxQ) / Tn);
         val = maxQ + Tn * Math.log(expSum);
+    } else if ((EXK_MODE === true || EXK_MODE === 'z') && mv) {
+        // exK: the king's moves enter Z as ONE microstate — its best
+        // member. One actuator, one option; the absorbing coordinate
+        // carries no strategic multiplicity (see the EXK_MODE note).
+        // An all-king-move node (bare-king evasions) degenerates to a
+        // single microstate: F = best evasion, no premium — a check
+        // met only by king moves is maximally forcing.
+        let expSum = 0, kBest = -Infinity;
+        for (let i = 0; i < n; i++) {
+            if (mv[i].piece === 'k') { if (Qs[i] > kBest) kBest = Qs[i]; }
+            else expSum += Math.exp((Qs[i] - maxQ) / Tn);
+        }
+        if (kBest > -Infinity) expSum += Math.exp((kBest - maxQ) / Tn);
+        val = maxQ + Tn * Math.log(expSum);
     } else {
         let expSum = 0;
         for (let i = 0; i < n; i++) expSum += Math.exp((Qs[i] - maxQ) / Tn);
@@ -2331,6 +2385,7 @@ function annealRoot(g, opts) {
     PREM_T_OVERRIDE = opts.premT > 0 ? opts.premT : 0;
     HOP_MODE = !!opts.hop;
     ALLOC_MODE = !!opts.alloc;
+    EXK_MODE = (opts.exK === 'leaf' || opts.exK === 'z') ? opts.exK : !!opts.exK;
     hopFull = 0; hopSkip = 0;
 
     for (let depth = 1; depth <= maxDepth; depth++) {
@@ -2876,10 +2931,12 @@ function _runAnalyze(msg) {
             budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
             riskGuard: !!msg.riskGuard,
             basinSched: !!msg.basinSched, hop: !!msg.hop, alloc: !!msg.alloc,
+            exK: msg.exK,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
             premT: msg.premT, effS: msg.effS, backup: msg.backup }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
             hop: !!msg.hop, alloc: !!msg.alloc,
+            exK: msg.exK,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
             premT: msg.premT, effS: msg.effS, backup: msg.backup });
     // Echo the laboratory state this analysis actually ran under, so the
@@ -2888,7 +2945,8 @@ function _runAnalyze(msg) {
     out.lab = { pinT: msg.pinT > 0 ? msg.pinT : 0, leafT: msg.leafT > 0 ? msg.leafT : 0,
                 themT: msg.themT > 0 ? msg.themT : 0, premT: msg.premT > 0 ? msg.premT : 0,
                 backup: msg.backup || '', effS: msg.effS === true ? 'both' : (msg.effS || ''),
-                basinSched: !!msg.basinSched, hop: !!msg.hop, alloc: !!msg.alloc };
+                basinSched: !!msg.basinSched, hop: !!msg.hop, alloc: !!msg.alloc,
+                exK: msg.exK === true ? 'both' : (msg.exK || '') };
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
@@ -3059,6 +3117,7 @@ function applyAnalysis(res, engineStats) {
         if (l.basinSched) parts.push('basin clock');
         if (l.hop) parts.push('basin hop');
         if (l.alloc) parts.push('root alloc');
+        if (l.exK) parts.push('exK=' + l.exK);
         if (parts.length) source += ' · ⚠ LAB: ' + parts.join(', ');
     }
     lastUw = res.Uw; lastUb = res.Ub; lastThermo = thermo; lastSource = source;
@@ -3122,15 +3181,18 @@ function labOpts() {
     const bs = document.getElementById('labBasinSched');
     const hp = document.getElementById('labHop');
     const al = document.getElementById('labAlloc');
+    const xk = document.getElementById('labExK');
+    const xkv = xk && xk.value ? (xk.value === 'both' ? true : xk.value) : undefined;
     return { pinT: num('labPinT'), leafT: num('labLeafT'), themT: num('labThemT'),
              premT: num('labPremT'), backup: (bk && bk.value) || undefined,
              basinSched: (bs && bs.checked) || undefined,
              hop: (hp && hp.checked) || undefined,
-             alloc: (al && al.checked) || undefined };
+             alloc: (al && al.checked) || undefined,
+             exK: xkv };
 }
 function labChanged() {
     const o = labOpts();
-    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup || o.basinSched || o.hop || o.alloc;
+    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup || o.basinSched || o.hop || o.alloc || o.exK;
     document.getElementById('lab-panel').classList.toggle('lab-active', !!active);
     if (!thinking) refreshDashboard();   // re-read the position under the new fields
 }
@@ -3141,6 +3203,7 @@ function labReset() {
     document.getElementById('labBasinSched').checked = false;
     document.getElementById('labHop').checked = false;
     document.getElementById('labAlloc').checked = false;
+    document.getElementById('labExK').value = '';
     labChanged();
 }
 let uiBank = 0;   // scheduler time bank: frozen decisions fund hard ones
