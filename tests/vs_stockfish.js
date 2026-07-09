@@ -20,22 +20,27 @@ const ELO = parseInt(process.argv[2] || '1500');
 const ENGINE_MS = parseInt(process.argv[3] || '1000');
 const SF_MS = parseInt(process.argv[4] || '200');
 const OUT = process.argv[5] || path.join(__dirname, 'results', `vs_sf${ELO}.json`);
-const MODE = process.argv[6] || '';          // '', 'probe', 'flux', 'measure', 'schedule', 'basinsched', 'meanback', 'maxback', 'hop', 'alloc', 'hopalloc', 'allocsched', 'guard'
+const MODE = process.argv[6] || '';          // '', 'probe', 'flux', 'measure', 'schedule', 'basinsched', 'meanback', 'maxback', 'hop', 'alloc', 'hopalloc', 'allocsched', 'guard', 'combo'
 const PROBE = MODE === 'probe';
 const BASINSCHED = MODE === 'basinsched';    // schedule, but freeze on the top-two BASIN gap
 const LEAFMU = MODE === 'leafmu';            // measure + leaf tempo prior (kappa = live T-hat_c), fixed time
+// combo = the Lab-panel stack the owner flagged as strong: basin premium
+// (interior) + root alloc (kinetics) + exK leaf + Gibbs leaf. Never
+// gauntleted individually-composed; probes clean (Alekhine Ne4, controls
+// pass, fine70 converts). basin CLOCK is inert at fixed time (no scheduler).
+const COMBO = MODE === 'combo';
 const BACKUP = MODE === 'meanback' ? 'mean' : MODE === 'maxback' ? 'max'
-             : MODE === 'basinback' ? 'basin'
+             : (MODE === 'basinback' || COMBO) ? 'basin'
              : MODE === 'quenched' ? 'quenched'
              : MODE === 'sigmaback' ? 'sigma' : undefined;   // backup-form knob, fixed time
 const HOP = MODE === 'hop' || MODE === 'hopalloc';   // basin-hopping truncation (kinetics only)
 // allocsched = alloc + schedule WITHOUT hop: the fixed-time decomposition
 // read 7.5 (alloc) vs 6 (hopalloc) vs 7.5 (baseline) - the interior hop
 // dedup carried the whole cost, so the marriage leg drops it.
-const ALLOC = MODE === 'alloc' || MODE === 'hopalloc' || MODE === 'allocsched';  // root allocation (kinetics only)
+const ALLOC = MODE === 'alloc' || MODE === 'hopalloc' || MODE === 'allocsched' || COMBO;  // root allocation (kinetics only)
 const GUARD = MODE === 'guard';              // schedule + absorbing-risk freeze guard (freeze_guard_replay.js)
-const EXK = MODE === 'exk' ? true : MODE === 'exkleaf' ? 'leaf' : MODE === 'exkz' ? 'z' : undefined;  // king moves carry no entropy (fixed time)
-const GIBBS = MODE === 'gibbs';              // Gibbs leaf: G = U + T0*lnW_us - T*lnW_them, root-anchored (fixed time)
+const EXK = MODE === 'exk' ? true : (MODE === 'exkleaf' || COMBO) ? 'leaf' : MODE === 'exkz' ? 'z' : undefined;  // king moves carry no entropy (fixed time)
+const GIBBS = MODE === 'gibbs' || COMBO;     // Gibbs leaf: G = U + T0*lnW_us - T*lnW_them, root-anchored (fixed time)
 const SCHEDULE = MODE === 'schedule' || BASINSCHED || MODE === 'allocsched' || GUARD;  // measure + sigma_eff time management with banking
 const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC || EXK !== undefined || GIBBS;
 
