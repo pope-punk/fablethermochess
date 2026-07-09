@@ -29,8 +29,13 @@ const LEAFMU = MODE === 'leafmu';            // measure + leaf tempo prior (kapp
 // gauntleted individually-composed; probes clean (Alekhine Ne4, controls
 // pass, fine70 converts). basin CLOCK is inert at fixed time (no scheduler).
 const COMBO = MODE === 'combo';
+// qbasin = the PAIR: check-aware quiescence + basin premium. Leaf stays
+// HELMHOLTZ (Gibbs NOT active); leaf optionality = raw-mobility
+// ln(W_us) − ln(W_them) at bath T; the interior premium counts BASINS
+// (plans, S_b), not moves; S_eff selector off. See the header note.
+const QBASIN = MODE === 'qbasin';
 const BACKUP = MODE === 'meanback' ? 'mean' : MODE === 'maxback' ? 'max'
-             : (MODE === 'basinback' || COMBO) ? 'basin'
+             : (MODE === 'basinback' || COMBO || QBASIN) ? 'basin'
              : MODE === 'quenched' ? 'quenched'
              : MODE === 'sigmaback' ? 'sigma' : undefined;   // backup-form knob, fixed time
 const HOP = MODE === 'hop' || MODE === 'hopalloc';   // basin-hopping truncation (kinetics only)
@@ -41,7 +46,7 @@ const ALLOC = MODE === 'alloc' || MODE === 'hopalloc' || MODE === 'allocsched' |
 const GUARD = MODE === 'guard';              // schedule + absorbing-risk freeze guard (freeze_guard_replay.js)
 const EXK = MODE === 'exk' ? true : (MODE === 'exkleaf' || COMBO) ? 'leaf' : MODE === 'exkz' ? 'z' : undefined;  // king moves carry no entropy (fixed time)
 const GIBBS = MODE === 'gibbs' || COMBO;     // Gibbs leaf: G = U + T0*lnW_us - T*lnW_them, root-anchored (fixed time)
-const QCHECK = MODE === 'qcheck';            // check-aware quiescence: resolve forcing checks at T=0 (fixed time)
+const QCHECK = MODE === 'qcheck' || QBASIN;  // check-aware quiescence: resolve forcing checks at T=0 (fixed time)
 const SCHEDULE = MODE === 'schedule' || BASINSCHED || MODE === 'allocsched' || GUARD;  // measure + sigma_eff time management with banking
 const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC || EXK !== undefined || GIBBS || QCHECK;
 

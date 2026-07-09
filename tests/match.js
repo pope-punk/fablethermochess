@@ -51,6 +51,7 @@ function makePlayer(kind, Chess) {
              : variant === 'exkz' ? { exK: 'z' }
              : variant === 'gibbs' ? { gibbs: true }
              : variant === 'qcheck' ? { qCheck: true }
+             : variant === 'qbasin' ? { qCheck: true, backup: 'basin' }
              : { backup: variant };
   return { name: kind, move: (fen, ms, pastKeys) => E._runAnalyze(Object.assign({ fen, timeLimit: ms, pastKeys }, opts)).san };
 }
