@@ -255,6 +255,8 @@ label { font-size: 0.85em; }
         </select>
         <label title="Gibbs leaf: G = U + T₀·lnW_us − T·lnW_them, root-anchored. Our activity is priced as zero-point (degeneracy) pressure work — geometry, cooling-proof — while the opponent's optionality alone pays the measured bath price. Equals the Helmholtz leaf exactly at T = T₀; diverges only as the bath heats, and the divergence is the self-indulgence channel. Interior premium untouched." style="cursor:pointer">
             <input type="checkbox" id="labGibbs" onchange="labChanged()"> Gibbs leaf</label>
+        <label title="qCheck: check-aware quiescence. Quiescence is the T=0 relaxation of the FAST forcing degrees of freedom before thermal sampling — captures, and (under qCheck) non-capture CHECKS in the top few quiescence plies. A check is equally a fast forcing move (its reply menu genuinely collapses — real bite, unlike a queen sortie's fake forcing), so it belongs in the pre-thermal relaxation with captures. Finds check-based tactics (mates, the Légal sac) invisible at every reachable full-width depth. A search extension (attention), never a term in Q; symmetric across colors. Oracle +6−0=6; gauntlet 7/12 at half the main depth." style="cursor:pointer">
+            <input type="checkbox" id="labQCheck" onchange="labChanged()"> qCheck</label>
         <button onclick="labReset()" title="Clear all external fields — back to honest play">reset</button>
     </div>
 </div>
@@ -3403,6 +3405,7 @@ function applyAnalysis(res, engineStats) {
         if (l.alloc) parts.push('root alloc');
         if (l.exK) parts.push('exK=' + l.exK);
         if (l.gibbs) parts.push('Gibbs leaf');
+        if (l.qCheck) parts.push('qCheck');
         if (parts.length) source += ' · ⚠ LAB: ' + parts.join(', ');
     }
     lastUw = res.Uw; lastUb = res.Ub; lastThermo = thermo; lastSource = source;
@@ -3469,17 +3472,19 @@ function labOpts() {
     const xk = document.getElementById('labExK');
     const xkv = xk && xk.value ? (xk.value === 'both' ? true : xk.value) : undefined;
     const gb = document.getElementById('labGibbs');
+    const qc = document.getElementById('labQCheck');
     return { pinT: num('labPinT'), leafT: num('labLeafT'), themT: num('labThemT'),
              premT: num('labPremT'), backup: (bk && bk.value) || undefined,
              basinSched: (bs && bs.checked) || undefined,
              hop: (hp && hp.checked) || undefined,
              alloc: (al && al.checked) || undefined,
              exK: xkv,
-             gibbs: (gb && gb.checked) || undefined };
+             gibbs: (gb && gb.checked) || undefined,
+             qCheck: (qc && qc.checked) || undefined };
 }
 function labChanged() {
     const o = labOpts();
-    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup || o.basinSched || o.hop || o.alloc || o.exK || o.gibbs;
+    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup || o.basinSched || o.hop || o.alloc || o.exK || o.gibbs || o.qCheck;
     document.getElementById('lab-panel').classList.toggle('lab-active', !!active);
     if (!thinking) refreshDashboard();   // re-read the position under the new fields
 }
@@ -3492,6 +3497,7 @@ function labReset() {
     document.getElementById('labAlloc').checked = false;
     document.getElementById('labExK').value = '';
     document.getElementById('labGibbs').checked = false;
+    document.getElementById('labQCheck').checked = false;
     labChanged();
 }
 let uiBank = 0;   // scheduler time bank: frozen decisions fund hard ones
