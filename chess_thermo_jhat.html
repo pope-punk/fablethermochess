@@ -1493,6 +1493,25 @@ let NODE_LAM = -1;
 // values it has already measured cold. Test-only, like every backup
 // form; play never sets it.
 let NODE_SIG = null;   // per-child σ array for this node's computeF (sigma mode)
+// ── Check-aware quiescence (opts.qCheck) ────────────────────
+// Quiescence is the model's T = 0 deterministic relaxation of the FAST
+// forcing degrees of freedom before the slow ones are sampled thermally
+// — and it resolves captures but not checks. Yet a check is also a fast
+// forcing move: the opponent's reply menu genuinely collapses (high
+// constraint bite, unlike a queen sortie's fake forcing), so it belongs
+// in the pre-thermal relaxation alongside captures. Its omission is why
+// check-based tactics — mates, the Légal-trap sacrifice class, any combo
+// whose payoff is a forced check sequence — stay invisible at every
+// reachable full-width depth (measured: the Légal sac reads −14 and
+// stalls at d3 even at 20 s, because Nd5# is a NON-capture check that
+// capture-only quiescence stands pat in front of). Adding non-capture
+// checks to the top few quiescence plies resolves the tactical verdict
+// at SHALLOW root depth — exactly when breadth makes real depth
+// unreachable. Bounded hard (QCHECK_MIN) against check-sequence
+// explosion; off by default → honest play bit-identical (moves =
+// fast_captures() unchanged). Test-only until its ladder reads.
+let QCHECK_MODE = false;
+const QCHECK_MIN = 20;   // generate non-capture checks only in the top (24−20)=4 quiescence plies
 // ── The Gibbs leaf (opts.gibbs): G = U + P·V − T·S_them ──────
 // The measured law (six deflation ladders, see sigma_probe.js) says
 // the premium's FUNCTION in play is strategic pressure, not thermal
@@ -1801,8 +1820,25 @@ function quiesce(g, alpha, beta, qd) {
     }
     if (inCheck && qd <= -8) return staticEval(g);      // bound runaway checking sequences
 
-    // In check: all evasions. Not in check: captures and promotions only.
-    const moves = inCheck ? g.fast_moves() : g.fast_captures();
+    // In check: all evasions. Not in check: captures and promotions only —
+    // plus, under qCheck, non-capture CHECKS in the top few quiescence
+    // plies (the fast forcing DOF quiescence otherwise misses).
+    let moves;
+    if (inCheck) moves = g.fast_moves();
+    else {
+        moves = g.fast_captures();
+        if (QCHECK_MODE && qd >= QCHECK_MIN) {
+            const all = g.fast_moves();
+            for (let j = 0; j < all.length; j++) {
+                const mj = all[j];
+                if (mj.captured || mj.promotion) continue;   // captures/promos already present
+                g.fast_make(mj);
+                const gives = g.fast_in_check();             // side-to-move (opponent) now in check?
+                g.fast_undo();
+                if (gives) moves.push(mj);
+            }
+        }
+    }
     if (inCheck && census && moves.length > 0) {
         const bmc = g.fast_mob_counts();
         const bwf = (g.fast_turn() === 'w') ? bmc.mw : bmc.mb;
@@ -2619,6 +2655,7 @@ function annealRoot(g, opts) {
     ALLOC_MODE = !!opts.alloc;
     EXK_MODE = (opts.exK === 'leaf' || opts.exK === 'z') ? opts.exK : !!opts.exK;
     GIBBS_MODE = !!opts.gibbs;
+    QCHECK_MODE = !!opts.qCheck;
     hopFull = 0; hopSkip = 0;
 
     for (let depth = 1; depth <= maxDepth; depth++) {
@@ -3167,12 +3204,12 @@ function _runAnalyze(msg) {
             budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
             riskGuard: !!msg.riskGuard,
             basinSched: !!msg.basinSched, hop: !!msg.hop, alloc: !!msg.alloc,
-            exK: msg.exK, gibbs: !!msg.gibbs,
+            exK: msg.exK, gibbs: !!msg.gibbs, qCheck: !!msg.qCheck,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
             premT: msg.premT, effS: msg.effS, backup: msg.backup }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
             hop: !!msg.hop, alloc: !!msg.alloc,
-            exK: msg.exK, gibbs: !!msg.gibbs,
+            exK: msg.exK, gibbs: !!msg.gibbs, qCheck: !!msg.qCheck,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
             premT: msg.premT, effS: msg.effS, backup: msg.backup });
     // Echo the laboratory state this analysis actually ran under, so the
@@ -3182,7 +3219,7 @@ function _runAnalyze(msg) {
                 themT: msg.themT > 0 ? msg.themT : 0, premT: msg.premT > 0 ? msg.premT : 0,
                 backup: msg.backup || '', effS: msg.effS === true ? 'both' : (msg.effS || ''),
                 basinSched: !!msg.basinSched, hop: !!msg.hop, alloc: !!msg.alloc,
-                exK: msg.exK === true ? 'both' : (msg.exK || ''), gibbs: !!msg.gibbs };
+                exK: msg.exK === true ? 'both' : (msg.exK || ''), gibbs: !!msg.gibbs, qCheck: !!msg.qCheck };
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];

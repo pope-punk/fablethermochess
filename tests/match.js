@@ -50,6 +50,7 @@ function makePlayer(kind, Chess) {
              : variant === 'exkleaf' ? { exK: 'leaf' }
              : variant === 'exkz' ? { exK: 'z' }
              : variant === 'gibbs' ? { gibbs: true }
+             : variant === 'qcheck' ? { qCheck: true }
              : { backup: variant };
   return { name: kind, move: (fen, ms, pastKeys) => E._runAnalyze(Object.assign({ fen, timeLimit: ms, pastKeys }, opts)).san };
 }

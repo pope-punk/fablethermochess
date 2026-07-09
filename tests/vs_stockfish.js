@@ -41,8 +41,9 @@ const ALLOC = MODE === 'alloc' || MODE === 'hopalloc' || MODE === 'allocsched' |
 const GUARD = MODE === 'guard';              // schedule + absorbing-risk freeze guard (freeze_guard_replay.js)
 const EXK = MODE === 'exk' ? true : (MODE === 'exkleaf' || COMBO) ? 'leaf' : MODE === 'exkz' ? 'z' : undefined;  // king moves carry no entropy (fixed time)
 const GIBBS = MODE === 'gibbs' || COMBO;     // Gibbs leaf: G = U + T0*lnW_us - T*lnW_them, root-anchored (fixed time)
+const QCHECK = MODE === 'qcheck';            // check-aware quiescence: resolve forcing checks at T=0 (fixed time)
 const SCHEDULE = MODE === 'schedule' || BASINSCHED || MODE === 'allocsched' || GUARD;  // measure + sigma_eff time management with banking
-const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC || EXK !== undefined || GIBBS;
+const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC || EXK !== undefined || GIBBS || QCHECK;
 
 const OPENINGS = [
   { name: 'Italian complex',       line: ['e4', 'e5', 'Nf3', 'Nc6'] },
@@ -114,10 +115,10 @@ async function playGame(sf, opening, engineIsWhite) {
       const allowed = SCHEDULE ? ENGINE_MS + Math.min(bank, 3 * ENGINE_MS) : ENGINE_MS;
       const res = E._runAnalyze({ fen: g.fen(), timeLimit: allowed, pastKeys: keys.slice(0, -1),
                                   probe: PROBE, schedule: SCHEDULE, basinSched: BASINSCHED, hop: HOP,
-                                  alloc: ALLOC, riskGuard: GUARD, exK: EXK, gibbs: GIBBS,
+                                  alloc: ALLOC, riskGuard: GUARD, exK: EXK, gibbs: GIBBS, qCheck: QCHECK,
                                   newGame: (SCHEDULE || LEAFMU) && engFirst,
                                   leafMu: LEAFMU, backup: BACKUP,
-                                  flux: (MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC || EXK !== undefined || GIBBS) ? 'measure' : FLUX });
+                                  flux: (MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC || EXK !== undefined || GIBBS || QCHECK) ? 'measure' : FLUX });
       engFirst = false;
       // income is BASE per move; a draw from the bank is real expenditure
       // (the first A/B credited moves with their own draw — a perpetual
