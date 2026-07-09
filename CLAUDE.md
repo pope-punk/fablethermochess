@@ -153,6 +153,28 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   it overpays. New certified instrumentation from this program, available
   to any future mechanism: per-child same-parity revisions mined from the
   TT's own history (σ_a), and per-node λ̂.
+- **Check-aware quiescence (qCheck, July 2026) — built, most promising**:
+  quiescence is the model's T=0 relaxation of the FAST forcing degrees of
+  freedom before thermal sampling — and it resolved captures but not checks.
+  A check is equally a fast forcing move (real bite: the reply menu
+  collapses, unlike a sortie's fake forcing), so it belongs in the
+  pre-thermal relaxation with captures; its omission left check-based
+  tactics (mates, the Légal-sac class) invisible at every reachable depth
+  (the Légal sac read −14 and stalled at d3/20s because Nd5# is a
+  non-capture check). qCheck adds non-capture checks to the top quiescence
+  plies (`tests/qcheck_probe.js`, opts.qCheck, gauntlet mode 'qcheck',
+  off by default = bit-identical). Result: oracle +6−0=6 (STRONGEST of the
+  session — finds sacrifices, converts activity to material); gauntlet
+  7/12 vs 7.5 (neutral) — but tied the baseline at HALF the main depth
+  (mean 1.67 vs 3.43): quiescence tactical resolution substitutes for
+  depth. THE ONLY mechanism that finds sacs and the only one
+  baseline-neutral without paying the −3.5 Alekhine-cure tax. Rule-3 clean
+  (search extension = attention, never a term in Q; symmetric, no parity
+  issue). Cures the TACTICAL horizon only, not the positional (queen
+  sortie) one — correct division of labor. Ceiling is implementation:
+  per-leaf check-detection costs ~1.8 plies; the fix is a dedicated
+  check-move generator (emit only checking moves), recorded and unbuilt —
+  the clear highest-upside next step of the whole session.
 - **Dissipative-initiative order parameter (July 2026) — built, refuted**:
   the queen-sortie deep-dive (`tests/dissipation_probe.js`) proposed that a
   premature sortie is *dissipative* — Δμ>0 (forcing census) while ∂Q/∂depth<0

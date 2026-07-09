@@ -84,6 +84,21 @@ n<sub>eff</sub>&nbsp;=&nbsp;10.6 at identical nominal entropy).</div>
 phase marker, annealing trace, phase strip, μ board overlay, opponent-Ĵ row, clock row, redundancy row. The test
 harness carries counterfactual knobs (pin the bath; reprice only the leaf; retemper only the opponent) — external
 fields for decomposition experiments. Everything reproducible from <span class="mono">tests/</span>.</div>
+<div class="item win"><b class="k">Check-aware quiescence: the engine finds sacrifices (July 2026).</b> Quiescence is
+the model's T&nbsp;=&nbsp;0 relaxation of the <i>fast</i> forcing degrees of freedom before the slow ones are
+sampled thermally — and it resolved captures but not checks. A check is equally a fast forcing move (its reply menu
+genuinely collapses — real constraint bite, unlike a queen sortie's fake forcing), so it belongs in the pre-thermal
+relaxation with captures; its omission left check-based tactics invisible at every reachable depth (the Légal
+sacrifice read −14 and stalled at depth 3 even at 20&nbsp;s, because the mating move Nd5# is a <i>non-capture</i>
+check that capture-only quiescence stands pat in front of). <span class="mono">qCheck</span> adds non-capture checks
+to the top quiescence plies — a search extension (attention), never a term in Q, symmetric across colors.
+<b class="k">Oracle +6−0=6</b> (the strongest material-soundness result of the project — a tactic-finder converts
+forcing activity into material), and the first mechanism ever to <i>find a sacrifice</i> (Légal's Nxe5, resolved at
+main-search depth&nbsp;1). Gauntlet 7/12 vs the 7.5 baseline — neutral, but <b class="k">tied at HALF the
+main-search depth</b> (mean 1.67 vs 3.43): quiescence tactical resolution substitutes for depth. The only cure that
+is baseline-neutral <i>without</i> paying the −3.5 Alekhine tax. It cures the tactical horizon only (not the
+sortie's positional one — correct division of labor); its ceiling is implementation (per-leaf check-detection costs
+~1.8 plies), and the fix — a dedicated check-move generator — is the recorded highest-upside next step.</div>
 <div class="item win"><b class="k">The Gibbs leaf breaks the SF-1600 cliff (July 2026).</b> The owner's
 paradigm shift: G&nbsp;=&nbsp;U&nbsp;+&nbsp;P·V&nbsp;−&nbsp;T·S<sub>them</sub> — opponent optionality alone pays the
 measured bath price (their freedom is our forecast noise: the danger sense and the cornering gradient own the

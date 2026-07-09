@@ -1084,6 +1084,19 @@ var Chess = function(fen) {
       half_moves = old.half_moves; move_number = old.move_number;
     },
     fast_in_check: function() { return in_check(); },
+    // Cheap "does this move give check" for qCheck: relocate the mover on
+    // the board array only (no hash / accumulator / history bookkeeping —
+    // the expensive part of fast_make), test whether the enemy king is
+    // then attacked, restore. Correct for direct AND discovered checks on
+    // simple NON-capture, non-promotion, non-castling moves (exactly the
+    // qCheck candidate set). ~10× cheaper than fast_make/fast_undo.
+    fast_gives_check: function(m) {
+      var them = swap_color(turn), p = board[m.from];
+      board[m.to] = p; board[m.from] = null;
+      var chk = attacked(turn, kings[them]);
+      board[m.from] = p; board[m.to] = null;
+      return chk;
+    },
     fast_in_checkmate: function() { return in_checkmate(); },
     fast_turn: function() { return turn; },
     fast_to_san: function(m) { return move_to_san(m); },
@@ -1511,7 +1524,7 @@ let NODE_SIG = null;   // per-child σ array for this node's computeF (sigma mod
 // explosion; off by default → honest play bit-identical (moves =
 // fast_captures() unchanged). Test-only until its ladder reads.
 let QCHECK_MODE = false;
-const QCHECK_MIN = 20;   // generate non-capture checks only in the top (24−20)=4 quiescence plies
+let QCHECK_MIN = 20;   // generate non-capture checks only in the top (24−QCHECK_MIN) quiescence plies
 // ── The Gibbs leaf (opts.gibbs): G = U + P·V − T·S_them ──────
 // The measured law (six deflation ladders, see sigma_probe.js) says
 // the premium's FUNCTION in play is strategic pressure, not thermal
@@ -1831,11 +1844,8 @@ function quiesce(g, alpha, beta, qd) {
             const all = g.fast_moves();
             for (let j = 0; j < all.length; j++) {
                 const mj = all[j];
-                if (mj.captured || mj.promotion) continue;   // captures/promos already present
-                g.fast_make(mj);
-                const gives = g.fast_in_check();             // side-to-move (opponent) now in check?
-                g.fast_undo();
-                if (gives) moves.push(mj);
+                if (mj.captured || mj.promotion || mj.flags & 0x60) continue;  // captures/promos/castles already handled or skipped
+                if (g.fast_gives_check(mj)) moves.push(mj);   // cheap board-only check test
             }
         }
     }
@@ -2656,6 +2666,7 @@ function annealRoot(g, opts) {
     EXK_MODE = (opts.exK === 'leaf' || opts.exK === 'z') ? opts.exK : !!opts.exK;
     GIBBS_MODE = !!opts.gibbs;
     QCHECK_MODE = !!opts.qCheck;
+    QCHECK_MIN = opts.qCheckMin > 0 ? opts.qCheckMin : 20;
     hopFull = 0; hopSkip = 0;
 
     for (let depth = 1; depth <= maxDepth; depth++) {
@@ -3204,12 +3215,12 @@ function _runAnalyze(msg) {
             budgetMs: msg.timeLimit, shuffleSeed: msg.shuffleSeed, schedule: !!msg.schedule,
             riskGuard: !!msg.riskGuard,
             basinSched: !!msg.basinSched, hop: !!msg.hop, alloc: !!msg.alloc,
-            exK: msg.exK, gibbs: !!msg.gibbs, qCheck: !!msg.qCheck,
+            exK: msg.exK, gibbs: !!msg.gibbs, qCheck: !!msg.qCheck, qCheckMin: msg.qCheckMin,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
             premT: msg.premT, effS: msg.effS, backup: msg.backup }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
             hop: !!msg.hop, alloc: !!msg.alloc,
-            exK: msg.exK, gibbs: !!msg.gibbs, qCheck: !!msg.qCheck,
+            exK: msg.exK, gibbs: !!msg.gibbs, qCheck: !!msg.qCheck, qCheckMin: msg.qCheckMin,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
             premT: msg.premT, effS: msg.effS, backup: msg.backup });
     // Echo the laboratory state this analysis actually ran under, so the

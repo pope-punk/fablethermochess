@@ -32,6 +32,35 @@
 //     (sacs, mates, combinations), a different disease from the sortie's
 //     positional one.
 //
+// ── LADDER VERDICT (July 2026) ──
+//   oracle: +6 −0 =6 — the STRONGEST oracle result of the session,
+//     undefeated, six wins (every other mechanism topped out at +2−1=9):
+//     a tactic-finder converts forcing activity into material the oracle
+//     sees. Blunders 16 vs ref 27.
+//   gauntlet: 7/12 vs the 7.5 measure baseline (W6 D2 L4) — statistically
+//     neutral (−0.5, n=12). The headline is in the autopsy: qCheck tied
+//     the baseline at HALF the main-search depth (mean 1.67 vs 3.43) —
+//     the tactical resolution in quiescence genuinely SUBSTITUTES for
+//     main-search depth. Decisive 10/12; bath cold (3.9 vs 16.6). All 4
+//     losses as Black, genuinely lost (−390..−1200, not mated-ahead):
+//     the press-hard / defend-poorly color split (W 5/6, B 2/6) shared
+//     with Gibbs and the combo.
+//   THE CEILING IS THE IMPLEMENTATION, NOT THE IDEA: the depth cost is a
+//     make/undo-then-attacked scan at every quiescence leaf. A cheap
+//     board-only gives-check predicate (fast_gives_check) removed the
+//     make/undo bookkeeping but not the per-leaf cost; the QCHECK_MIN
+//     sweep (22 = min-viable that still finds Légal; 23+ miss it) showed
+//     the ~1-ply cost sits at the quiescence ENTRY level, not the deep
+//     tail, so tightening the ply-bound does not recover depth. The real
+//     fix is a DEDICATED check-move generator (emit only checking moves,
+//     not generate-all-and-filter) — recorded, unbuilt.
+//   Unique in the session: the only mechanism that FINDS sacrifices, and
+//     the only one baseline-neutral WITHOUT trading the Alekhine for
+//     −3.5. Every deflation cure paid 3.5/12; qCheck pays ~1.8 plies (an
+//     impl cost) for tactical sight, at par — and the physics is the
+//     cleanest (checks are fast forcing DOF; quiescence is their T=0
+//     relaxation; a search extension, never a term in Q).
+//
 //   node tests/qcheck_probe.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
 const E0 = fresh();
