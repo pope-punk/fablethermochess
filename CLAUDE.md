@@ -153,6 +153,19 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   it overpays. New certified instrumentation from this program, available
   to any future mechanism: per-child same-parity revisions mined from the
   TT's own history (σ_a), and per-node λ̂.
+- **Dissipative-initiative order parameter (July 2026) — built, refuted**:
+  the queen-sortie deep-dive (`tests/dissipation_probe.js`) proposed that a
+  premature sortie is *dissipative* — Δμ>0 (forcing census) while ∂Q/∂depth<0
+  (value bleeding), forcing work that does no work, both quantities already
+  measured. Pre-registered corpus diagnostic FAILED on its own kill criterion:
+  Legal's-Mate Nxe5, a sound queen sac, tripped as dissipative (its mate is
+  beyond d5, so its value bleeds identically to a sortie). The divergence is
+  not the signature of dissipation but of ANY forcing line whose payoff is
+  off-horizon — sortie and sound sac are the same observable at d5; it cannot
+  sign the payoff without reaching it. Collapses into the horizon problem
+  again. Only lawful residue: it's an EXTENSION trigger (spend depth on
+  high-Δμ off-horizon lines), which reduces to alloc. Net: no cheap local
+  diagnostic substitutes for search — the session's recurring wall.
 - **Thermal runaway** in decided positions: documented, cut in analysis, uncured —
   but nearly halved in play under `alloc` (deeper quenching of decided positions;
   2.8% vs 4.1% of moves at T>20, runaway clock-stops 13 vs 30).
