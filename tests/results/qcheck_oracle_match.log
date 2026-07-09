@@ -1,1 +1,17 @@
 === cur:qcheck vs ref (12 games, 400ms) ===
+   cur:qcheck vs ref → 1/2 ( 94 plies, final mat 190 cp )
+   ref vs cur:qcheck → 0-1 ( 46 plies, final mat 0 cp )
+   cur:qcheck vs ref → 1/2 ( 141 plies, final mat -1810 cp )
+   ref vs cur:qcheck → 0-1 ( 196 plies, final mat -1500 cp )
+   cur:qcheck vs ref → 1-0 ( 41 plies, final mat -100 cp )
+   ref vs cur:qcheck → 1/2 ( 31 plies, final mat -100 cp )
+   cur:qcheck vs ref → 1/2 ( 84 plies, final mat 10 cp )
+   ref vs cur:qcheck → 0-1 ( 50 plies, final mat -200 cp )
+   cur:qcheck vs ref → 1/2 ( 51 plies, final mat 0 cp )
+   ref vs cur:qcheck → 0-1 ( 112 plies, final mat -1400 cp )
+   cur:qcheck vs ref → 1-0 ( 89 plies, final mat -600 cp )
+   ref vs cur:qcheck → 1/2 ( 42 plies, final mat 100 cp )
+
+SCORE: {"cur:qcheck":6,"ref":0,"draws":6}
+BLUNDERS (>=250cp lost in 2 plies): {"cur:qcheck":16,"ref":27}
+blunder positions saved: 43
