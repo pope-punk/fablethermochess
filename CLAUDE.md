@@ -163,18 +163,20 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   (the Légal sac read −14 and stalled at d3/20s because Nd5# is a
   non-capture check). qCheck adds non-capture checks to the top quiescence
   plies (`tests/qcheck_probe.js`, opts.qCheck, gauntlet mode 'qcheck',
-  off by default = bit-identical). Result: oracle +6−0=6 (STRONGEST of the
-  session — finds sacrifices, converts activity to material); gauntlet
-  7/12 vs 7.5 (neutral) — but tied the baseline at HALF the main depth
-  (mean 1.67 vs 3.43): quiescence tactical resolution substitutes for
-  depth. THE ONLY mechanism that finds sacs and the only one
-  baseline-neutral without paying the −3.5 Alekhine-cure tax. Rule-3 clean
-  (search extension = attention, never a term in Q; symmetric, no parity
-  issue). Cures the TACTICAL horizon only, not the positional (queen
-  sortie) one — correct division of labor. Ceiling is implementation:
-  per-leaf check-detection costs ~1.8 plies; the fix is a dedicated
-  check-move generator (emit only checking moves), recorded and unbuilt —
-  the clear highest-upside next step of the whole session.
+  off by default = bit-identical). Oracle +6−0=6 (STRONGEST of the session
+  — finds sacrifices incl. Légal's Nxe5 at main-depth 1, converts activity
+  to material). Gauntlet: slow build 7/12, fast build (O(1) sound check
+  pre-filter, 12×→1.5× per-node, differential-proven identical checks)
+  4/12 at MORE depth — the two bracket a true ≈5.5/12 (n=12 SE ≈1.4):
+  qCheck is **strength-neutral within noise**, the 7 was a favorable draw
+  (over-read at the time). This is what the depth-marker study
+  (`heat_persistence_probe.js`) DERIVED: qCheck harvests the tactical 9%
+  of depth-sensitivity; strength is dominated by the positional 91% it
+  cannot touch, so neutral is forced — theory and experiment converge.
+  Rule-3 clean (search extension = attention, never a term in Q;
+  symmetric, no parity issue). A real, correct tactical instrument that is
+  strength-neutral because tactics are a small share of what depth
+  resolves; the pre-filter speedup is kept.
 - **Dissipative-initiative order parameter (July 2026) — built, refuted**:
   the queen-sortie deep-dive (`tests/dissipation_probe.js`) proposed that a
   premature sortie is *dissipative* — Δμ>0 (forcing census) while ∂Q/∂depth<0

@@ -61,6 +61,25 @@
 //     cleanest (checks are fast forcing DOF; quiescence is their T=0
 //     relaxation; a search extension, never a term in Q).
 //
+// ── CORRECTION (re-gauntlet with the fast pre-filter, n=12) ──
+//   The O(1) pre-filter (fast_check_candidate, differential-proven to
+//   leave the CHECK DECISIONS identical) cut the per-node penalty 12×→1.5×
+//   and recovered depth (mean 1.67→1.92). Re-gauntlet: 4/12 (W2.5 B1.5) —
+//   WORSE than the slow version's 7, at MORE depth and identical checks.
+//   A faster, deeper search on the same decisions cannot be truly weaker,
+//   so the two runs together (7 and 4) bracket a true value ≈ 5.5/12 with
+//   n=12 SE ≈ 1.4 — qCheck is STRENGTH-NEUTRAL-within-noise, and the 7 was
+//   a favorable draw (over-read at the time). This is exactly what the
+//   depth-marker study (heat_persistence_probe.js) DERIVED: qCheck
+//   harvests the tactical 9% of depth-sensitivity, and strength is
+//   dominated by the positional 91% it cannot touch, so it MUST come out
+//   neutral. Theory and experiment converge: qCheck is a real, correct
+//   tactical instrument (oracle +6−0=6, finds sacs) that is
+//   strength-neutral because tactics are a small share of what depth
+//   resolves. The efficiency fix is real and kept; the strength claim is
+//   downgraded to neutral (n=24 would pin the sign but the derivation
+//   already predicts ≈0).
+//
 //   node tests/qcheck_probe.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
 const E0 = fresh();
