@@ -76,34 +76,32 @@ function ratioR(fen, depth) {
 }
 
 const median = a => { if (!a.length) return NaN; const b = [...a].sort((x, y) => x - y); return b[b.length >> 1]; };
+const DSHALLOW = 3, DDEEP = 4;   // d4 ≈ 5× cheaper than d5, still shows aging + sign
 const Xd3 = [], Xd5 = [], Rd3 = [], Rd5 = [];
-const XqD5 = [], XtD5 = [];   // quiet vs tactical at d5
+const XqD5 = [], XtD5 = [];   // quiet vs tactical at the deep read
 let n = 0, tried = 0;
-while (n < 40 && tried < 400) {
+while (n < 16 && tried < 200) {
   tried++;
   const g = randPos(4 + ((Math.random() * 26) | 0));
   if (g.fast_in_check() || g.fast_moves().length < 6) continue;
   const fen = g.fen();
   const tactical = g.fast_captures().length > 0;   // cheap proxy: captures available
-  const x3 = [], x5 = [];
-  for (const T0 of [1.0, 1.5, 2.0]) { const a = measureX(fen, 3, T0, 0.2); if (a != null) x3.push(a);
-                                      const b = measureX(fen, 5, T0, 0.2); if (b != null) x5.push(b); }
-  const r3 = ratioR(fen, 3), r5 = ratioR(fen, 5);
-  if (!x3.length || !x5.length || r3 == null || r5 == null) continue;
+  const a = measureX(fen, DSHALLOW, 1.5, 0.2), b = measureX(fen, DDEEP, 1.5, 0.2);
+  const r3 = ratioR(fen, DSHALLOW), r5 = ratioR(fen, DDEEP);
+  if (a == null || b == null || r3 == null || r5 == null) continue;
   n++;
-  const mx3 = median(x3), mx5 = median(x5);
-  Xd3.push(mx3); Xd5.push(mx5); Rd3.push(r3); Rd5.push(r5);
-  (tactical ? XtD5 : XqD5).push(mx5);
+  Xd3.push(a); Xd5.push(b); Rd3.push(r3); Rd5.push(r5);
+  (tactical ? XtD5 : XqD5).push(b);
 }
 
-console.log('n = ' + n + ' filtered positions\n');
+console.log('n = ' + n + ' filtered positions  (shallow d' + DSHALLOW + ', deep d' + DDEEP + ')\n');
 console.log('(A) RESPONSE ratio X   (X=1 liquid; X>1 excess response = un-relaxed slow content)');
-console.log('    median X:  d3 = ' + median(Xd3).toFixed(2) + '   d5 = ' + median(Xd5).toFixed(2) +
-  '   (aging: X should relax toward 1 with depth)');
-console.log('    tactical (captures avail) median X(d5) = ' + median(XtD5).toFixed(2) +
-  '   quiet median X(d5) = ' + median(XqD5).toFixed(2));
+console.log('    median X:  d' + DSHALLOW + ' = ' + median(Xd3).toFixed(2) + '   d' + DDEEP + ' = ' + median(Xd5).toFixed(2) +
+  '   (aging: X relaxes toward 1 with depth)');
+console.log('    tactical (captures avail) median X(deep) = ' + median(XtD5).toFixed(2) +
+  '   quiet median X(deep) = ' + median(XqD5).toFixed(2));
 console.log('\n(B) CONFIG spread / DYN temperature  r = √Var / T_dyn   (rising ⇒ slow modes HOTTER; falling ⇒ colder)');
-console.log('    median r:  d3 = ' + median(Rd3).toFixed(2) + '   d5 = ' + median(Rd5).toFixed(2));
+console.log('    median r:  d' + DSHALLOW + ' = ' + median(Rd3).toFixed(2) + '   d' + DDEEP + ' = ' + median(Rd5).toFixed(2));
 const dR = median(Rd5) - median(Rd3);
 console.log('    Δr(d3→d5) = ' + (dR >= 0 ? '+' : '') + dR.toFixed(2));
 console.log('\n── sign ──');
