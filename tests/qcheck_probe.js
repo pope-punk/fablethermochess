@@ -74,7 +74,32 @@ const CASES = [
   ['quiet middlegame',          'r2q1rk1/pp2bppp/2n1pn2/3p4/3P4/2NBPN2/PP3PPP/R2Q1RK1 w - - 0 10',    null],
 ];
 
-console.log('1 · qCheck at 4 s: tactics found, and the depth cost');
+// ── 0 · correctness gate: the O(1) check pre-filter is SOUND ──
+// The set of non-capture checks found by (pre-filter → gives_check) must
+// equal (gives_check on ALL non-captures), over random positions.
+{
+  function randGame(nply) { const g = new E0.Chess();
+    for (let i = 0; i < nply; i++) { const ms = g.fast_moves(); if (!ms.length) break;
+      g.fast_make(ms[(Math.random() * ms.length) | 0]); } return g; }
+  let checked = 0, mismatch = 0;
+  for (let t = 0; t < 3000; t++) {
+    const g = randGame(2 + ((Math.random() * 30) | 0));
+    const all = g.fast_moves(); if (!all.length) continue;
+    const oracle = new Set(), fast = new Set();
+    for (const m of all) { if (m.captured || m.promotion || (m.flags & 0x60)) continue;
+      const key = m.from * 128 + m.to;
+      if (g.fast_gives_check(m)) oracle.add(key);
+      if (g.fast_check_candidate(m) && g.fast_gives_check(m)) fast.add(key); }
+    checked++;
+    if (oracle.size !== fast.size) { mismatch++; continue; }
+    for (const k of oracle) if (!fast.has(k)) { mismatch++; break; }
+  }
+  console.log('0 · pre-filter soundness: ' + checked + ' positions, ' + mismatch +
+    ' mismatches — ' + (mismatch === 0 ? 'PASS' : 'FAIL'));
+  if (mismatch) process.exit(1);
+}
+
+console.log('\n1 · qCheck at 4 s: tactics found, and the depth cost');
 console.log('   case                        qCheck  depth  best    cand-Q    nodes');
 for (const [name, fen, san] of CASES) {
   for (const qc of [false, true]) {

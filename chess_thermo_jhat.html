@@ -1099,6 +1099,19 @@ var Chess = function(fen) {
       board[m.from] = p; board[m.to] = null;
       return chk;
     },
+    // O(1) SOUND pre-filter for qCheck: a move can give check ONLY if the
+    // mover's type geometrically bears on the enemy king from its
+    // destination (direct — ATTACKS table, clear-path confirmed later) OR
+    // the origin is aligned with the enemy king on a ray (discovered —
+    // RAYS table). Two lookups; skips the ~27/30 moves that provably can't
+    // check, leaving fast_gives_check to confirm the few candidates. Never
+    // skips a real check (differential-tested).
+    fast_check_candidate: function(m) {
+      var K = kings[swap_color(turn)];
+      if (ATTACKS[(m.to - K) + 119] & (1 << SHIFTS[m.piece])) return true;   // direct-geometry
+      if (RAYS[(m.from - K) + 119] !== 0) return true;                        // discovery-aligned
+      return false;
+    },
     fast_in_checkmate: function() { return in_checkmate(); },
     fast_turn: function() { return turn; },
     fast_to_san: function(m) { return move_to_san(m); },
@@ -1847,7 +1860,8 @@ function quiesce(g, alpha, beta, qd) {
             for (let j = 0; j < all.length; j++) {
                 const mj = all[j];
                 if (mj.captured || mj.promotion || mj.flags & 0x60) continue;  // captures/promos/castles already handled or skipped
-                if (g.fast_gives_check(mj)) moves.push(mj);   // cheap board-only check test
+                if (!g.fast_check_candidate(mj)) continue;     // O(1) sound pre-filter: skip provable non-checks
+                if (g.fast_gives_check(mj)) moves.push(mj);    // confirm the few candidates
             }
         }
     }
