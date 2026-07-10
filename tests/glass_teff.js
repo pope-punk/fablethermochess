@@ -30,6 +30,33 @@
 // AND r rising with depth. Glass-colder ⇒ X < 1 AND r falling. The two
 // estimators must AGREE on the sign or the result is inconclusive.
 //
+// ── VERDICT (July 2026, n=16 random positions, T0=1.5) ──
+//   SIGN INCONCLUSIVE — the estimators DISAGREE, exactly the pre-registered
+//   kill for a signed T_eff:
+//     (A) median X: d3 1.63 → d4 2.44   (X ≫ 1, and NOT relaxing toward 1) →
+//         excess response, slow modes HOTTER.
+//     (B) median r: d3 1.05 → d4 0.80,  Δr = −0.25 (falling) → slow modes
+//         COLDER.
+//   No corroborated sign ⇒ NO signed slow-mode pricing temperature. The
+//   "price the positional modes at T_eff" mechanism is BLOCKED here: without
+//   an agreed sign, choosing add-vs-subtract is a coin-flip, and the wrong
+//   sign is the mean/max backup grave. NOT BUILT.
+//
+//   WHAT SURVIVES, and it is not nothing — this run FIXES glass_probe.js's
+//   weakest link. That probe's positional-vs-tactical gap rested on a single
+//   KID outlier; here, over 16 random positions, the gap is real:
+//     X_quiet = 3.62  vs  X_tactical = 1.43  (deep read) — a clean 2.5×.
+//   The FDT violation is concentrated in the SLOW-mode (quiet) positions;
+//   the fast-mode (capture-available) positions sit near equilibrium, where
+//   quiescence has done its T=0 relaxation. The positional sector IS a glass,
+//   now robustly (not on one outlier).
+//   WHY THE SIGN WON'T COME: the disagreement is itself the physics. In a
+//   glass, T_eff is OBSERVABLE-DEPENDENT — a response estimator (A) and a
+//   correlation/spread estimator (B) need not agree except within one sector.
+//   There is no single scalar T_eff, so there is no single evaluation
+//   parameter to derive. The effective-temperature-as-pricing-dial route is
+//   closed; the glass diagnosis (single bath wrong for slow modes) stands.
+//
 //   node tests/glass_teff.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
 const E0 = fresh();

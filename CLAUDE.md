@@ -127,6 +127,30 @@ compared with `node tests/ab_compare.js` against the relevant baseline
 - **S_eff premium gauntlet**: the effective-entropy mechanism (UI toggle, off by
   default) awaits its A/B ladder after interactive testing. It does NOT fix the
   Alekhine case (recorded); the question is net strength.
+- **The glass program (July 2026) — diagnosed, sign refused, route closed**:
+  the physics dialogue on the binding constraint (F's mispricing of the
+  diffuse positional sector) converged on a testable claim — the positional
+  (slow) modes are a *glass*: out of equilibrium at the search timescale, so
+  the single revision-thermometer bath is the wrong temperature for them, and
+  the fix would be to price them at a Cugliandolo–Kurchan effective
+  temperature T_eff. Two probes: `glass_probe.js` established the glass
+  QUALITATIVELY (FDT ratio X = measured d⟨Q⟩/dT ÷ (−Var/T²) ranges 0–22, never
+  1; aging toward but not reaching equilibrium with depth) but could not sign
+  T_eff and rested its quiet-vs-tactical gap on one KID outlier.
+  `glass_teff.js` was the sign-resolving follow-up: two INDEPENDENT estimators
+  pre-registered to agree or be inconclusive — (A) response ratio X, (B)
+  configurational spread / dynamical temperature r = √Var/T_dyn across depth.
+  VERDICT (n=16 random positions): the estimators DISAGREE — (A) X 1.63→2.44,
+  slow modes HOTTER; (B) Δr −0.25, slow modes COLDER — the pre-registered kill
+  for a signed T_eff. NO signed slow-mode pricing temperature ⇒ the "price
+  positional modes at T_eff" mechanism is NOT BUILT (wrong sign = the mean/max
+  backup grave). What SURVIVES and is new: the quiet/tactical gap is now real
+  (X_quiet 3.62 vs X_tactical 1.43, a clean 2.5×, no longer one outlier) — the
+  FDT violation lives in the slow modes, the fast modes sit near equilibrium
+  where quiescence has relaxed them. The disagreement is itself the physics:
+  in a glass T_eff is observable-dependent, so there is no single scalar and no
+  single evaluation dial. The glass diagnosis (one bath is wrong for the slow
+  modes) stands; the effective-temperature-as-pricing route is closed.
 - **The central open problem — now with a measured law (July 2026)**: the
   premium-deflation program is CLOSED, six ladders deep. The quenched premium
   (nested-GEV over the reply partition, μ=√λ̂ — `tests/quenched_probe.js`)
