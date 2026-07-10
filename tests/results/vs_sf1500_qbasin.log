@@ -3,3 +3,15 @@ Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)
   Italian complex              engine as White → 1-0     (57 plies, checkmate, 33s)
   Italian complex              engine as Black → 0-1     (88 plies, checkmate, 59s)
   Queen's Gambit Declined      engine as White → 1-0     (75 plies, checkmate, 49s)
+  Queen's Gambit Declined      engine as Black → 1-0     (53 plies, checkmate, 33s)
+  Sicilian (Najdorf setup)     engine as White → 1-0     (121 plies, checkmate, 83s)
+  Sicilian (Najdorf setup)     engine as Black → 1-0     (187 plies, checkmate, 131s)
+  King's Indian                engine as White → 0-1     (100 plies, checkmate, 69s)
+  King's Indian                engine as Black → 1-0     (69 plies, checkmate, 47s)
+  French                       engine as White → 0-1     (64 plies, checkmate, 40s)
+  French                       engine as Black → 1-0     (99 plies, checkmate, 64s)
+  English (reversed Sicilian)  engine as White → 1-0     (107 plies, checkmate, 76s)
+  English (reversed Sicilian)  engine as Black → 0-1     (70 plies, checkmate, 46s)
+
+FINAL SCORE vs Stockfish 1500: {"engine":6,"stockfish":6,"draws":0}
+results written to results/vs_sf1500_qbasin.json
