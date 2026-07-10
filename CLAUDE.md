@@ -140,17 +140,22 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   `glass_teff.js` was the sign-resolving follow-up: two INDEPENDENT estimators
   pre-registered to agree or be inconclusive — (A) response ratio X, (B)
   configurational spread / dynamical temperature r = √Var/T_dyn across depth.
-  VERDICT (n=16 random positions): the estimators DISAGREE — (A) X 1.63→2.44,
-  slow modes HOTTER; (B) Δr −0.25, slow modes COLDER — the pre-registered kill
-  for a signed T_eff. NO signed slow-mode pricing temperature ⇒ the "price
-  positional modes at T_eff" mechanism is NOT BUILT (wrong sign = the mean/max
-  backup grave). What SURVIVES and is new: the quiet/tactical gap is now real
-  (X_quiet 3.62 vs X_tactical 1.43, a clean 2.5×, no longer one outlier) — the
-  FDT violation lives in the slow modes, the fast modes sit near equilibrium
-  where quiescence has relaxed them. The disagreement is itself the physics:
-  in a glass T_eff is observable-dependent, so there is no single scalar and no
-  single evaluation dial. The glass diagnosis (one bath is wrong for the slow
-  modes) stands; the effective-temperature-as-pricing route is closed.
+  VERDICT (TWO independent n=16 draws): the estimators DISAGREE in both — (A)
+  X deep 2.44/3.04 (slow modes HOTTER), (B) Δr −0.25/−0.12 (COLDER) — the
+  pre-registered kill for a signed T_eff, and the standoff is robust across
+  samples. NO signed slow-mode pricing temperature ⇒ the "price positional
+  modes at T_eff" mechanism is NOT BUILT (wrong sign = the mean/max backup
+  grave). CORRECTION recorded in-file: draw 1 showed X_quiet 3.62 ≫
+  X_tactical 1.43 and I over-read it as "the slow-mode localization is now
+  real"; draw 2 runs the OTHER way (X_tactical 3.04 > X_quiet 2.47), so the
+  quiet/tactical split is NOT stable (captures-proxy noise over ~8
+  positions/bin) — glass_teff establishes it no better than glass_probe's one
+  outlier did. Honest robust survivors: only (1) the FDT violation X>1 is
+  really present (the sector is out of equilibrium) and (2) its sign cannot
+  be corroborated. The disagreement is itself the physics: in a glass T_eff is
+  observable-dependent, so there is no single scalar and no single evaluation
+  dial. The glass diagnosis (one bath can't describe both fast response and
+  slow spread) stands; the effective-temperature-as-pricing route is closed.
 - **The central open problem — now with a measured law (July 2026)**: the
   premium-deflation program is CLOSED, six ladders deep. The quenched premium
   (nested-GEV over the reply partition, μ=√λ̂ — `tests/quenched_probe.js`)

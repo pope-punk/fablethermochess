@@ -30,32 +30,40 @@
 // AND r rising with depth. Glass-colder ⇒ X < 1 AND r falling. The two
 // estimators must AGREE on the sign or the result is inconclusive.
 //
-// ── VERDICT (July 2026, n=16 random positions, T0=1.5) ──
-//   SIGN INCONCLUSIVE — the estimators DISAGREE, exactly the pre-registered
-//   kill for a signed T_eff:
-//     (A) median X: d3 1.63 → d4 2.44   (X ≫ 1, and NOT relaxing toward 1) →
-//         excess response, slow modes HOTTER.
-//     (B) median r: d3 1.05 → d4 0.80,  Δr = −0.25 (falling) → slow modes
-//         COLDER.
-//   No corroborated sign ⇒ NO signed slow-mode pricing temperature. The
-//   "price the positional modes at T_eff" mechanism is BLOCKED here: without
-//   an agreed sign, choosing add-vs-subtract is a coin-flip, and the wrong
-//   sign is the mean/max backup grave. NOT BUILT.
+// ── VERDICT (July 2026, TWO independent n=16 random draws, T0=1.5) ──
+//   SIGN INCONCLUSIVE, and the inconclusiveness is ROBUST across both draws —
+//   exactly the pre-registered kill for a signed T_eff:
+//                          draw 1        draw 2
+//     (A) X deep           2.44          3.04     → X ≫ 1 both (excess resp.)
+//     (B) Δr(d3→d4)        −0.25         −0.12    → r falls both (colder)
+//     (A) vs (B) sign      DISAGREE      DISAGREE → no corroborated sign
+//   (A) always says slow modes HOTTER (levels move with T beyond the
+//   fluctuation), (B) always says COLDER (spread shrinks vs the thermometer
+//   with depth). Two independent samples, same standoff ⇒ NO signed slow-mode
+//   pricing temperature. The "price the positional modes at T_eff" mechanism
+//   is BLOCKED: choosing add-vs-subtract without an agreed sign is a
+//   coin-flip, and the wrong sign is the mean/max backup grave. NOT BUILT.
 //
-//   WHAT SURVIVES, and it is not nothing — this run FIXES glass_probe.js's
-//   weakest link. That probe's positional-vs-tactical gap rested on a single
-//   KID outlier; here, over 16 random positions, the gap is real:
-//     X_quiet = 3.62  vs  X_tactical = 1.43  (deep read) — a clean 2.5×.
-//   The FDT violation is concentrated in the SLOW-mode (quiet) positions;
-//   the fast-mode (capture-available) positions sit near equilibrium, where
-//   quiescence has done its T=0 relaxation. The positional sector IS a glass,
-//   now robustly (not on one outlier).
+//   CORRECTION (why two draws mattered). A single draw (draw 1) showed
+//   X_quiet 3.62 ≫ X_tactical 1.43 and I over-read it as "the slow-mode
+//   localization is now real, unlike glass_probe's one-outlier gap." The
+//   SECOND draw runs the OTHER way: X_tactical 3.04 > X_quiet 2.47. The
+//   quiet/tactical split is NOT stable — the captures-available proxy over
+//   ~8 positions/bin is too noisy, and it flips sign between samples. So
+//   glass_teff does NOT establish the slow-mode localization any better than
+//   glass_probe did; both rested on noise (one outlier there, one draw here).
+//   The honest robust survivors are only: (1) the FDT violation X > 1 is
+//   really present (levels are not T-independent — the sector is out of
+//   equilibrium), and (2) the two estimators cannot be made to agree on its
+//   sign.
+//
 //   WHY THE SIGN WON'T COME: the disagreement is itself the physics. In a
 //   glass, T_eff is OBSERVABLE-DEPENDENT — a response estimator (A) and a
 //   correlation/spread estimator (B) need not agree except within one sector.
 //   There is no single scalar T_eff, so there is no single evaluation
 //   parameter to derive. The effective-temperature-as-pricing-dial route is
-//   closed; the glass diagnosis (single bath wrong for slow modes) stands.
+//   closed; the glass diagnosis (a single bath cannot describe both the fast
+//   response and the slow spread) stands, but it hands us no knob.
 //
 //   node tests/glass_teff.js
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
