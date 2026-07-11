@@ -24,6 +24,38 @@
 //   deeper than qCheck's extension reaches, and a deeper forcing search is needed.
 //   MATERIAL grabs (P0 Δ 7, past d8) are reported but not expected to move.
 //
+// ── VERDICT: reachability CONFIRMED, rescue NOT — the redirect's premise holds,
+//    its curative value is prophylactic and still untested (July 2026, 23 pos) ──
+//   EXPOSURE class meets the pre-registered SUCCESS bar on BOTH arms: qCheck
+//   reveals 6/10 king-march nets at d2 (was ≤ 5 needed), and cuts the median
+//   reveal depth 5.5 → 2 ply — essentially the Δ≈3.5 P0 predicted. Forcing
+//   (check) extension DOES reach these nets (gibbs Kd3 +12.8→−49997 at d1;
+//   alloc Kd8 +7.9→−49998; meanback Kd4 +6.3→−49998). The T=0 relaxation is
+//   the right sector for this type-(b) content — exactly where the state
+//   function is blind (P0: cold_local 0/23) the forcing search sees.
+//
+//   THE HONEST LIMIT, and it is the whole lesson. Revealing the loss FLIPS the
+//   played move only 1/10 (EXPOSURE), and that one flip is Kc7→Kd7 — another
+//   losing king move. These corpus positions are ALREADY LOST: every move
+//   mates, so seeing it changes nothing. Reveal is necessary, not sufficient.
+//   The curative value of forcing extension is PROPHYLACTIC — it must fire one
+//   move earlier, at the committal decision where a sound alternative still
+//   exists — and the 5.5→2 reveal-depth cut is exactly the evidence that at
+//   that earlier (also shallow, in-play) ply the net would now be visible.
+//   THE NEXT PROBE writes itself: the committal-decision corpus (the ply BEFORE
+//   each king-march), asking whether qCheck flips AWAY from the exposing move
+//   to a sound one. That is the actual prophylaxis test; this probe only
+//   established the precondition.
+//
+//   MATERIAL grabs behave differently, as P0 implied (Δ 7, non-forcing): qCheck
+//   reveals 4/13, does NOT move the median (9→9) — those refutations are not
+//   check-nets — yet flips 4/13 where it does fire. Two anomalies to resolve
+//   before any gauntlet: (a) leafmu Kd1 reveal moves LATER under qCheck (d5→>8)
+//   — check extension can resolve a line optimistically; (b) maxback Bf1+ reads
+//   +49998 (mate FOR the mover) in a game the engine LOST — a candidate qCheck
+//   false-positive (over-reading a check sequence as mating). Both need a
+//   soundness pass; neither is fatal to the reachability result.
+//
 //   node tests/qcheck_reveal.js
 const fs = require('fs'), path = require('path');
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
