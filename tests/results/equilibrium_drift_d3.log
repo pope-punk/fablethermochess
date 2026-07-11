@@ -1,38 +1,42 @@
 
 equilibrium-drift residual — self-play, depth 3, 130 two-ply samples
 
-overall (pawns):
-  RMS(ΔF)    = 6.426   mean = -0.015
-  RMS(ΔmaxQ) = 3.291   mean = -0.014
-  RMS(ΔTS)   = 7.415   mean = 0.013
+overall (pawns):   [RMS is outlier-dominated; medians in brackets are robust]
+  ΔF     RMS=6.426  mean=-0.015  [med|Δ|=0.930]
+  ΔmaxQ  RMS=3.291  mean=-0.014  [med|Δ|=0.816]
+  ΔTS    RMS=7.415  mean=0.013  [med|Δ|=1.083]
+  ΔF*    RMS=5.759  mean=-0.023  [med|Δ|=0.927]   ← F* = ⟨Q⟩+λ̂·TS
 
-(1)&(2) drift vs resolution:
-  frozen    n=  2  RMS(ΔF)=1.917  RMS(ΔTS)=2.073  <T>=1.48
-  cold      n= 15  RMS(ΔF)=13.116  RMS(ΔTS)=15.056  <T>=1.44
-  critical  n= 16  RMS(ΔF)=2.185  RMS(ΔTS)=2.947  <T>=1.58
-  hot       n= 97  RMS(ΔF)=5.280  RMS(ΔTS)=6.093  <T>=2.24
-  ── by bath T ──
-  T∈[1,2)  n=107  RMS(ΔF)=5.035
-  T∈[2,4)  n= 16  RMS(ΔF)=2.648
-  T∈[4,8)  n=  5  RMS(ΔF)=4.352
-  T∈[8,∞)  n=  2  RMS(ΔF)=34.994
+(1) conservation scales with premium (robust med|ΔF|, terciles):
+  low-premium   n= 43  med|ΔF|=0.980  med|ΔF*|=0.855  <premium>=0.86
+  mid           n= 43  med|ΔF|=0.593  med|ΔF*|=0.607  <premium>=2.06
+  high-premium  n= 44  med|ΔF|=1.165  med|ΔF*|=1.302  <premium>=4.92
 
 (3) dynamic winner's curse:
-  corr(premium TS, ΔF)    = -0.707   (predict < 0)
-  corr(premium TS, ΔmaxQ) = -0.652
+  corr(premium, ΔF)    = -0.707   Doob slope β = -0.881   (predict < 0)
+  corr(premium, ΔmaxQ) = -0.652
 
-(4) premium vs energy leak:  RMS(ΔTS)/RMS(ΔmaxQ) = 2.25   (predict ≳ 1 ⇒ premium is the leaky part)
+(4) premium vs energy leak:  RMS(ΔTS)/RMS(ΔmaxQ) = 2.25  [robust 1.33]   (predict ≳ 1)
+
+(5) reconstruction F* = ⟨Q⟩ + λ̂·TS:
+  med|ΔF*|/med|ΔF| = 1.00   (predict < 1 ⇒ F* drifts less)
+  corr(premium, ΔF*) = -0.706   vs corr(premium, ΔF) = -0.707   (predict |ΔF*| weaker)
+
+(6) the leak is the quenched fraction:
+  corr(λ̂, ΔF | high premium) = -0.123   (predict > 0: more independent ⇒ less downward leak)
+  corr(quenched (1−λ̂)TS, ΔF) = -0.628   vs corr(full TS, ΔF) = -0.707
 
 landmark deepening revision δ = F(d+2) − F(d)  (pawns):
-  startpos             F(d3)=1.38  F(d5)=1.51  δ=0.122  phase=hot
-  open middlegame      F(d3)=1.41  F(d5)=0.42  δ=-0.987  phase=hot
-  sharp (Fried Liver)  F(d3)=1.79  F(d5)=1.29  δ=-0.502  phase=hot
-  trebuchet (frozen)   F(d3)=1.06  F(d5)=1.02  δ=-0.034  phase=hot
+  startpos             δF=0.122  δF*=0.345  phase=hot
+  open middlegame      δF=-0.987  δF*=-1.539  phase=hot
+  sharp (Fried Liver)  δF=-0.502  δF*=-0.551  phase=hot
+  trebuchet (frozen)   δF=-0.034  δF*=-0.141  phase=hot
 
 ════ PREDICTIONS ════
-  (1) conservation when resolved : FAILS
-  (2) leak grows with T          : FAILS
-  (3) dynamic winner's curse (<0): HOLDS
-  (4) premium is the leaky part  : HOLDS
+  (1) conservation scales w/ premium : HOLDS
+  (3) dynamic winner's curse (<0)    : HOLDS
+  (4) premium is the leaky part      : HOLDS
+  (5) F* = ⟨Q⟩+λ̂·TS drifts less       : HOLDS
+  (6) leak is the quenched fraction  : FAILS
 
 wrote results/equilibrium_drift.json
