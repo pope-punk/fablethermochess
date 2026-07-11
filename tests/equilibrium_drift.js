@@ -138,6 +138,10 @@ function pearson(xy) { const n = xy.length; if (n < 3) return NaN; let sx = 0, s
 function slope(xy) { const n = xy.length; if (n < 3) return NaN; let sx = 0, sy = 0, sxx = 0, sxy = 0;
   for (const [x, y] of xy) { sx += x; sy += y; sxx += x * x; sxy += x * y; }
   const d = n * sxx - sx * sx; return d === 0 ? NaN : (n * sxy - sx * sy) / d; }
+// Spearman (rank) — robust to the thermal-runaway outliers Pearson over-weights.
+function spearman(xy) { const rank = arr => { const idx = arr.map((v, i) => i).sort((a, b) => arr[a] - arr[b]); const r = []; idx.forEach((v, kk) => r[v] = kk); return r; };
+  const rx = rank(xy.map(p => p[0])), ry = rank(xy.map(p => p[1])); return pearson(rx.map((v, i) => [v, ry[i]])); }
+const TCUT = 50;   // the lab's declared thermal-runaway cut (see §4.1) — Pearson/β on the full set are outlier-inflated
 
 console.log(`\nequilibrium-drift residual — self-play, depth ${DEPTH}, ${drifts.length} two-ply samples\n`);
 console.log('overall (pawns):   [RMS is outlier-dominated; medians in brackets are robust]');
@@ -153,10 +157,13 @@ const k = Math.floor(byPrem.length / 3);
 for (const [lbl, g] of [['low-premium', byPrem.slice(0, k)], ['mid', byPrem.slice(k, 2 * k)], ['high-premium', byPrem.slice(2 * k)]])
   console.log(`  ${lbl.padEnd(13)} n=${String(g.length).padStart(3)}  med|ΔF|=${medAbs(g.map(d => d.dF)).toFixed(3)}  med|ΔF*|=${medAbs(g.map(d => d.dFstar)).toFixed(3)}  <premium>=${mean(g.map(d => d.premium)).toFixed(2)}`);
 
-// (3) dynamic winner's curse
-console.log('\n(3) dynamic winner\'s curse:');
-console.log('  corr(premium, ΔF)    = ' + pearson(drifts.map(d => [d.premium, d.dF])).toFixed(3) + '   Doob slope β = ' + slope(drifts.map(d => [d.premium, d.dF])).toFixed(3) + '   (predict < 0)');
-console.log('  corr(premium, ΔmaxQ) = ' + pearson(drifts.map(d => [d.premium, d.dMaxQ])).toFixed(3));
+// (3) dynamic winner's curse — Spearman + the runaway cut are the robust reads
+// (Pearson/β on the full set are outlier-inflated; see drift_robustness.js).
+const cutD = drifts.filter(d => d.Tbath < TCUT), nOut = drifts.length - cutD.length;
+console.log('\n(3) dynamic winner\'s curse   [' + nOut + ' samples cut at T≥' + TCUT + ']:');
+console.log('  Spearman(premium, ΔF)     = ' + spearman(cutD.map(d => [d.premium, d.dF])).toFixed(3) + '   ← ROBUST (predict < 0)');
+console.log('  Pearson(premium, ΔF)      = ' + pearson(cutD.map(d => [d.premium, d.dF])).toFixed(3) + ' [cut]  ' + pearson(drifts.map(d => [d.premium, d.dF])).toFixed(3) + ' [raw — outlier-inflated]');
+console.log('  Spearman(premium, ΔmaxQ)  = ' + spearman(cutD.map(d => [d.premium, d.dMaxQ])).toFixed(3));
 
 // (4) premium vs energy leak
 const rQ = rms(drifts.map(d => d.dMaxQ)), rTS = rms(drifts.map(d => d.dTS));
