@@ -129,25 +129,29 @@ play, the coolest bath of any config (mean T 8.2 vs 16.6), <b class="k">thermal-
 (2.8% vs 4.1% of moves at T&gt;20; runaway clock-stops 13 vs 30)</b> — deeper quenching of decided positions
 mitigates an open problem. Depth is now purchasable at no strength cost; what depth buys is bounded by the
 evaluation (below).</div>
-<div class="item win"><b class="k">The equilibrium-drift residual: the premium is not a state function, and the
-axes are orthogonal (July 2026).</b> The equilibrium hypothesis — under best play the evaluation is stationary — is
-the existence condition for a thermodynamic state function, and it was never measured. <span class="mono">equilibrium_drift.js</span>
-measures how far F fails to be a martingale under the engine's own best play (same-parity two-ply drifts along
-self-play; energy vs premium decomposed). <b class="k">The premium is the leaky part</b> (RMS ratio 2.25, robust
-1.33) and it bleeds as the winner's curse: <b class="k">corr(premium, ΔF) = −0.71, Doob slope β = −0.88</b> — only
-~12% of the premium survives one full move at d3, a near-total dissipation. The static F−⟨Q⟩=TS optimism is now
-confirmed <i>dynamically</i>, as a conservation-law violation. <b class="k">The reconstruction F* = ⟨Q⟩ + λ̂·TS was
-built and REFUTED</b>: it drifts identically to F and is worse by the deepening landmark; the leak is NOT the
-quenched fraction (corr(λ̂, ΔF | high premium) ≈ 0). <b class="k">The discovery:</b> the dissipation axis (conserved
-vs winner's-curse) is <i>orthogonal</i> to the correlation axis λ̂ measures (annealed vs quenched) — the winner's
-curse is a property of max-over-noise that afflicts independent options too, so λ̂ cannot see it. This is the first
-mechanistic account of why <i>six</i> correlation-based deflation ladders never separated the load-bearing premium:
-wrong axis. The true martingale correction is a global deflation to ~12% ≈ the <span class="mono">mean</span> backup
-— the weaker player — so the fork is now <i>proven</i>: the martingale F is the measuring instrument, the
-full-premium F is the (stronger) player, and the premium's near-total bleed <i>is</i> the strategic bluff.
-Minimal-drift and maximal-strength are measured to be different optima. Open: does β shrink with depth (a conserved
-optionality core emerging as T→0), or is the premium a bluff at every depth? — the depth scan decides whether
-"reconstruct the premium" is a depth problem or a category error.</div>
+<div class="item win"><b class="k">The equilibrium-drift residual: the premium over-values, the λ̂-reconstruction
+fails (July 2026, with a same-session robustness correction).</b> The equilibrium hypothesis — under best play the
+evaluation is stationary — is the existence condition for a thermodynamic state function, and it was never measured.
+<span class="mono">equilibrium_drift.js</span> measures how far F fails to be a martingale under the engine's own best
+play (same-parity two-ply drifts along self-play; energy vs premium decomposed). <b class="k">What is robust</b>
+(<span class="mono">drift_robustness.js</span>, Spearman + the lab's declared thermal-runaway cut): the premium is
+more volatile than the energy (median |ΔTS| ≈ 1.3–1.8× |Δ⟨Q⟩|); high-premium positions tend to drift <i>down</i> — a
+monotone winner's curse, <b class="k">Spearman −0.58, stable across the T&lt;8/T&lt;4 cuts</b>; and the deepening
+landmarks (confound-free) show contested middlegames over-value (δF −0.5…−1.0) while resolved positions conserve
+(trebuchet δF −0.03). <b class="k">The reconstruction F* = ⟨Q⟩ + λ̂·TS is REFUTED, robustly</b>: it drifts identically
+to F at every cut (med|ΔF*|/med|ΔF| = 1.00) — deflating by λ̂ does not make F a martingale (λ̂ is too noisy: the
+Δλ̂·TS variance it injects cancels the deflation it removes).
+<b class="k">CORRECTION (same session, self-audit prompted).</b> The first write of this item reported
+<i>corr(premium,ΔF)=−0.71, Doob slope β=−0.88, "only ~12% of the premium survives," the fork PROVEN, and orthogonal
+axes as a discovery.</i> All four are <b class="k">withdrawn</b>: (1) the Pearson −0.71 was inflated by <i>two</i>
+thermal-runaway samples (T&gt;8) — the lab's own robust cut, which I failed to apply — dropping it to −0.27; the
+robust signal is the Spearman −0.58. (2) β on ΔF conflated premium dissipation with the energy (⟨Q⟩ rises as the max
+falls, corr(premium,Δ⟨Q⟩)=+0.49), so "12% survives" was not a clean measurement. (3) that the martingale correction
+equals the <span class="mono">mean</span> backup was never tested — F* (the one deflation tried) did <i>not</i>
+lower drift, so which correction, if any, makes F a martingale is OPEN. (4) "orthogonal axes" is a plausible reading
+of the F* failure, not a proven fact. What stands: the premium over-values monotonically, and λ̂-deflation does not
+fix it. Open: does the winner's-curse Spearman shrink with depth (a conserved core emerging), measured on the robust
+metric — the d5 scan, re-read through <span class="mono">drift_robustness.js</span>, decides it.</div>
 
 <h2>3 · Current problems</h2>
 <div class="item prob"><b class="k">Self-indulgence (the Alekhine blunder).</b> 1.e4 Nf6 2.e5 d6?? 3.exf6 — the

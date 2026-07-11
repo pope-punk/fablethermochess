@@ -47,32 +47,33 @@
 //   Landmark cross-check (deepening revision δ = F_{d+2} − F_d on fixed
 //   positions): frozen/resolved ≈ 0, sharp/contested large; also δ for F*.
 //
-// ── VERDICT (d3, July 2026): diagnosis CONFIRMED, λ̂-reconstruction REFUTED ──
-//   P3 & P4 hold robustly: the premium is the leaky part (RMS ratio 2.25, robust
-//   1.33) and it bleeds as the winner's curse (corr(premium,ΔF) = −0.71). The
-//   Doob slope β = −0.88 means only 1+β ≈ 12% of the premium SURVIVES one full
-//   move — the d3 premium is ~88% transient, a near-total winner's curse.
+// ── VERDICT (d3, July 2026) — with a same-session ROBUSTNESS CORRECTION ──
+//   ROBUST (drift_robustness.js: Spearman + the declared T<8/T<4 runaway cut):
+//   · the premium is more volatile than the energy (median |ΔTS| ≈ 1.3–1.8×
+//     |Δ⟨Q⟩|);
+//   · high-premium positions drift DOWN monotonically — the winner's curse,
+//     Spearman(premium,ΔF) = −0.58, STABLE across cuts;
+//   · landmarks (confound-free): contested middlegames over-value (δF −0.5…−1.0),
+//     resolved conserve (trebuchet δF −0.03);
+//   · F* = ⟨Q⟩ + λ̂·TS is REFUTED, robustly: med|ΔF*|/med|ΔF| = 1.00 at every
+//     cut — λ̂ is too noisy to make F a martingale (the Δλ̂·TS variance it injects
+//     cancels the deflation it removes).
 //
-//   THE RECONSTRUCTION F* = ⟨Q⟩ + λ̂·TS IS REFUTED (P5 null, P6 fails). F* drifts
-//   the SAME as F (med|ΔF*|/med|ΔF| = 1.00; corr −0.706 vs −0.707) and is WORSE
-//   by the landmark (δF* −1.54 vs δF −0.99 in the middlegame). The leak is NOT
-//   the quenched fraction: corr(λ̂, ΔF | high premium) ≈ 0 (−0.12), and (1−λ̂)TS
-//   predicts the leak WORSE than full TS. The reason λ̂ = 0.6–0.8 fails: the true
-//   persistence is ~0.12, so keeping λ̂·TS ≈ 0.7·TS leaves ~58% excess premium
-//   that still bleeds — the wrong magnitude entirely, and the wrong AXIS.
-//
-//   THE DISCOVERY under the refutation: the dissipation axis (conserved vs
-//   winner's-curse) is ORTHOGONAL to the correlation axis λ̂ measures (annealed
-//   vs quenched). The winner's curse is a property of MAX-OVER-NOISE that
-//   afflicts independent options too, so λ̂ (sibling-revision correlation) does
-//   not see it. This likely explains why six correlation-based deflation ladders
-//   never cleanly separated the load-bearing premium — wrong axis. The TRUE
-//   martingale correction is a GLOBAL deflation to ~0.12·premium ≈ the 'mean'
-//   backup (premT→0), which is the WEAKER player: the fork stands — the
-//   martingale F is the measuring instrument, the full-premium F is the
-//   (stronger) player, and the premium's near-total bleed IS the strategic bluff.
-//   OPEN: does β shrink with depth (a conserved optionality core emerging as
-//   T→0), or does the premium bleed at all depths? — the depth scan is next.
+//   WITHDRAWN (the first verdict here overclaimed on outlier-sensitive Pearson
+//   stats and untested inferences — the user's "are you sure?" caught it):
+//   · corr(premium,ΔF) = −0.71  →  TWO T>8 samples drove it; robust Pearson is
+//     −0.27, and the real signal is the Spearman −0.58. (I had not applied the
+//     lab's own thermal-runaway cut.)
+//   · β = −0.88, "only ~12% survives"  →  β on ΔF conflates premium dissipation
+//     with the energy (⟨Q⟩ RISES as max falls: corr(premium,Δ⟨Q⟩) = +0.49), so
+//     this was not a clean premium-persistence number.
+//   · "martingale correction = the 'mean' backup = weaker player, fork PROVEN"
+//     →  never tested; F* (the one deflation tried) did NOT lower drift, so which
+//     correction (if any) makes F a martingale is OPEN.
+//   · "orthogonal axes, the discovery"  →  a plausible reading of the F* failure,
+//     not a proven fact.
+//   OPEN: does the winner's-curse Spearman shrink with depth (a conserved core
+//   emerging as T→0)? — the d5 scan, read through drift_robustness.js, decides.
 //
 //   node tests/equilibrium_drift.js [depth]
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
