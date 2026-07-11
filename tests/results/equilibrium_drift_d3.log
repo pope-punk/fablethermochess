@@ -1,0 +1,38 @@
+
+equilibrium-drift residual — self-play, depth 3, 130 two-ply samples
+
+overall (pawns):
+  RMS(ΔF)    = 6.426   mean = -0.015
+  RMS(ΔmaxQ) = 3.291   mean = -0.014
+  RMS(ΔTS)   = 7.415   mean = 0.013
+
+(1)&(2) drift vs resolution:
+  frozen    n=  2  RMS(ΔF)=1.917  RMS(ΔTS)=2.073  <T>=1.48
+  cold      n= 15  RMS(ΔF)=13.116  RMS(ΔTS)=15.056  <T>=1.44
+  critical  n= 16  RMS(ΔF)=2.185  RMS(ΔTS)=2.947  <T>=1.58
+  hot       n= 97  RMS(ΔF)=5.280  RMS(ΔTS)=6.093  <T>=2.24
+  ── by bath T ──
+  T∈[1,2)  n=107  RMS(ΔF)=5.035
+  T∈[2,4)  n= 16  RMS(ΔF)=2.648
+  T∈[4,8)  n=  5  RMS(ΔF)=4.352
+  T∈[8,∞)  n=  2  RMS(ΔF)=34.994
+
+(3) dynamic winner's curse:
+  corr(premium TS, ΔF)    = -0.707   (predict < 0)
+  corr(premium TS, ΔmaxQ) = -0.652
+
+(4) premium vs energy leak:  RMS(ΔTS)/RMS(ΔmaxQ) = 2.25   (predict ≳ 1 ⇒ premium is the leaky part)
+
+landmark deepening revision δ = F(d+2) − F(d)  (pawns):
+  startpos             F(d3)=1.38  F(d5)=1.51  δ=0.122  phase=hot
+  open middlegame      F(d3)=1.41  F(d5)=0.42  δ=-0.987  phase=hot
+  sharp (Fried Liver)  F(d3)=1.79  F(d5)=1.29  δ=-0.502  phase=hot
+  trebuchet (frozen)   F(d3)=1.06  F(d5)=1.02  δ=-0.034  phase=hot
+
+════ PREDICTIONS ════
+  (1) conservation when resolved : FAILS
+  (2) leak grows with T          : FAILS
+  (3) dynamic winner's curse (<0): HOLDS
+  (4) premium is the leaky part  : HOLDS
+
+wrote results/equilibrium_drift.json
