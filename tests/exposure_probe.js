@@ -56,6 +56,49 @@
 //     complement (cold_local ∧ ¬premium_local) attributes it to the LEAF
 //     exposure bonus — i.e. which of Pathway 1's two channels to reprice.
 //
+// ── VERDICT: H_search, decisively — Pathway 1 REFUTED for the catastrophe
+//    class (July 2026, 23 recovered positions) ──
+//   cold_local = 0/23 (0%), UNANIMOUS across both classes. Stripping BOTH
+//   entropy channels at the shallow horizon (interior premium via backup:max
+//   AND the leaf bonus via leafT→0) reveals NOT ONE catastrophe. No ensemble
+//   re-derivation — Gibbs, basin, sigma, exK, quenched, or any future one —
+//   can see these losses, because the loss is not represented in the shallow
+//   tree at all. The asymmetric-reservoir/Gibbs completion may still bound
+//   thermal runaway, but it cannot fix a single mated-while-winning game.
+//
+//   THE FRAMING CORRECTION. "F prices the open king as an entropy BONUS" does
+//   NOT survive at the actual catastrophe positions. The entropy inflation
+//   eF−eCold is NEGATIVE in all 23 (median −1.1 pawns): F's entropy is a mild
+//   PENALTY, the danger sense already firing on the opponent's optionality
+//   around the exposed king. It fires — it is just a bounded ~1-pawn signal,
+//   hopeless against an off-horizon mate worth −∞ while the engine reads
+//   +6…+15 on raw material (up a rook/queen and being mated). (Caveat: eF ≤
+//   eMax holds structurally because the child F counts the opponent's premium;
+//   the FINDING is the ~1-pawn MAGNITUDE and cold=0, not the sign. The
+//   "bonus" intuition saw lnW_us rise with escape squares and missed that
+//   lnW_them rises faster — the net leaf term already docks the exposed side.)
+//
+//   OFF-HORIZON. Median reveal Δ = 7 ply; 15/23 unrevealed even at DMAX=8.
+//   The refutation is a forcing (mating/check) net beyond the horizon — the
+//   identical wall every cheap-local-diagnostic died on. It splits by class:
+//   EXPOSURE king-marches reveal SHALLOWER (median Δ 3.5, 4 unreached — a
+//   forcing extension of ~4 ply reaches them), MATERIAL grabs run DEEPER
+//   (median Δ 7, 11 unreached — often past d8).
+//
+//   REDIRECTION of the redevelopment. The lawful cure is neither ensemble
+//   repricing (Pathway 1, refuted here) nor width allocation (alloc already
+//   neutral; the freeze-guard's 1-ply defer already failed — the nets are
+//   4–8+ ply out). It is FORCING-LINE (check) extension to resolution — the
+//   qCheck family — the one instrument that provably resolves off-horizon
+//   mates (Légal) and already cut mate-losses 10→6. Pathway 2 should be
+//   reformulated from "χ-gated width" to "forcing-net depth": follow the
+//   opponent's checks/captures to their terminal, concentrated on the
+//   king-march class the probe shows is within ~4 ply. The flat-to-d8
+//   material-up cases (up huge material, slowly mated) are the honest
+//   residue: no search from a single position reaches them, and the eval
+//   cannot see a threat that carries no material or counting signal — the
+//   horizon problem in its irreducible form.
+//
 //   node tests/exposure_probe.js
 const fs = require('fs'), path = require('path');
 const { recover } = require('./exposure_corpus.js');
@@ -117,10 +160,12 @@ for (const r of rows) {
     (r.cold_local ? 'LOCAL' : ' off ') + '  ' + JSON.stringify(r.ladder));
 }
 
+const CAP_DELTA = DMAX - D_LO + 1;   // unreached: refutation is beyond DMAX, count it as just past
+const capd = r => r.delta === Infinity ? CAP_DELTA : r.delta;
 function summarize(label, rs) {
   if (!rs.length) return;
   const cold = rs.filter(r => r.cold_local).length;
-  const deltas = rs.filter(r => r.delta !== Infinity).map(r => r.delta);
+  const deltas = rs.map(capd);   // unreached folded in at CAP_DELTA, not dropped
   const unreached = rs.filter(r => r.delta === Infinity).length;
   const prem = rs.filter(r => r.cold_local && r.premium_local).length;
   const leafOnly = rs.filter(r => r.cold_local && !r.premium_local).length;
@@ -128,7 +173,7 @@ function summarize(label, rs) {
   console.log(`\n── ${label} (n=${rs.length}) ──`);
   console.log(`  cold_local (ensemble-visible at d${D_LO}): ${cold}/${rs.length} (${(100 * cold / rs.length).toFixed(0)}%)`);
   console.log(`  entropy inflation eF−eCold: median ${med(gaps).toFixed(1)} pawns  (values: ${gaps.join(',')})`);
-  console.log(`  reveal Δ: median ${deltas.length ? med(deltas) : 'n/a'} ply` +
+  console.log(`  reveal Δ: median ${med(deltas)} ply (unreached=CAP ${CAP_DELTA})` +
     (unreached ? `, ${unreached} unreached at DMAX` : '') + `  (values: ${rs.map(r => r.delta === Infinity ? '∞' : r.delta).join(',')})`);
   console.log(`  locus among cold: interior-premium ${prem}, leaf-exposure ${leafOnly}`);
 }
@@ -139,11 +184,10 @@ summarize('MATERIAL (grab)', rows.filter(r => r.cls === 'MATERIAL'));
 // ── verdict ──
 function verdict(rs) {
   const cold = rs.filter(r => r.cold_local).length, n = rs.length;
-  const deltas = rs.filter(r => r.delta !== Infinity).map(r => r.delta);
-  const mdelta = deltas.length ? med(deltas) : Infinity;
+  const mdelta = med(rs.map(capd));   // unreached folded in at CAP_DELTA
   if (cold >= 2 / 3 * n) return 'H_eval (ensemble-fixable at shallow depth → Pathway 1)';
   if (cold <= 1 / 3 * n && mdelta >= 4) return 'H_search (off-horizon → Pathway 2, attention/depth)';
-  return 'SPLIT/INDETERMINATE (report the partition)';
+  return `cold-arm H_search (0 ensemble-visible) but median Δ=${mdelta}<4 — refutation off-horizon yet shallow`;
 }
 console.log('\n════ VERDICT ════');
 console.log('  ALL      : ' + verdict(rows));

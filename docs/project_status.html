@@ -187,11 +187,35 @@ adverse beyond counting error or unmeasured; defer to d3, where a parity-confirm
 mechanics worked exactly as designed (d2 freezes 115→2, deferrals nearly free) — and the gauntlet read 6/12 vs 9,
 with the hypothesis refuted by its own metric: <b class="k">d3-confirmed freezes are exactly as unstable as raw d2
 ones (32% vs 29% eval-drop rate)</b>, and the catastrophe class recurred on <i>full-deadline</i> moves (English-W
-mated at +1010 after marching its king Kb4→Kd7 at evals +10…+13). The clock was never the disease: F prices an
-open king as an entropy <i>bonus</i> (mobility), so every scheduler pathology traced here is downstream of the
-evaluation. Scheduler ladder: 9 (σ_eff as-is) &gt; 7.5 &gt; 6.5 ≈ 6 — four criterion modifications in a row read
-negative at n=12. Either σ_eff-as-is is a sharp local optimum, or the single 9/12 run was a favorable draw; an
-n=24 schedule rebaseline would settle which, cheaply.</div>
+mated at +1010 after marching its king Kb4→Kd7 at evals +10…+13). The clock was never the disease: every scheduler
+pathology traced here is downstream of the evaluation. Scheduler ladder: 9 (σ_eff as-is) &gt; 7.5 &gt; 6.5 ≈ 6 —
+four criterion modifications in a row read negative at n=12. Either σ_eff-as-is is a sharp local optimum, or the
+single 9/12 run was a favorable draw; an n=24 schedule rebaseline would settle which, cheaply.
+<i>(The gloss "F prices an open king as an entropy bonus" was the working reading here; the discriminator below
+now corrects it — at the actual catastrophe positions F's entropy is a net penalty, and the disease is the
+horizon, not the entropy pricing.)</i></div>
+<div class="item win"><b class="k">The exposure discriminator: the catastrophe is the horizon, not the entropy
+pricing (July 2026).</b> Before building the next evaluation cure, one measurement the program had never made:
+of the two worlds every dead-end is consistent with — <i>H_eval</i> (the refutation is horizon-free structure the
+ensemble misprices → reprice it, the Gibbs/asymmetric-reservoir road) versus <i>H_search</i> (the refutation is
+off-horizon → attention only) — which one are we in? <span class="mono">exposure_probe.js</span> settles it on 23
+"complacent-then-mated" positions recovered objectively from the recorded gauntlets (engine read +3…+15♙ then got
+checkmated; config-diverse, so the disease is base-F). Pre-registered rule, certified hooks only (fixed-depth,
+<span class="mono">backup:'max'</span>, <span class="mono">leafT</span>). <b class="k">Verdict H_search,
+decisively.</b> The ensemble arm — strip BOTH entropy channels at the shallow horizon — reads
+<b class="k">cold_local = 0/23</b>: not one catastrophe becomes visible, because the loss is not in the shallow tree
+at all. No ensemble re-derivation (Gibbs, basin, sigma, exK, or any future one) can see it. <b class="k">Framing
+correction:</b> the entropy inflation eF−eCold is <i>negative</i> in all 23 (median −1.1♙) — F's entropy is a mild
+<i>penalty</i>, the danger sense already firing on the opponent's optionality; it fires, but it is a bounded ~1♙
+signal against a −∞ off-horizon mate while raw material reads +6…+15 (the engine up a rook/queen and being mated).
+The "open-king bonus" intuition saw lnW<sub>us</sub> rise with escape squares and missed that lnW<sub>them</sub>
+rises faster. Median reveal Δ = 7 ply, 15/23 unrevealed even at d8; king-marches sit shallower (Δ≈3.5,
+forcing-reachable) than material grabs (Δ 7, past d8). <b class="k">Redirect:</b> the lawful cure is neither
+repricing (Pathway 1 refuted here) nor width allocation (alloc neutral; the guard's 1-ply defer already failed —
+the nets are 4–8+ ply out) but <i>forcing-line (check) extension to resolution</i> — the qCheck family, the one
+instrument that provably reaches off-horizon mates (Légal) and already cut mate-losses 10→6 — concentrated on the
+king-march class the probe shows is within ~4 ply. The flat-to-d8 material-up cases are the honest residue: no
+search from a single position reaches them.</div>
 <div class="item prob"><b class="k">J is hard to pin down.</b> A 64-move window carries ±1.75 of error by
 information-theoretic necessity; supercritical fits are unidentifiable (the bistable branch fits anything).
 The estimator is honest about this, but per-game opponent reads stay coarse.</div>
