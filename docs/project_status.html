@@ -150,8 +150,14 @@ falls, corr(premium,Δ⟨Q⟩)=+0.49), so "12% survives" was not a clean measure
 equals the <span class="mono">mean</span> backup was never tested — F* (the one deflation tried) did <i>not</i>
 lower drift, so which correction, if any, makes F a martingale is OPEN. (4) "orthogonal axes" is a plausible reading
 of the F* failure, not a proven fact. What stands: the premium over-values monotonically, and λ̂-deflation does not
-fix it. Open: does the winner's-curse Spearman shrink with depth (a conserved core emerging), measured on the robust
-metric — the d5 scan, re-read through <span class="mono">drift_robustness.js</span>, decides it.</div>
+fix it. <b class="k">Second audit finding — the depth scan is instrument-limited.</b> The fixed-depth path is bounded
+by NODE_HARD_LIMIT = 5M nodes, not dashDepth alone: sharp positions cap at ~d4 (dashDepth 5–8 all return reported
+depth 4 on the Fried Liver), only quiet positions reach d5+. Self-play visits sharp middlegames, so the "d5" run was
+a node-capped ≈d4 mix — the d3-vs-d5 comparison is INVALID and whether the winner's curse shrinks with depth is
+UNRESOLVED (the d5 landmark zeros were the cap: F at "d5" = F at "d7" = F at depth 4). A correct depth scan must
+record the reported depth per ply and compare only plies that reached the request. (The same cap means
+<span class="mono">exposure_probe</span>'s reveal-depths beyond ~d5 are cap-limited — its cold_local=0/23 at d2 is
+untouched, and "unreachable by a 5M-node search" only reinforces off-horizon.)</div>
 
 <h2>3 · Current problems</h2>
 <div class="item prob"><b class="k">Self-indulgence (the Alekhine blunder).</b> 1.e4 Nf6 2.e5 d6?? 3.exf6 — the

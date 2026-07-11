@@ -72,8 +72,16 @@
 //     correction (if any) makes F a martingale is OPEN.
 //   · "orthogonal axes, the discovery"  →  a plausible reading of the F* failure,
 //     not a proven fact.
-//   OPEN: does the winner's-curse Spearman shrink with depth (a conserved core
-//   emerging as T→0)? — the d5 scan, read through drift_robustness.js, decides.
+//   OPEN — and NOT answered by the d5 scan (second audit finding): the
+//   fixed-depth path is bounded by NODE_HARD_LIMIT = 5M nodes, not by dashDepth
+//   alone. Sharp positions cap at ~d4 (dashDepth 5–8 all return reported depth 4
+//   on the Fried Liver); only quiet positions reach d5+. Self-play visits sharp
+//   middlegames, so the "d5" run was a node-capped ≈d4 mix — the d3-vs-d5 depth
+//   comparison is INVALID, and whether the winner's curse shrinks with depth is
+//   UNRESOLVED. A correct depth scan must record the REPORTED depth per ply and
+//   compare only plies that actually reached the requested depth (or raise the
+//   node cap). The d5 landmark zeros were this cap (F at "d5" = F at "d7" = F at
+//   depth 4 ⇒ δ = 0 exactly), not convergence.
 //
 //   node tests/equilibrium_drift.js [depth]
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }

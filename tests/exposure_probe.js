@@ -99,6 +99,15 @@
 //   cannot see a threat that carries no material or counting signal — the
 //   horizon problem in its irreducible form.
 //
+//   CAVEAT (found later, via equilibrium_drift's depth audit): the fixed-depth
+//   path caps at NODE_HARD_LIMIT = 5M nodes, so on sharp positions the ladder
+//   stops advancing around d4–d5 (dashDepth 6–8 return the same node-capped
+//   result — hence flat ladder tails like …14.5,14.5,14.5). The cold_local=0/23
+//   result at d_lo=2 is well below the cap and UNAFFECTED; the reveal-depths
+//   beyond ~d5 mean "unreached by a 5M-node search," which only reinforces
+//   off-horizon — but the precise reveal-depth distribution (median Δ, "unreached
+//   at d8") should be read as node-capped, not true depth 8.
+//
 //   node tests/exposure_probe.js
 const fs = require('fs'), path = require('path');
 const { recover } = require('./exposure_corpus.js');
