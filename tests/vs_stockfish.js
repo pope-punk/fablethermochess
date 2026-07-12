@@ -49,8 +49,18 @@ const ALLOC = MODE === 'alloc' || MODE === 'hopalloc' || MODE === 'allocsched' |
 const GUARD = MODE === 'guard';              // schedule + absorbing-risk freeze guard (freeze_guard_replay.js)
 const EXK = MODE === 'exk' ? true : (MODE === 'exkleaf' || COMBO) ? 'leaf' : MODE === 'exkz' ? 'z' : undefined;  // king moves carry no entropy (fixed time)
 const GIBBS = MODE === 'gibbs' || COMBO || TRIO;   // Gibbs leaf: G = U + T0*lnW_us - T*lnW_them, root-anchored (fixed time)
-const QCHECK = MODE === 'qcheck' || QBASIN || TRIO;  // check-aware quiescence: resolve forcing checks at T=0 (fixed time)
-const SCHEDULE = MODE === 'schedule' || BASINSCHED || MODE === 'allocsched' || GUARD;  // measure + sigma_eff time management with banking
+// schedqcheck = the CLEAN scheduler/forcing-net marriage: sigma_eff time
+// management + check-aware quiescence, full F premium, Helmholtz leaf (NOT
+// basin/Gibbs — those are the qbasin/trio stacks). Targets the documented
+// freeze-into-mate blind spot: sigma_eff freezes ~80% at d2, and capture
+// sequences freeze the clock where forcing mating nets build off-horizon
+// (losses mated at +590 / +1010). MECHANISM: qCheck resolves forcing checks
+// in pre-thermal quiescence, so the ensemble spread (sigma_eff) that gates
+// the freeze becomes danger-aware in forcing positions -> the scheduler
+// stops freezing confidently into a check-net. Coupled, not two knobs.
+const SCHEDQCHECK = MODE === 'schedqcheck';
+const QCHECK = MODE === 'qcheck' || QBASIN || TRIO || SCHEDQCHECK;  // check-aware quiescence: resolve forcing checks at T=0 (fixed time)
+const SCHEDULE = MODE === 'schedule' || BASINSCHED || MODE === 'allocsched' || GUARD || SCHEDQCHECK;  // measure + sigma_eff time management with banking
 const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC || EXK !== undefined || GIBBS || QCHECK;
 
 const OPENINGS = [
