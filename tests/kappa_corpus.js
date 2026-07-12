@@ -28,6 +28,22 @@
 //
 //   VALIDATION (the formula): in CURE cases, is κ_flip = T_flip/T_us ≈ T̂(B-child)/T_us?
 //
+// ── VERDICT (12 self-indulgence cases from 94 positions, depth 3): the
+//    two-temperature cure DOES NOT GENERALIZE — the algebraic priors held ──
+//   OVERSHOOT 8/12 (67%): cooling the opponent flips to a WRONG third move (mostly
+//   at κ≈1, immediately), not the sound move — exactly the non-monotonicity of
+//   argmin F_m predicted. CURE only 4/12, and weak: 2 are SUB-FLOOR (T_flip<T₀≈1,
+//   unreachable in honest play — including the Alekhine), one flips right at the
+//   bath (κ=1). So ~1 genuinely reachable clean cure. HORIZON contamination hits
+//   5/12 (child maxQ soft-vs-hard off by >1.5♙). The printed "formula HOLDS" is a
+//   COARSE-MEAN artifact (0.66 vs 0.60); per case the scatter is large (Nxe4 off
+//   0.52), and several rows are near-duplicate positions across lines (effective
+//   N smaller). CONCLUSION: κ is derivable and the Schottky form κ=T̂_them/T_us is
+//   real for the Alekhine, but APPLYING it does not cure self-indulgence in
+//   general — it overshoots or needs sub-floor opponent temperatures. The Alekhine
+//   was a favorable (sub-floor) special case. Consistent with the meta-law: the
+//   premium is load-bearing at full size; there is no clean temperature excision.
+//
 //   node tests/kappa_corpus.js
 const fs = require('fs'), path = require('path');
 const E = require('./engine_current.js');
