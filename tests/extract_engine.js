@@ -3,7 +3,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const htmlPath = path.join(__dirname, '..', 'chess_thermo_jhat.html');
+// Default source is the canonical app (chess_thermo_jhat.html) so every
+// recorded result reproduces exactly. ENGINE_SRC selects a different app —
+// e.g. ENGINE_SRC=chess_thermo_gge.html to suite-test the GGE engine shell.
+const htmlPath = path.join(__dirname, '..', process.env.ENGINE_SRC || 'chess_thermo_jhat.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
 const m = html.match(/<script id="td-engine">([\s\S]*?)<\/script>/);
 if (!m) { console.error('td-engine script not found in HTML'); process.exit(1); }
