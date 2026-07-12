@@ -56,11 +56,13 @@ const softmaxF = (Qs, T) => { const mx = Math.max(...Qs); return mx + T * Math.l
 const buckets = { CURE: [], OVERSHOOT: [], NOFLIP: [] };
 const flags = { SUBFLOOR: 0, KAPPA_GE1: 0, ABSORBING: 0, HORIZON: 0 };
 let scanned = 0, reproduced = 0;
+const JSONL = path.join(__dirname, 'results', 'kappa_corpus.jsonl');   // durable: one line per case, survives restarts
+fs.writeFileSync(JSONL, '');
 
 for (const fen of positions) {
   scanned++;
-  const fd = E._runAnalyze({ fen, dashDepth: 4 }).thermo;
-  const fh = E._runAnalyze({ fen, dashDepth: 4, backup: 'max' }).thermo;
+  const fd = E._runAnalyze({ fen, dashDepth: 3 }).thermo;
+  const fh = E._runAnalyze({ fen, dashDepth: 3, backup: 'max' }).thermo;
   if (!fd || !fh) continue;
   const B = fd.moves[fd.bestIdx], S = fh.moves[fh.bestIdx];
   if (B === S) continue;
@@ -99,9 +101,13 @@ for (const fen of positions) {
   if (horizon) flags.HORIZON++;
   if (That >= Tus) flags.KAPPA_GE1++;
   if (Tflip != null && Tflip < T0) flags.SUBFLOOR++;
-  if (Tflip == null) buckets.NOFLIP.push(rec);
-  else if (target === S) buckets.CURE.push(rec);
+  rec.bucket = Tflip == null ? 'NOFLIP' : target === S ? 'CURE' : 'OVERSHOOT';
+  rec.subfloor = Tflip != null && Tflip < T0; rec.absorbing = absorbing; rec.horizon = horizon;
+  if (rec.bucket === 'NOFLIP') buckets.NOFLIP.push(rec);
+  else if (rec.bucket === 'CURE') buckets.CURE.push(rec);
   else buckets.OVERSHOOT.push(rec);
+  fs.appendFileSync(JSONL, JSON.stringify(rec) + '\n');            // durable, per-case
+  process.stderr.write('[' + reproduced + '] ' + rec.bucket + ' B=' + B + ' S=' + S + ' κ=' + rec.kappa + '\n');
 }
 
 // report
