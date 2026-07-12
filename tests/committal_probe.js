@@ -18,6 +18,29 @@
 // forced loss). Alignment: trace[k] ↔ engine move k+nBook (book moves absent from
 // trace), as in exposure_corpus.
 //
+// ── VERDICT (14 games, depth 3): qCheck does NOT prophylactically rescue ──
+//   Only 1/14 games have a savable committal flip (qCheck flips off the exposing
+//   move while |eval|<3). In 13/14, qCheck DOES reveal the net (gaps of 8–28♙) and
+//   DOES change the move (1–4 flips/game), but at already-lost evals (savable 0).
+//   DESIGN CAVEAT (owned): the 5-ply walk-back stayed in the complacent-HIGH
+//   region — these games spike to +complacent at the material grab / exposure and
+//   hold it for many plies while the net builds, so the true committal (moderate
+//   eval, sound alternative) is further back and largely unreached. The large
+//   reveal gaps show qCheck SEES the danger; it just sees it too late here.
+//
+//   COMBINED CONCLUSION (with exposure_probe + qcheck_reveal): forcing extension
+//   is SHALLOW-net prophylaxis only. qCheck reaches ~4-ply king-march nets
+//   (qcheck_reveal 6/10) and already harvests those in play (mate-losses 10→6 in
+//   the Gibbs run); it cannot see the DEEP material-grab nets (exposure_probe:
+//   15/23 unreached at d8), so it can't steer off them at the committal. The deep
+//   mate-loss residual needs DEPTH, not a bounded forcing extension — pointing at
+//   alloc's free depth at longer time controls, and at the scheduler's documented
+//   freeze-into-mate blind spot (σ_eff freezes at d2 during capture sequences
+//   where nets build; qCheck resolving those forcing lines is the one untested
+//   scheduler marriage). Both are gauntlets, now feasible (stable environment).
+//   Also striking: 147 losing-by-mate games across the recorded gauntlets — the
+//   mate-loss pocket is the large one, far bigger than the self-indulgence side.
+//
 //   node tests/committal_probe.js
 const fs = require('fs'), path = require('path');
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }

@@ -1,0 +1,37 @@
+alloc#7        prophylactic=false
+alloc#9        prophylactic=true (back 5, gap 5.13, undefined)
+allocsched#2   prophylactic=false
+basinback#5    prophylactic=false
+exkleaf#9      prophylactic=false
+gibbs#1        prophylactic=false
+gibbs#11       prophylactic=false
+guard#3        prophylactic=false
+guard#10       prophylactic=false
+leafmu#2       prophylactic=false
+leafmu#10      prophylactic=false
+leafmu2#5      prophylactic=false
+leafmu2#9      prophylactic=false
+leafmu3#3      prophylactic=false
+
+=== committal-flip: does qCheck reveal-and-flip while still SAVABLE? (depth 3, 14 games) ===
+
+  games with a prophylactic committal flip (qCheck flips off the exposing move at |eval|<3, gap>0.5): 1/14
+  mean qCheck reveal gap (eval_def − eval_qc) across all walked plies: 597.43 pawns
+
+  per game:
+  alloc#7        proph=no   flips 1/6 (savable 0)  maxGap 1.91
+  alloc#9        proph=YES(back 5)  flips 4/6 (savable 4)  maxGap 19.63
+  allocsched#2   proph=no   flips 2/6 (savable 1)  maxGap 28.48
+  basinback#5    proph=no   flips 4/6 (savable 0)  maxGap 8.09
+  exkleaf#9      proph=no   flips 3/6 (savable 0)  maxGap 1.51
+  gibbs#1        proph=no   flips 4/6 (savable 0)  maxGap 50008.09
+  gibbs#11       proph=no   flips 2/6 (savable 0)  maxGap 0.79
+  guard#3        proph=no   flips 0/6 (savable 0)  maxGap 11.03
+  guard#10       proph=no   flips 1/6 (savable 0)  maxGap 1.14
+  leafmu#2       proph=no   flips 1/6 (savable 0)  maxGap 3.74
+  leafmu#10      proph=no   flips 4/6 (savable 1)  maxGap 3.23
+  leafmu2#5      proph=no   flips 1/6 (savable 1)  maxGap 0.25
+  leafmu2#9      proph=no   flips 0/6 (savable 0)  maxGap 5.03
+  leafmu3#3      proph=no   flips 1/6 (savable 0)  maxGap 1.53
+
+wrote results/committal_probe.json
