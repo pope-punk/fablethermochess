@@ -250,7 +250,26 @@ the king-march nets — qCheck reveals 6/10 EXPOSURE catastrophes at d2, cutting
 Δ P0 predicted; gibbs Kd3 +12.8→−49997 at d1), confirming this type-(b) content lives in the T=0 relaxation the
 state function is blind to. But it flips the played move only 1/10 (these positions are already lost — reveal ≠
 rescue); the curative value is <i>prophylactic</i>, at the committal decision one ply earlier, and the reveal-depth
-cut is exactly the precondition for it. The committal-flip test is the next probe.</div>
+cut is exactly the precondition for it.
+<b class="k">Committal-flip tested (<span class="mono">committal_probe.js</span>):</b> qCheck is NOT prophylactic —
+only 1/14 mate-loss games have a savable committal flip (qCheck flips off the exposing move while |eval|&lt;3). It
+reveals the net (gaps 8–28♙) and changes the move, but at already-lost evals: forcing extension is a
+<i>shallow-net</i> instrument (reaches ~4-ply king-marches, blind to the deep material-grab nets, 15/23 unreached
+at d8), so the deep mate-loss residual needs DEPTH, not a bounded forcing extension.
+<b class="k">The scheduler marriage, tested and autopsied (<span class="mono">schedqcheck_autopsy.js</span>):</b>
+the one untested scheduler/forcing-net combination — σ_eff scheduler + qCheck, full F premium — collapsed to
+<b class="k">3/12</b> (mate losses 2→8, castles 3→1), the worst scheduler-ladder result. But the autopsy overturns
+the "anti-synergy" reading: the disease is qCheck's intrinsic <b class="k">depth tax</b>, present in every qCheck
+family member with NO scheduler (mean depth halves, 3.19 → 1.5–1.9; at d≈1.8 the engine is quiescence-only and
+blind to the d5+ nets → 4–8 mate losses across the family). schedqcheck sits at that family's floor but WITHIN it
+(3 vs qcheck2's 4 is ≈0.7 SE at n=12). The scheduler's +2.5 edge (9 vs the 6.5 flux baseline, mates 5→2) is
+<i>conditional</i> on the base d3 search — it gates at depth≥2–3 and spends banked time on hard positions at depth;
+qCheck spends that depth away, so the two <b class="k">compete for the same scarce resource (search depth)</b> and
+cannot marry at a fixed per-move budget until the forcing extension is made depth-neutral (qcheck2's "fast
+pre-filter" did not achieve this — d1.92 ≈ d1.67, scored worse). My pre-registered freeze-widening channel was
+refuted by its own metric (complacent freeze% 18.7→2.2, DOWN not up); the gap widening is a shallow-depth artifact.
+The evaluation-vs-search wall stands: qCheck harvests the tactical fraction of depth-sensitivity but cannot pay for
+the depth it costs.</div>
 <div class="item prob"><b class="k">J is hard to pin down.</b> A 64-move window carries ±1.75 of error by
 information-theoretic necessity; supercritical fits are unidentifiable (the bistable branch fits anything).
 The estimator is honest about this, but per-game opponent reads stay coarse.</div>
@@ -318,6 +337,9 @@ rules above were carved out of these failures.</p>
 <tr><td>Absorbing-risk freeze guard (deny unconfirmed d2 freezes on adverse/unmeasured flux)</td>
     <td class="score">6/12 vs the 9/12 schedule baseline; clock mechanics worked exactly as pre-registered</td>
     <td>refuted by its own metric: d3-confirmed freezes are as unstable as d2 ones (32% vs 29% eval-drop); the catastrophe class recurred on FULL-DEADLINE moves (mated at +1010 after a voluntary king march) — the clock was never the disease</td></tr>
+<tr><td>schedqcheck (σ_eff scheduler + qCheck, full F premium — the one untested scheduler/forcing-net marriage)</td>
+    <td class="score">3/12 vs the 9/12 schedule baseline (mate losses 2→8, castles 3→1) — worst scheduler-ladder result</td>
+    <td>NOT anti-synergy: the disease is qCheck's intrinsic DEPTH TAX (mean depth halves 3.19→1.5–1.9 in every qCheck config with no scheduler; at d≈1.8 the engine is blind to the d5+ nets → 4–8 mate losses family-wide). schedqcheck is at that floor, not below (3 vs qcheck2's 4 ≈ 0.7 SE at n=12). The scheduler's +2.5 edge is depth-conditional — it and qCheck compete for search depth; no marriage at fixed budget until the forcing extension is depth-neutral. Pre-registered freeze-widening channel refuted (complacent freeze% 18.7→2.2, DOWN). <span class="mono">schedqcheck_autopsy.js</span></td></tr>
 <tr><td>The quenched premium (nested-GEV over the reply partition, μ=√λ̂ — F read as the ANNEALED free energy, the killer refutation as quenched disorder)</td>
     <td class="score">no Alekhine cure at the pooled-λ̂ operating point (Δ +0.60 vs +0.48; flip still below the floor); no strength ladder run, per the owner's rule</td>
     <td>the pooled estimator averages a hedge's near-total internal correlation with honest groups; and per-node λ̂ (built: TT-history same-parity revisions) hits an epistemic wall — hedge nodes become measurable exactly when their values resolve. Its adjudication measurement split the disease and led directly to the σ-premium</td></tr>

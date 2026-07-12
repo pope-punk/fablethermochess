@@ -222,7 +222,27 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   Rule-3 clean (search extension = attention, never a term in Q;
   symmetric, no parity issue). A real, correct tactical instrument that is
   strength-neutral because tactics are a small share of what depth
-  resolves; the pre-filter speedup is kept.
+  resolves; the pre-filter speedup is kept. **The scheduler marriage
+  (schedqcheck, July 2026) — tried, collapsed, autopsied**: σ_eff scheduler
+  + qCheck (full F premium) read 3/12 vs the 9/12 schedule baseline (mate
+  losses 2→8), the worst scheduler-ladder number — but NOT anti-synergy.
+  `schedqcheck_autopsy.js` (traces only) shows the disease is qCheck's
+  intrinsic **depth tax**: mean depth halves (3.19→1.5–1.9) in EVERY qCheck
+  config with no scheduler (qcheck 1.67, qcheck2 1.92, qbasin 1.48), and at
+  d≈1.8 the engine is quiescence-only and blind to the d5+ nets → 4–8 mate
+  losses family-wide. schedqcheck sits at that floor, not below it (3 vs
+  qcheck2's 4 ≈ 0.7 SE at n=12). The scheduler's +2.5 edge (9 vs 6.5 flux
+  baseline, mates 5→2) is **depth-conditional** — it gates at depth≥2–3 and
+  spends banked time on hard positions AT DEPTH; qCheck spends that depth
+  away, so the two **compete for the same scarce resource (search depth)**
+  and cannot marry at a fixed per-move budget until the forcing extension is
+  depth-neutral (qcheck2's pre-filter did not achieve this — d1.92≈d1.67,
+  scored worse). My pre-registered freeze-widening channel was REFUTED by
+  its own metric (complacent freeze% 18.7→2.2, DOWN). The lesson generalizes:
+  a depth-costly instrument cannot be composed with any depth-conditional
+  one at fixed time. The remaining lawful qCheck path is the deep material-
+  grab residual (15/23 unreached at d8) → real DEPTH (alloc at longer time
+  controls), not a bounded forcing extension.
 - **Dissipative-initiative order parameter (July 2026) — built, refuted**:
   the queen-sortie deep-dive (`tests/dissipation_probe.js`) proposed that a
   premature sortie is *dissipative* — Δμ>0 (forcing census) while ∂Q/∂depth<0
