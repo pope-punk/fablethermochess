@@ -15,6 +15,30 @@
 //   premium). If clean, δmax is an attention trigger (rule-3) that fingers WHERE
 //   the load-bearing premium is hiding growing material — without deflating it.
 //
+// ── VERDICT (dedup'd: 8 self-ind, 26 sound controls, depth 3→5): WEAK, and a
+//    method-check failure on my part ──
+//   (1) PREDICTION REFUTED: neither group has δmax ≫ 0 (self-ind mean −0.07,
+//       control −0.48). (2) I MEASURED THE WRONG QUANTITY: the derivation is about
+//       Δmax = maxQ_B − maxQ_S (a blunder-vs-sound DIFFERENCE, a between-move
+//       observable that doesn't apply to controls); the code measured d(maxQ_chosen)/dd
+//       for a single move. Step-3 of the method (verify the code computes the
+//       derived quantity) failed, caught post-hoc. (3) The incidental signal that
+//       DID appear — sound moves' opponent-threats fizzle with depth (δmax<0),
+//       self-indulgence's persist (δmax≈0) — is real in the mean (~0.4♙) but the
+//       distributions OVERLAP badly; not a per-case discriminator.
+//
+//   THE UNIFYING NEGATIVE this forces: self-indulgence has NO cheap local/
+//   per-position detector — not entropy (deflation), not correlation (λ̂), not
+//   temperature (κ), not opponent-threat-persistence (δmax). Every attempt to
+//   find a COLLECTIVE signature of a TRAJECTORY-blindness fails, because the
+//   blindness IS a specific trajectory, revealed only by searching it (the same
+//   wall dissipation_probe and exposure_probe hit). The evaluation cannot cheaply
+//   know where it is blind. So "a free energy that knows where it's blind" is not
+//   achievable on the cheap; concentrated attention has no cheap trigger, leaving
+//   uniform depth (alloc, neutral) or the uncertainty-proxy scheduler (+1.5) as
+//   the only lawful channels. This is the type-a/type-b boundary in its hardest
+//   form, and it caps the EVALUATION-side ceiling near where it already sits.
+//
 //   node tests/selfind_discriminator.js
 const fs = require('fs'), path = require('path');
 const E = require('./engine_current.js');

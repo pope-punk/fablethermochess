@@ -1,0 +1,52 @@
+SELF-IND(CURE)     d6     δmax=0.39 prem=1.76
+SELF-IND(OVERSHOOT) b5     δmax=-0.27 prem=0.66
+SELF-IND(OVERSHOOT) Bxc6   δmax=-0.78 prem=1.42
+SELF-IND(OVERSHOOT) e5     δmax=0.05 prem=1.54
+SELF-IND(OVERSHOOT) e5     δmax=0.05 prem=1.54
+SELF-IND(CURE)     Nxe4   δmax=-0.40 prem=0.61
+SELF-IND(OVERSHOOT) b5     δmax=-0.27 prem=0.66
+SELF-IND(OVERSHOOT) b4     δmax=0.13 prem=1.10
+SELF-IND(OVERSHOOT) e5     δmax=0.05 prem=1.54
+SELF-IND(OVERSHOOT) b5     δmax=-0.27 prem=0.66
+SELF-IND(CURE)     Na5    δmax=0.15 prem=0.29
+SELF-IND(CURE)     exd5   δmax=0.14 prem=0.50
+CONTROL            Qh5    δmax=-0.40 prem=2.01
+CONTROL            Qf6    δmax=-0.47 prem=2.05
+CONTROL            d4     δmax=-0.81 prem=1.40
+CONTROL            d5     δmax=0.19 prem=0.62
+CONTROL            b4     δmax=-0.40 prem=2.15
+CONTROL            dxc4   δmax=-0.69 prem=0.84
+CONTROL            Qa4+   δmax=-0.15 prem=0.48
+CONTROL            dxc4   δmax=-0.76 prem=0.82
+CONTROL            Qa4+   δmax=-0.53 prem=0.41
+CONTROL            Qa4+   δmax=-0.49 prem=0.44
+CONTROL            Qh5    δmax=-1.09 prem=0.83
+CONTROL            Qh4    δmax=-0.07 prem=1.29
+CONTROL            d4     δmax=-0.19 prem=1.92
+CONTROL            d5     δmax=-1.22 prem=1.00
+CONTROL            Ne4    δmax=-0.72 prem=0.74
+CONTROL            a3     δmax=-0.98 prem=1.80
+CONTROL            d4     δmax=-0.37 prem=2.43
+CONTROL            Qd6    δmax=0.19 prem=3.66
+CONTROL            Ne5    δmax=-1.35 prem=1.04
+CONTROL            Qh5    δmax=-0.88 prem=0.79
+CONTROL            Qa5+   δmax=-0.18 prem=0.35
+CONTROL            Nxd4   δmax=-0.41 prem=0.98
+CONTROL            Nxc6   δmax=-0.33 prem=0.51
+CONTROL            Qh5    δmax=-0.40 prem=2.01
+CONTROL            Qf6    δmax=-0.47 prem=2.05
+CONTROL            d4     δmax=-0.81 prem=1.40
+CONTROL            a6     δmax=-0.80 prem=1.23
+CONTROL            b5     δmax=-0.64 prem=1.50
+CONTROL            b5     δmax=1.06 prem=3.72
+
+=== self-indulgence vs SOUND control: δmax = opponent maxQ(d5)−maxQ(d3), pawns ===
+
+  group         n   premium(mean)   δmax(mean)  δmax(median)   δmax>0.3
+  SELF-IND   12       1.02         -0.09        0.05        1/12
+  CONTROL    29       1.40         -0.49       -0.47        1/29
+
+  δmax separation (self-ind − control, mean) = 0.40 pawns
+  premium comparable? self-ind 1.02 vs control 1.4  → discriminator is δmax (premium comparable)
+
+wrote results/selfind_discriminator.json
