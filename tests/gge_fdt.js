@@ -116,10 +116,15 @@ const median = a => { if (!a.length) return NaN; const b = [...a].sort((x, y) =>
 const shallow = [], deep = [], rSh = [], rDe = [];
 let n = 0, tried = 0;
 process.stdout.write('collecting FDT points (fast band d' + D_SHALLOW + ', slow band d' + D_DEEP + ')… ');
-while (n < NPOS && tried < NPOS * 12) {
+while (n < NPOS && tried < NPOS * 10) {
   tried++;
   const g = randPos(4 + ((rng() * 26) | 0));
   if (g.fast_in_check() || g.fast_moves().length < 6) continue;
+  // Quiet pre-filter: the sharpest positions node-cap the d4 pinT central
+  // differences (5M-node ceiling × 3 searches per point) and are the runaway
+  // cost. The FDT response is a slow-mode probe anyway — measure it on
+  // resolvable positions.
+  if (g.fast_captures().length > 3) continue;
   const fen = g.fen();
   const a = RC(fen, D_SHALLOW), b = RC(fen, D_DEEP);
   const ra = ratioR(fen, D_SHALLOW), rb = ratioR(fen, D_DEEP);

@@ -72,6 +72,38 @@
 //   |partial ρ| ≥ 0.15) is a seat candidate carried to the shell, gated by
 //   read 2 for the temperature seat.
 //
+// ── VERDICT (July 2026, n=42: 17 exposure catastrophes + 25 quiet controls,
+//    shallow d2, deep d4, parity-clean) — KILL, the physical cohort is EMPTY ──
+//   base LOO-R² {⟨Q⟩,S} = 0.18 (the r=1 projection already predicts ~18% of the
+//   off-horizon revision variance). Every candidate charge has NEGATIVE
+//   cross-validated ΔR² — it adds noise, not signal — with permutation p ≥ 0.18:
+//        C (Varπ)  ΔR² −0.20  p 0.97   ρ +0.26
+//        C_slow    ΔR² −1.19  p 0.99   ρ +0.21   (numerically unstable feature)
+//        Sbasin    ΔR² −0.03  p 0.52   ρ +0.13
+//        domMass   ΔR² −0.05  p 0.81   ρ −0.06
+//        rSpread   ΔR² −0.00  p 0.18   ρ +0.25
+//        evenMod   ΔR² −0.05  p 0.74   ρ −0.28
+//   The weak positive partial-Spearman hints (C, C_slow, rSpread all ρ≈0.2–0.26)
+//   do NOT survive cross-validation, so under the pre-registered rule (ΔR² above
+//   null AND |ρ|≥0.15, BOTH) no seat is instantiated. Forward greedy saturates
+//   immediately (first add −0.003). The slow-sector verdict-information is not
+//   captured by these physical statistics beyond {⟨Q⟩,S} at this depth.
+//
+//   READING. This is the pre-registered KILL, and it converges with the program's
+//   two standing results: the Gumbel META-LAW (the premium is load-bearing at
+//   full size; deflations/reshapings of it read negative) and the document's own
+//   integrability hedge (the tree is not a GGE in the strict sense). The r=1
+//   projection {⟨Q⟩,S} is, at reachable depth, a SUFFICIENT statistic of the
+//   ensemble for predicting its own near-horizon revision — the extra charges are
+//   redundant, not missing. The one caveat that keeps this a LOWER bound, not a
+//   universal refutation: Y is a d2→d4 revision (node-capped, quiet-leaning
+//   corpus), so the slow sector 4–8 ply out is only partially in reach; the
+//   catastrophe content the exposure probe located past d8 is off this horizon
+//   too. A deeper Y (longer time control, or a fixed larger node budget) is the
+//   one measurement that could still seat a charge — but nothing here does.
+//   ⇒ No seat carried to the shell for play; GGE mode's seat-1 (b₂) is an
+//     experimenter hook, refused by this certificate, not a validated evaluator.
+//
 //   node tests/gge_infodecomp.js            [DEEP=6] [NRAND=60] [SEED=1]
 const fs = require('fs'), path = require('path');
 const { recover } = require('./exposure_corpus.js');
