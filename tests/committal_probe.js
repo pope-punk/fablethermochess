@@ -22,7 +22,7 @@
 const fs = require('fs'), path = require('path');
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
 const E = fresh();
-const PAWN = 2, MATE_NEAR = 100000 - 4096, DEPTH = 4, COMPLACENT = 3, SAVABLE = 3, BACKSTEPS = 6;
+const PAWN = 2, MATE_NEAR = 100000 - 4096, DEPTH = 3, COMPLACENT = 3, SAVABLE = 3, BACKSTEPS = 5;
 
 // recover losing-by-mate games with per-engine-move FEN + eval
 function games() {
