@@ -115,6 +115,22 @@ input[type="range"] {
 }
 #lab-panel select { padding: 3px 6px; font-size: 1em; }
 #lab-panel.lab-active { border-color: #e0a458; box-shadow: 0 0 6px rgba(224,164,88,0.35); }
+/* GGE mode: a first-class play toggle, prominent and unmistakable when on. */
+#gge-toggle {
+    padding: 5px 10px; border-radius: 5px; cursor: pointer;
+    border: 1px solid #4a4a6e; background: #16213e; color: #cfd4e0; font-size: 0.85em;
+    display: inline-flex; align-items: center; gap: 5px; user-select: none;
+}
+#gge-toggle:hover { background: #1e3050; }
+#gge-toggle.on {
+    background: #24422f; border-color: #7ee3a0; color: #b7f2cc;
+    box-shadow: 0 0 8px rgba(126,227,160,0.4);
+}
+/* When GGE mode is authoritative, dim the interior-evaluation Lab hooks it overrides. */
+#lab-panel.gge-authoritative #labBackup,
+#lab-panel.gge-authoritative #labPremT,
+#lab-panel.gge-authoritative #labGibbs,
+#lab-panel.gge-authoritative #labExK { opacity: 0.35; pointer-events: none; }
 label { font-size: 0.85em; }
 #move-list {
     margin-top: 10px; padding: 8px 10px;
@@ -230,7 +246,9 @@ label { font-size: 0.85em; }
             <option value="hard">Hard (8 s/move avg)</option>
             <option value="max">Max (20 s/move avg)</option>
         </select>
-        <select id="effmode" title="Choice-premium entropy: nominal S counts every move as a hedge; S_eff merges moves that share a best reply (one refutation = one option). Experimental — measured readings shown in the dashboard either way.">
+        <label id="gge-toggle" title="GGE mode — play the generalized-Gibbs cohort evaluation (docs/gge_charge_cohort.html). Turns on the report frame (the cohort is always measured and shown) AND activates seat 1: the r=2 capacity reshaping π ∝ exp(z − b₂·z²), z=(Q−maxQ)/T — the one lawful ACTIVE cohort seat (a multiplier on the value variance; parity-clean, no field on Q). AUTHORITATIVE: while on it overrides any colliding Lab backup / premium / Gibbs / exK / S_eff setting, so you are guaranteed to be playing the GGE evaluation and nothing else. Strength b₂ is tunable in the Lab panel (default 0.50); b₂=0 is the pure report frame (Φ ≡ F). Experimental — awaiting its gauntlet.">
+            <input type="checkbox" id="ggeMode" onchange="ggeModeChanged()"> <b>▶ GGE mode</b></label>
+        <select id="effmode" title="Choice-premium entropy: nominal S counts every move as a hedge; S_eff merges moves that share a best reply (one refutation = one option). Experimental — measured readings shown in the dashboard either way. (Overridden while GGE mode is on.)">
             <option value="off" selected>S: nominal</option>
             <option value="us">S_eff (our nodes)</option>
             <option value="both">S_eff (both sides)</option>
@@ -3525,7 +3543,7 @@ function applyAnalysis(res, engineStats) {
         if (l.exK) parts.push('exK=' + l.exK);
         if (l.gibbs) parts.push('Gibbs leaf');
         if (l.qCheck) parts.push('qCheck');
-        if (l.ggeB2) parts.push('gge b₂=' + l.ggeB2);
+        if (l.ggeB2) parts.push('▶ GGE seat 1 (r=2, b₂=' + l.ggeB2 + ')');
         if (parts.length) source += ' · ⚠ LAB: ' + parts.join(', ');
     }
     lastUw = res.Uw; lastUb = res.Ub; lastThermo = thermo; lastSource = source;
@@ -3583,6 +3601,11 @@ function effMode() {
 // to a build without the panel. Active fields are echoed back by the
 // analysis (res.lab) and displayed in the dashboard header, so no
 // perturbed reading can be mistaken for an unperturbed one.
+// Default strength of seat 1 (the r=2 capacity reshaping) when GGE mode is
+// switched on with no explicit b₂ set in the Lab panel. Experimenter-facing,
+// tunable — not a validated constant; b₂=0 recovers F exactly.
+const GGE_DEFAULT_B2 = 0.5;
+function ggeModeOn() { const el = document.getElementById('ggeMode'); return !!(el && el.checked); }
 function labOpts() {
     const num = id => { const el = document.getElementById(id);
         const v = el ? parseFloat(el.value) : NaN; return v > 0 ? v : undefined; };
@@ -3596,7 +3619,7 @@ function labOpts() {
     const qc = document.getElementById('labQCheck');
     const b2 = document.getElementById('labGgeB2');
     const b2v = b2 ? parseFloat(b2.value) : NaN;
-    return { pinT: num('labPinT'), leafT: num('labLeafT'), themT: num('labThemT'),
+    const o = { pinT: num('labPinT'), leafT: num('labLeafT'), themT: num('labThemT'),
              premT: num('labPremT'), backup: (bk && bk.value) || undefined,
              basinSched: (bs && bs.checked) || undefined,
              hop: (hp && hp.checked) || undefined,
@@ -3609,12 +3632,33 @@ function labOpts() {
              // hook: 0/blank = off.
              gge: true,
              ggeB2: (isFinite(b2v) && b2v !== 0) ? b2v : undefined };
+    // ── GGE mode is AUTHORITATIVE ──────────────────────────────
+    // When the ▶ GGE mode toggle is on, seat 1 is active and the GGE cohort
+    // evaluation OWNS the interior backup: strip every colliding interior-
+    // evaluation hook so nothing (a stray backup form, a premium temperature,
+    // the Gibbs leaf, exK, S_eff) can override or blend with it. You are then
+    // guaranteed to be playing the GGE evaluation and nothing else.
+    if (ggeModeOn()) {
+        o.ggeB2 = (isFinite(b2v) && b2v !== 0) ? b2v : GGE_DEFAULT_B2;
+        o.backup = undefined; o.premT = undefined; o.gibbs = undefined;
+        o.exK = undefined; o.effS = false;   // effS:false overrides effMode() (spread after labOpts)
+    }
+    return o;
 }
 function labChanged() {
     const o = labOpts();
-    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup || o.basinSched || o.hop || o.alloc || o.exK || o.gibbs || o.qCheck || o.ggeB2;
+    const active = o.pinT || o.leafT || o.themT || o.premT || o.backup || o.basinSched || o.hop || o.alloc || o.exK || o.gibbs || o.qCheck || (o.ggeB2 && !ggeModeOn());
     document.getElementById('lab-panel').classList.toggle('lab-active', !!active);
     if (!thinking) refreshDashboard();   // re-read the position under the new fields
+}
+// ▶ GGE mode toggle (a first-class play mode, not a Lab hook): activate the
+// GGE cohort evaluation and make it authoritative over the Lab panel.
+function ggeModeChanged() {
+    const on = ggeModeOn();
+    const t = document.getElementById('gge-toggle');
+    if (t) t.classList.toggle('on', on);
+    document.getElementById('lab-panel').classList.toggle('gge-authoritative', on);
+    labChanged();
 }
 function labReset() {
     for (const id of ['labPinT','labLeafT','labThemT','labPremT'])
