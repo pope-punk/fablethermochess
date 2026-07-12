@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The Charge Cohort of the Search Ensemble</title>
+<style>
+@page { size: A4; margin: 22mm 20mm; }
+* { box-sizing: border-box; }
+body {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 10.5pt; line-height: 1.52; color: #1a1a1a;
+    max-width: 172mm; margin: 0 auto;
+}
+h1 { font-size: 19pt; line-height: 1.25; margin: 0 0 2pt; }
+.subtitle { font-size: 11pt; color: #555; font-style: italic; margin-bottom: 4pt; }
+.meta { font-size: 9pt; color: #777; margin-bottom: 18pt; border-bottom: 1px solid #ccc; padding-bottom: 10pt; }
+h2 { font-size: 13pt; margin: 18pt 0 6pt; border-bottom: 1px solid #ddd; padding-bottom: 2pt; page-break-after: avoid; }
+h3 { font-size: 11pt; margin: 12pt 0 4pt; page-break-after: avoid; }
+p { margin: 0 0 7pt; text-align: justify; }
+.eq {
+    text-align: center; margin: 9pt 0; font-size: 11.5pt;
+    font-family: 'STIX Two Math', Georgia, serif; page-break-inside: avoid;
+}
+.eq .tag { float: right; color: #888; font-size: 9pt; font-family: Georgia, serif; }
+code, .mono { font-family: 'Consolas', 'DejaVu Sans Mono', monospace; font-size: 9pt; background: #f4f4f4; padding: 0 2px; border-radius: 2px; }
+table { border-collapse: collapse; margin: 8pt auto; font-size: 9pt; page-break-inside: avoid; width: 100%; }
+th, td { border: 1px solid #bbb; padding: 3pt 6pt; text-align: center; vertical-align: top; }
+th { background: #f0f0f0; }
+.note {
+    background: #f6f6f2; border-left: 3px solid #999; padding: 6pt 10pt;
+    margin: 8pt 0; font-size: 9.5pt; page-break-inside: avoid;
+}
+.abstract { font-size: 9.8pt; margin: 0 24pt 14pt; }
+.abstract b { font-variant: small-caps; }
+ol, ul { margin: 0 0 8pt; padding-left: 22pt; }
+li { margin-bottom: 3pt; text-align: justify; }
+.tag-status { font-variant: small-caps; color: #666; font-size: 8.5pt; letter-spacing: 0.03em; }
+.scan td:nth-child(1) { text-align: left; }
+.scan td:nth-child(6) { text-align: left; }
+.dead { color: #a02020; font-weight: bold; }
+.live { color: #1a7a3a; font-weight: bold; }
+.open { color: #9a6a10; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>The Charge Cohort of the Search Ensemble</h1>
+<div class="subtitle">A generalized-Gibbs reference frame that unites the graveyard, derives the constitution as its consistency conditions, and defines the space where other charges can live</div>
+<div class="meta">Companion derivation to the <span class="mono">fablethermochess</span> theory, fourth edition &nbsp;·&nbsp; July 2026 &nbsp;·&nbsp; a paper-first working note (derivation and pre-registration; no gauntlet)</div>
+
+<div class="abstract">
+<b>Abstract.</b> The evaluation F&nbsp;=&nbsp;⟨Q⟩&nbsp;+&nbsp;T·S is the two-statistic projection of an enormous weighted object — the search tree — onto its mean and its entropy at a single temperature. Every pathology the program has hit (the winner's-curse drift, the horizon blindness, the mate-loss tail) is the signature of the information that projection discards, and every mechanism in the graveyard is a one-off attempt to recover a slice of it. This note supplies the frame those attempts were missing. The tree ensemble is an exponential family; the least-biased reconstruction consistent with a chosen set of measured sufficient statistics {I<sub>k</sub>} is a <em>generalized Gibbs ensemble</em>, Φ&nbsp;=&nbsp;⟨Q⟩&nbsp;+&nbsp;Σ<sub>k</sub>&nbsp;λ<sub>k</sub>I<sub>k</sub>, with each multiplier λ<sub>k</sub> <em>determined</em> by the measured charge value rather than fitted. We show that the project's constitution — its five hard-won rules — is exactly the set of well-definedness conditions for such an ensemble: intensive coupling (charges enter through multipliers of ensemble statistics, never as per-state energies added to Q), definite parity under color exchange, permutation invariance, absorbing-state exclusion, and matched-parity estimators for the depth-dynamical charges. The charges then organize on four quantum numbers — cumulant order r, partition scale p, color parity s, and relaxation timescale τ — and the timescale axis is the bridge to the search: τ is resolution depth, so the conserved log-node budget ln&nbsp;N&nbsp;=&nbsp;S̄·d&nbsp;+&nbsp;ln&nbsp;Q<sub>ℓ</sub> is the measurement cost of the cohort and the strength ceiling is the missing-charge problem seen from the search side. Read against this lattice, the graveyard is not a zombie army but a systematic scan: the deflations lower an entropy multiplier (dead by the Gumbel meta-law), the parity-broken charges violate the color algebra, the fast-sector instruments target modes that already thermalize, and the single positive value-side signal (the two-temperature Gibbs leaf) is the one lawful move along the parity axis. Four cells the frame requires are still empty — a slow-sector capacity, the basin occupations read as a glassy order parameter, an explicit effective-temperature multiplier on the aging sector, and the color-even statistics that may only modulate multipliers. Each candidate charge earns its place by a single certificate — non-redundant conditional information about the off-horizon verdict, plus parity closure — which we pre-register as the cohort's validation protocol. The claim is not that this wins games; it is that it replaces an ad-hoc reanimation of failures with one coordinate system in which each variable is validated against the others and the empty seats are named in advance.
+</div>
+
+<h2>1. The projection problem</h2>
+<p>
+Fix a node with the side to move. Its move ensemble is the set of microstates <em>a</em> with values Q<sub>a</sub> and canonical weights π<sub>a</sub>&nbsp;=&nbsp;e<sup>Q<sub>a</sub>/T</sup>/Z. The evaluation keeps two functionals of this ensemble:
+</p>
+<div class="eq">F = ⟨Q⟩ + T·S ,&emsp; ⟨Q⟩ = Σ<sub>a</sub> π<sub>a</sub>Q<sub>a</sub> ,&emsp; S = −Σ<sub>a</sub> π<sub>a</sub> ln π<sub>a</sub> . <span class="tag">(1)</span></div>
+<p>
+The tree beneath the node holds of order b<sub>eff</sub><sup>d</sup> weighted continuations; (1) compresses all of it to the first cumulant and the entropy at one temperature. That is a lossy code, and the losses are not random — they are exactly the quantities the program keeps rediscovering as diseases. The value drift (F is not a martingale under best play) is the discarded higher structure leaking back; the horizon catastrophes (a position read +6♙ and mated) are positions where the discarded structure was decisive; the meta-law (the premium is load-bearing at full size, uncorrectable by any repricing) is the statement that you cannot recover the lost information by rescaling what you kept. Each graveyard mechanism — the mean and basin and σ and quenched backups, the exK exclusion, the leaf tempo charge, qCheck, the Gibbs leaf, κ — added or subtracted one further functional of the ensemble. They failed or squeaked to neutral not because the instinct was wrong but because they were tried one at a time, with no frame to say which functionals are lawful, how they relate, or where the rest of them live.
+</p>
+<p>
+This note builds that frame. The goal is a <em>cohort</em> of charges — sufficient statistics of the tree ensemble — that (i) contains ⟨Q⟩ and S as its first two members, (ii) contains the graveyard as a scan of its cells, (iii) is closed under a stated set of consistency conditions, and (iv) has named empty seats: cells the frame requires but no experiment has occupied.
+</p>
+
+<h2>2. The reference frame: the tree as an exponential family</h2>
+<p>
+Ask the inverse question to (1): given a handful of measured averages of the ensemble, what is the <em>least-biased</em> distribution consistent with them? The answer is the maximum-entropy distribution subject to those constraints — an exponential family. If the preserved statistics are {I<sub>k</sub>(a)} with measured averages {⟨I<sub>k</sub>⟩<sup>meas</sup>}, the max-entropy weights are
+</p>
+<div class="eq">π<sub>a</sub> = exp( Q<sub>a</sub>/T − Σ<sub>k</sub> λ<sub>k</sub> I<sub>k</sub>(a) ) / Z(λ) ,&emsp; Φ = ⟨Q⟩ + T·S + Σ<sub>k</sub> λ<sub>k</sub>·(⟨I<sub>k</sub>⟩ − I<sub>k</sub><sup>ref</sup>) . <span class="tag">(2)</span></div>
+<p>
+This is a <em>generalized Gibbs ensemble</em> (GGE): the equilibrium state of a system that retains memory of more than one conserved quantity carries one Lagrange multiplier per quantity, not a single temperature. The ordinary Gibbs state (1) is the truncation that keeps only the energy. The multipliers are <b>not free parameters</b>: each λ<sub>k</sub> is fixed by the requirement that the reconstructed ensemble reproduce the measured charge, ⟨I<sub>k</sub>⟩<sub>λ</sub>&nbsp;=&nbsp;I<sub>k</sub><sup>meas</sup> — the standard convex duality of max-entropy inference. A charge is thus specified by two things: an <em>estimator</em> (how I<sub>k</sub> is read off the tree) and the <em>self-consistency</em> that sets its multiplier. Nothing is tuned; the whole content is the choice of which statistics to preserve.
+</p>
+<div class="note">
+<b>Why this is the right formalism, and its honest status.</b> A GGE in the strict sense is the steady state of an <em>integrable</em> system — one with an extensive family of conservation laws. The search tree is not literally integrable. What justifies keeping many charges is weaker and empirical: the positional sector behaves like a <em>glass</em> — an extensive set of long-lived basins (inherent structures), aging, and a measured violation of the fluctuation–dissipation theorem — and a glass is precisely the class of system whose off-equilibrium information is not captured by one temperature and requires a generalized, multi-parameter ensemble (§5, §7). We therefore use the GGE <em>construction</em> (max-entropy over measured statistics) as a principled decompression, with the glass — not exact integrability — as the physical warrant for expecting the extra charges to carry information. That warrant is a hypothesis with partial evidence, and §9 makes it falsifiable.
+</div>
+
+<h2>3. The consistency conditions are the constitution</h2>
+<p>
+Not every functional of the ensemble is a lawful charge. The conditions that make (2) well-defined turn out to be, one for one, the rules the project extracted from its failures. This is the load-bearing claim of the frame: the constitution is not a list of taboos but the definition of the space.
+</p>
+
+<h3>3.1 Intensive coupling — charges are multipliers, not energies (rule 3)</h3>
+<p>
+In (2) a charge acts on the ensemble through its <em>intensive</em> multiplier λ<sub>k</sub> reshaping the whole distribution; it does not modify the microstate energies Q<sub>a</sub>. The forbidden operation is Q<sub>a</sub>&nbsp;→&nbsp;Q<sub>a</sub>&nbsp;+&nbsp;q<sub>a</sub>: adding a measured field to the energy itself. The distinction is the textbook one between a chemical potential (intensive, couples to a count) and a redefinition of the Hamiltonian (extensive, per microstate). It is exactly the constitution's third rule — <em>instruments may act as ensemble parameters or attention, never as state energies added to Q</em> — and it has teeth the empirical rule did not make obvious:
+</p>
+<ul>
+<li>An intensive λ<sub>k</sub> is fixed by self-consistency and cannot feed the thermometer, because the thermometer reads value <em>revisions</em> |ΔQ| and λ<sub>k</sub> changes no Q. A field added to Q <em>does</em> change the revisions, so it is read back as heat — the runaway that killed the leaf tempo charge and the coupled-flux shade is the generic failure mode of extensive coupling.</li>
+<li>The tempo chemical potential μ<sub>tempo</sub> survives on the dashboard precisely because it is a multiplier (a softplus of a susceptibility), while the <em>leaf tempo charge</em> — the same physics added to Q at each leaf — died. Same reading, two coupling channels; only the intensive one is lawful.</li>
+</ul>
+
+<h3>3.2 Parity — charges are odd combinations under color exchange (rule 4)</h3>
+<p>
+Let 𝒞 be the color-swap: Q&nbsp;→&nbsp;−Q, us&nbsp;↔&nbsp;them. Negamax makes the value antisymmetric, F&nbsp;∘&nbsp;𝒞&nbsp;=&nbsp;−F. For Φ in (2) to remain a legal value it must stay 𝒞-odd, so every additive term λ<sub>k</sub>I<sub>k</sub> must be odd. Since the multipliers are 𝒞-even scalars, the additive charges themselves must be <b>𝒞-odd</b>. The leaf optionality enters as the odd combination ln&nbsp;W<sub>us</sub>&nbsp;−&nbsp;ln&nbsp;W<sub>them</sub>; a one-sided charge (ln&nbsp;W<sub>us</sub> alone) has no definite parity — under 𝒞 it maps to a different quantity — and mixing it into a truncation tail that already spans both leaf parities makes sibling moves carry opposite-side charges, the ~0.7T splitting the leaf-tempo autopsy measured. This yields a sharp corollary the empirical rule did not state:
+</p>
+<div class="note">
+<b>Odd charges add; even charges modulate.</b> A 𝒞-<em>even</em> statistic — the total optionality ln&nbsp;W<sub>us</sub>&nbsp;+&nbsp;ln&nbsp;W<sub>them</sub>, say, high in open double-edged positions — cannot enter Φ as an additive term without breaking antisymmetry. But it <em>can</em> enter as a modulator of a multiplier, λ<sub>k</sub>&nbsp;→&nbsp;λ<sub>k</sub>(even). Parity thus splits candidate statistics into two lawful roles: odd ones are charges, even ones are multiplier fields. This is a prediction, not a restatement (§7).
+</div>
+
+<h3>3.3 Determinacy, gauge, boundary, estimator (rules 1, 2, 5)</h3>
+<ul>
+<li><b>Determinacy (rule 1: geometry / counting / measurement, no tuned constants).</b> The multipliers solve ⟨I<sub>k</sub>⟩<sub>λ</sub>&nbsp;=&nbsp;I<sub>k</sub><sup>meas</sup>; they are outputs of the measurement, never inputs. A charge with a hand-set coefficient is not a GGE charge, it is a prior smuggled in as physics.</li>
+<li><b>Gauge (invariance under enumeration order).</b> Sufficient statistics of an unordered ensemble are permutation-invariant by construction — symmetric functions: moments, entropies, sorted spectra. The 4·10<sup>−16</sup> shuffle invariance is automatic for any legal charge and a screen for illegal ones.</li>
+<li><b>Boundary (rule 2: absorbing states are not thermal).</b> Mates and repetitions are terminal delta-functions, not ensembles; they carry no sufficient statistics and are excluded from every charge estimator, as they already are from the thermometer. They are the boundary condition of the whole construction, not members of it.</li>
+<li><b>Estimator parity (rule 5: same-parity).</b> The <em>dynamical</em> charges — those measured across depth (T itself, the per-child revision σ<sub>a</sub>, the drift) — must compare matched leaf parity, or the alternating entropy ladder ~T·S̄ per ply enters the estimator as signal. This is a condition on how a charge is measured, not on which charge it is.</li>
+</ul>
+
+<h2>4. The charge space: four quantum numbers</h2>
+<p>
+With the lawful statistics identified, they organize on four independent axes. Every charge is a cell (r, p, s, τ); the evaluation (1) sits at the origin and each graveyard mechanism is a displacement along one axis.
+</p>
+<h3>4.1 Cumulant order r — the moment ladder</h3>
+<p>
+The canonical ensemble fixes one moment, ⟨Q⟩ (r&nbsp;=&nbsp;1), and S is the entropy that follows. Preserving higher moments extends the family: fixing ⟨Q<sup>2</sup>⟩ as well gives exp(−β<sub>1</sub>Q&nbsp;−&nbsp;β<sub>2</sub>Q<sup>2</sup>), a non-Boltzmann ensemble whose second multiplier prices the value <em>variance</em> — the Schottky capacity C&nbsp;=&nbsp;Var<sub>π</sub>(Q)/T<sup>2</sup> promoted from a diagnostic to a term. r&nbsp;=&nbsp;3 is the skew: whether the value distribution's tail is one-sided (is the danger asymmetric?). The single-T model is the r&nbsp;=&nbsp;1 truncation; C is measured but only labels the phase; the σ-backup was a partial, per-move r&nbsp;=&nbsp;2 move made on the wrong axis (it deflated rather than added — §6).
+</p>
+<h3>4.2 Partition scale p — the renormalization axis</h3>
+<p>
+Moves are not independent microstates; they cluster into basins (value cohorts) and plans. Coarse-graining the ensemble to scale p and taking its entropy gives a ladder S<sup>(0)</sup> (moves), S<sup>(1)</sup> (basins), … The basin premium is the p&nbsp;=&nbsp;1 entropy; λ̂ (reply-partition independence) is the <em>flow</em> between scales, the effective number of independent modes n<sub>eff</sub>; the quenched (nested-GEV) premium is the two-scale p&nbsp;=&nbsp;0|1 treatment. This is a real-space renormalization group on the move ensemble, and the charges are the fixed-point data: the entropies at each scale and the independence ratio that relates them.
+</p>
+<h3>4.3 Color parity s — the Z<sub>2</sub> axis</h3>
+<p>
+By §3.2 the additive charges are odd combinations, us&nbsp;−&nbsp;them; the even combinations, us&nbsp;+&nbsp;them, are multiplier fields. Splitting the single leaf temperature into two — pricing our optionality at the zero-point T₀ and theirs at the bath T — is the off-diagonal case with κ&nbsp;=&nbsp;T<sub>them</sub>/T<sub>us</sub>: the Gibbs leaf, the one value-side move with a positive signal. exK (excluding king moves) and the leaf tempo charge are parity-broken displacements on this axis and died by the algebra, not by tuning.
+</p>
+<h3>4.4 Relaxation timescale τ — the glass axis, and the bridge to search</h3>
+<p>
+Under deepening, modes separate by relaxation time. <em>Fast</em> modes — captures, checks, forcing tactics — thermalize within a ply or two (quiescence resolves them; FDT holds; their effective temperature is the bath). <em>Slow</em> modes — positional structure, king safety, the off-horizon nets — age: they carry a systematic drift, violate FDT, and define a distinct effective temperature T<sub>eff</sub>&nbsp;&gt;&nbsp;T. The multiplier conjugate to the slow-mode occupation is 1/T<sub>eff</sub>, and the single-T model collapses the two sectors into one temperature — the over-specification that produces the winner's-curse bleed. qCheck acts purely on the fast sector; that is why it is a correct tactic-finder yet strength-neutral — the fast sector was already thermalized, so resolving it faster harvests only the small share of the verdict that lives there.
+</p>
+<div class="note">
+<b>τ is resolution depth: the search–object bridge.</b> A charge's timescale <em>is</em> the depth needed to measure it. Fast charges are cheap (resolved shallow); slow charges are expensive (need deep, same-parity revisions). The conserved log-node budget ln&nbsp;N&nbsp;=&nbsp;S̄·d&nbsp;+&nbsp;ln&nbsp;Q<sub>ℓ</sub> is therefore the <em>measurement cost of the cohort</em>, and root allocation is the policy that spends it. This closes the loop the fourth edition opened: the strength ceiling (bounded d) and the missing-charge problem (the slow sector undecompressed) are one fact read on two axes — the charges we cannot afford to measure are exactly the ones the projection throws away. A dissipation-triggered scheduler (Harada–Sasa on the drift) is the attempt to spend ln&nbsp;N where the slow-sector charge is largest.
+</div>
+
+<h2>5. The graveyard as a scan of the lattice</h2>
+<p>
+Every mechanism the project built is now a located displacement with a verdict the frame explains. The pattern is the point: deaths cluster by <em>which</em> axis and <em>which</em> consistency condition, and no death is idiosyncratic.
+</p>
+<table class="scan">
+<tr><th>mechanism</th><th>r</th><th>p</th><th>s</th><th>τ</th><th>displacement &amp; verdict</th></tr>
+<tr><td>F = ⟨Q⟩ + T·S (baseline)</td><td>1</td><td>0</td><td>odd</td><td>all</td><td>the origin: energy + move entropy, one temperature</td></tr>
+<tr><td>mean / max backup</td><td>1</td><td>0</td><td>odd</td><td>all</td><td>λ<sub>S</sub>&nbsp;→&nbsp;0 / ∞ — <span class="dead">deflation, dead by the Gumbel meta-law (you cannot subtract the optimism without the value)</span></td></tr>
+<tr><td>basin premium</td><td>1</td><td><b>1</b></td><td>odd</td><td>all</td><td>entropy at the plan scale — <span class="dead">still a deflation (S<sup>(1)</sup>&nbsp;&lt;&nbsp;S<sup>(0)</sup>); 6/12</span></td></tr>
+<tr><td>σ (heteroscedastic) backup</td><td><b>2</b></td><td>0</td><td>odd</td><td>all</td><td>per-move second moment, but used to <em>deflate</em> the premium — <span class="dead">right axis, wrong sign; 3.5/12</span></td></tr>
+<tr><td>quenched (nested-GEV)</td><td>1</td><td><b>0|1</b></td><td>odd</td><td>all</td><td>two-scale correlation via λ̂ — <span class="dead">no cure at the pooled operating point; the RG flow is measured, the deflation is not the use</span></td></tr>
+<tr><td>exK (king moves out)</td><td>1</td><td>0</td><td><b>broken</b></td><td>all</td><td>projects out a coordinate one-sidedly — <span class="dead">parity violation (§3.2); a won K+P ending lost</span></td></tr>
+<tr><td>leaf tempo charge</td><td>—</td><td>0</td><td><b>broken</b></td><td><b>slow</b></td><td>a slow-sector initiative charge <em>added to Q</em> — <span class="dead">both illegal couplings at once (extensive §3.1 + one-sided §3.2); dead ×2</span></td></tr>
+<tr><td>Gibbs leaf / κ</td><td>1</td><td>0</td><td><b>split</b></td><td>all</td><td>T<sub>us</sub>&nbsp;=&nbsp;T₀, T<sub>them</sub>&nbsp;=&nbsp;T — <span class="live">the lawful parity-axis move; only value-side positive signal (+1 @ 1600)</span></td></tr>
+<tr><td>qCheck</td><td>1</td><td>0</td><td>odd</td><td><b>fast</b></td><td>resolves fast forcing modes before sampling — <span class="live">correct instrument, but the fast sector already thermalizes → neutral</span></td></tr>
+<tr><td>σ<sub>eff</sub> scheduler / alloc</td><td colspan="4">— (the ln&nbsp;N budget, §4.4)</td><td>attention: spends measurement cost — <span class="live">the largest gain (+2.5), but allocated against a fast/width proxy</span></td></tr>
+</table>
+<p>
+The reading is uniform. Every displacement that <em>lowered</em> a multiplier died by the meta-law; every displacement that <em>broke parity</em> died by the algebra; every displacement onto the <em>fast</em> sector was correct but inert because that sector was already thermal; and the two displacements that <em>added</em> lawful structure — the parity split, and the attention budget — are the two that showed a signal. The graveyard is a coordinatized scan whose empty cells are now visible.
+</p>
+
+<h2>6. The empty seats the frame requires</h2>
+<p>
+Four cells are demanded by the lattice and occupied by nothing yet. They are the candidate cohort, and — crucially — they are on the axes and sectors the scan did <em>not</em> reach: the additive, slow-sector, symmetric ones.
+</p>
+<ol>
+<li><b>Slow-sector capacity — (r&nbsp;=&nbsp;2, τ&nbsp;=&nbsp;slow).</b> The second moment of the value distribution restricted to the aging modes, coupled as an <em>added</em> multiplier (not a deflation). C is already measured; nothing has priced the variance of the <em>slow</em> sector into the value. This is the r-axis move the σ-backup should have been.</li>
+<li><b>Basin occupation as a glassy order parameter — (p&nbsp;=&nbsp;1, τ&nbsp;=&nbsp;slow).</b> The inherent-structure occupations are the natural slow charges of a glass; the basin instrument computes them but only ever used them to <em>coarse-grain</em> (a deflation). Read instead as occupation numbers with their own multipliers, they are the extensive slow-mode family the GGE was built for.</li>
+<li><b>The effective-temperature multiplier — (τ&nbsp;=&nbsp;slow, the second temperature).</b> An explicit 1/T<sub>eff</sub> on the slow sector, measured from the two-slope FDT plot (§9). This is the over-specification of §4.4 undone: two temperatures where the model imposed one.</li>
+<li><b>Color-even modulator fields — (s&nbsp;=&nbsp;even).</b> By §3.2 the symmetric statistics (total optionality, mutual forcing) cannot be charges but may modulate multipliers — e.g. pricing optionality more steeply in open double-edged positions. An entirely unexplored, parity-clean channel.</li>
+</ol>
+<p>
+Higher cumulants (r&nbsp;≥&nbsp;3, the skew of the danger) and deeper partition scales sit beyond these as the next ring; they are named but not yet motivated by a measured signal, so we list them as the frame's periphery rather than as candidates.
+</p>
+
+<h2>7. Validation by mutual reference — the certificate against a zombie army</h2>
+<p>
+A cohort is only a cohort if its members are validated <em>against each other</em>, not admitted one at a time. Two certificates make membership non-arbitrary, and both are measurements, not judgments.
+</p>
+<h3>7.1 Non-redundant information</h3>
+<p>
+Let Y be the off-horizon verdict of a position — a much deeper search's evaluation, the content the shallow tree is trying to predict. A charge I<sub>k</sub> earns its seat only if it carries information about Y <em>beyond the charges already seated</em>:
+</p>
+<div class="eq">ΔI<sub>k</sub> ≡ 𝕀( Y ; I<sub>k</sub> | ⟨Q⟩, S, {I<sub>j</sub>}<sub>j&lt;k</sub> ) &gt; 0 . <span class="tag">(3)</span></div>
+<p>
+This is the exact antidote to the reanimated-failure worry: a charge that merely re-expresses ⟨Q⟩ and S (or a charge already seated) has ΔI<sub>k</sub>&nbsp;≈&nbsp;0 and is refused, however physical it sounds. The sequence of conditional informations also <em>orders</em> the cohort — the charges enter by how much irreducible verdict-information each adds — and its saturation answers the decompression question quantitatively: if ΔI<sub>k</sub> falls to zero after a few physical charges, the slow sector is compressible by physics; if the verdict-information keeps hiding in ever-finer statistics, it is generic (neural-network-scale) and the physical cohort is bounded. Either outcome is a result.
+</p>
+<h3>7.2 Parity closure</h3>
+<p>
+The additive members must combine to keep Φ exactly 𝒞-odd (§3.2); the even statistics must appear only inside multipliers. This is an algebraic check run on the definitions before any data — a candidate that cannot be written as an odd combination (or as an even modulator) is rejected at the door, as exK and the leaf tempo charge would have been.
+</p>
+<h3>7.3 Determinacy</h3>
+<p>
+Each seated charge must ship an estimator that (i) is permutation-invariant, (ii) excludes absorbing states, (iii) uses matched-parity depth samples if dynamical, and (iv) closes its own multiplier by self-consistency ⟨I<sub>k</sub>⟩<sub>λ</sub>&nbsp;=&nbsp;I<sub>k</sub><sup>meas</sup>. A charge without such an estimator is a name, not a variable.
+</p>
+
+<h2>8. The parameterization, assembled</h2>
+<p>
+Collecting the above, the cohort evaluation is
+</p>
+<div class="eq">Φ = ⟨Q⟩ + T·S + β<sub>2</sub><sup>slow</sup>·Var<sub>π</sub><sup>slow</sup>(Q) + Σ<sub>b</sub> ν<sub>b</sub>·n<sub>b</sub> + (T<sub>eff</sub><sup>−1</sup>−T<sup>−1</sup>)·U<sub>slow</sub> ,&emsp; with λ<sub>k</sub> = λ<sub>k</sub>(even fields) . <span class="tag">(4)</span></div>
+<p>
+term by term: the origin (energy and move entropy); the slow-sector variance (seat 1); the basin occupations n<sub>b</sub> with multipliers ν<sub>b</sub> (seat 2); the effective-temperature correction on the slow internal energy (seat 3); and every multiplier permitted to depend on the color-even modulator fields (seat 4). Each coefficient is fixed by its self-consistency condition; none is fitted. Equation (4) is a <em>schema</em>, not a finished evaluator — its point is that the four candidate charges are written in one expression, share one origin, respect one parity, and are individually falsifiable by (3). It is the opposite of an ad-hoc stack: a stack chosen for what each term adds to the same verdict, in the same frame, under the same rules.
+</p>
+<div class="note">
+<b>Relation to the fourth-edition free energies.</b> Setting every new coefficient to zero recovers Helmholtz F (1). Keeping only the parity split recovers the Gibbs leaf G. Keeping only the slow-sector effective temperature recovers the two-temperature NESS reading of §11 of the theory. The grand potential Φ&nbsp;=&nbsp;F&nbsp;−&nbsp;w(μ<sub>tempo</sub>&nbsp;−&nbsp;μ̄) is the reservoir-exchange form of the same construction with the them-charge exchanged. The four editions were each occupying one cell of this lattice without the lattice.
+</div>
+
+<h2>9. Measurement protocol (pre-registered, no gauntlet)</h2>
+<p>
+The frame is validated on recorded corpora before any evaluator is built, in the method's order — derive, verify the estimator computes the derived quantity, then measure. Two reads, each with a stated kill criterion.
+</p>
+<ol>
+<li><b>The information decomposition (does the cohort decompress the verdict?).</b> On the exposure corpus and a matched quiet-control set, with Y a deep-search verdict and the charges measured at shallow depth, estimate the incremental informations (3) for C<sup>slow</sup>, the basin occupations, T<sub>eff</sub>, and the even modulators, honestly cross-validated. <span class="tag-status">Kill criterion:</span> if every ΔI<sub>k</sub>&nbsp;≈&nbsp;0 beyond (⟨Q⟩, S), the physical cohort is empty and the slow-sector information is generic — the program stops here with that finding.</li>
+<li><b>The two-slope FDT plot (is the slow sector really glassy, and what is T<sub>eff</sub>?).</b> Plot the value response against the value correlation across depth, same-parity. <span class="tag-status">Kill criterion:</span> one slope (T<sub>eff</sub>&nbsp;=&nbsp;T) refutes the glass picture and collapses seats 1–3 to the single-temperature model; two slopes confirm the aging sector and hand back T<sub>eff</sub> as the seat-3 multiplier. The effective-temperature probe was attempted once and over-read; the pre-registered two-slope form with matched controls is the honest redo.</li>
+</ol>
+<p>
+Only charges that pass (3) and survive read 2 are seated; only then is (4) instantiated and, as a last step, gauntleted. The discipline is the whole value of the exercise: a variable cohort in which every member is validated against the others and the empty seats were named in advance is a reference frame; a set of mechanisms each added because the last one failed is a zombie army. This note is the former by construction.
+</p>
+
+<h2>Appendix: the cohort at a glance</h2>
+<table>
+<tr><th>charge I<sub>k</sub></th><th>(r, p, s, τ)</th><th>estimator (from the tree)</th><th>couples as</th><th>status</th></tr>
+<tr><td>energy ⟨Q⟩</td><td>(1,0,odd,all)</td><td>π-weighted mean value</td><td>reference</td><td class="live">seated</td></tr>
+<tr><td>move entropy S</td><td>(1,0,odd,all)</td><td>−Σπ ln π</td><td>×T</td><td class="live">seated</td></tr>
+<tr><td>slow capacity C<sup>slow</sup></td><td>(2,0,odd,slow)</td><td>Var<sub>π</sub>(Q) on aging modes</td><td>×β<sub>2</sub><sup>slow</sup></td><td class="open">candidate (seat 1)</td></tr>
+<tr><td>basin occupations n<sub>b</sub></td><td>(1,1,odd,slow)</td><td>inherent-structure weights (basins.js)</td><td>×ν<sub>b</sub></td><td class="open">candidate (seat 2)</td></tr>
+<tr><td>effective temperature T<sub>eff</sub></td><td>(1,0,odd,slow)</td><td>two-slope FDT of the drift</td><td>×(T<sub>eff</sub><sup>−1</sup>−T<sup>−1</sup>)</td><td class="open">candidate (seat 3)</td></tr>
+<tr><td>even modulator fields</td><td>(1,0,even,all)</td><td>ln W<sub>us</sub>+ln W<sub>them</sub>, mutual forcing</td><td>modulates λ<sub>k</sub></td><td class="open">candidate (seat 4)</td></tr>
+<tr><td>independence n<sub>eff</sub> / λ̂</td><td>(—,0→1,odd,—)</td><td>reply-partition RG flow (covariance_probe.js)</td><td>selects p-scale</td><td class="live">instrument (partition selector)</td></tr>
+<tr><td>tempo μ<sub>tempo</sub></td><td>(1,0,odd,fast)</td><td>softplus of same-parity χ̃</td><td>reservoir multiplier</td><td class="live">seated (grand potential)</td></tr>
+<tr><td>skew (danger asymmetry)</td><td>(3,0,odd,slow)</td><td>third π-cumulant of Q</td><td>×β<sub>3</sub></td><td>periphery (unmotivated)</td></tr>
+</table>
+
+</body>
+</html>
