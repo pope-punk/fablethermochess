@@ -42,6 +42,17 @@
 //   opponent can be cooled without heating us. That is the two-temperature GGE
 //   done properly, and it carries a falsifiable check: the drift-nulling T_them
 //   should equal the opponent thermometer T̂c. NEXT BUILD, not yet done.
+//
+//   VALIDATED IN PRINCIPLE (part c): simulate the decoupled regime — pin our bath
+//   (pinT=1.37, breaking the feedback) and cool the opponent (themT=1.0) — and it
+//   CURES cleanly: argmax Nd5, evals negative (d6 −1.22, Nd5 −1.19), NO runaway.
+//   The coupled version reached Nd5 only at a run-away bath (1.90) with inflated
+//   evals. Residual caveat: even decoupled, over-cooling (themT≤0.7) drifts toward
+//   over-valuation (a value-recursion coupling remains), so T_them must be MODEST
+//   (≈0.7·T_us) — the QRE picture quantified (adversary slightly sharper than us).
+//   This is the first eval-side mechanism of the session to cure the Alekhine
+//   while keeping our own warmth AND without thermometer runaway; strength is the
+//   open (gauntlet) question.
 //   (Established on the canonical Alekhine; the runaway mechanism is general
 //   rule-5 physics, the specific flip point is position-specific.)
 //
@@ -80,6 +91,25 @@ for (const [lbl, r] of rows)
     (r.qBlunder == null ? '   —' : (r.qBlunder >= 0 ? '+' : '') + r.qBlunder.toFixed(2)).padStart(8) +
     (r.qSound == null ? '   —' : (r.qSound >= 0 ? '+' : '') + r.qSound.toFixed(2)).padStart(10) +
     '   ' + r.T.toFixed(2) + (r.T > base.T + 0.5 ? ' ⚠runaway' : ''));
+
+// (c) simulate the DECOUPLED two-thermometer regime: pin our bath (breaking the
+// thermometer feedback) while cooling the opponent. If decoupling opens a clean
+// curative point, the two-thermometer construction is validated in principle.
+console.log('\ndecoupled simulation (pinT fixes our T; themT cools the opponent):');
+console.log('config                     best   eval(d6)  eval(Nd5)   bathT');
+const dec = [
+  ['pinT=1.37 themT=1.0', read({ pinT: 1.37, themT: 1.0 })],
+  ['pinT=1.37 themT=0.7', read({ pinT: 1.37, themT: 0.7 })],
+  ['pinT=1.37 themT=0.4', read({ pinT: 1.37, themT: 0.4 })],
+];
+for (const [lbl, r] of dec)
+  console.log('  ' + lbl.padEnd(24) + ' ' + r.best.padEnd(5) +
+    (r.qBlunder >= 0 ? '+' : '') + r.qBlunder.toFixed(2).padStart(6) +
+    ('  ' + (r.qSound >= 0 ? '+' : '') + r.qSound.toFixed(2)).padStart(10) + '   ' + r.T.toFixed(2));
+const decCure = read({ pinT: 1.37, themT: 1.0 });
+const decClean = decCure.best === SOUND && decCure.qBlunder < 0 && decCure.T < base.T + 0.3;
+console.log('  DECOUPLED CURE (Nd5, neg evals, no runaway): ' + decClean +
+  '  ⇒ ' + (decClean ? 'two-thermometer construction validated in principle (T_them≈0.7·T_us)' : 'decoupling does not cleanly help — coupling is in the value recursion'));
 
 // verdict: the coupling diagnosis. The flip to SOUND, if it exists, and the
 // bath's response to one-sided cooling (the thermometer feedback).
