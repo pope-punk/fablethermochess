@@ -143,10 +143,16 @@ for (const c of exp) addPos(c.fen, 'exp');
 console.log(rows.length + ' qualified (deep reached)');
 process.stdout.write('sampling ' + NRAND + ' random-walk controls… ');
 let tries = 0;
-while (rows.filter(r => r.tag === 'rand').length < NRAND && tries < NRAND * 6) {
+while (rows.filter(r => r.tag === 'rand').length < NRAND && tries < NRAND * 4) {
   tries++;
   const g = randPos(4 + ((rng() * 26) | 0));
   if (g.fast_in_check() || g.fast_moves().length < 6) continue;
+  // Quiet pre-filter: the sharpest positions node-cap the d4 deep search
+  // (5M-node ceiling) and are dropped anyway — skip them cheaply so the
+  // sampler doesn't burn expensive searches on positions it will discard.
+  // Controls are meant to be varied-but-resolvable; the sharp tail lives in
+  // the exposure stratum. (Biases controls quiet — noted; it is a control set.)
+  if (g.fast_captures().length > 4) continue;
   addPos(g.fen(), 'rand');
 }
 console.log(rows.filter(r => r.tag === 'rand').length + ' controls\n');
