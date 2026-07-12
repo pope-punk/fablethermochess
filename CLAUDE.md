@@ -4,6 +4,23 @@ You are picking up a mature research project: a chess engine that evaluates by
 statistical thermodynamics (F = ⟨Q⟩ + T·S over move ensembles) instead of minimax,
 run as an honest physics lab. Minimal context to be productive:
 
+## Method — the core discipline (follow this before reaching for the keyboard)
+
+**When confused or unsure, always revisit first principles, your own algebra, and
+established identities in game theory, information theory, and statistical mechanics
+to manipulate your abstractions and "show your work" to yourself to try to solve
+problems at a conceptual level (and catch silly mistakes), then validate the code
+against these formulas, and then, and only then, begin/suggest beginning empirical
+testing.**
+
+The order is load-bearing: derive → check the derivation against known identities →
+verify the code computes the derived quantity → only then measure. Two failure modes
+this project keeps punishing: (1) welding a suggestive number into a grand narrative
+before applying the lab's own robustness discipline, and (2) building a mechanism
+before checking whether the algebra even predicts it will work. When a derived
+formula, once computed, returns nonsense, that is a *result* — it means the
+abstraction was wrong; find out why before proceeding.
+
 ## Read first (in order, ~10 minutes)
 
 1. `docs/project_status.html` — goal, constitution, what works, open problems,
