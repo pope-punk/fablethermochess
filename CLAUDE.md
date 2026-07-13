@@ -91,7 +91,12 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   *negative* cross-validated ΔR² (permutation p≥0.18); the weak partial-Spearman
   hints (C, rSpread ρ≈0.25) don't survive CV. {⟨Q⟩,S} is a SUFFICIENT statistic
   for the near-horizon verdict at reachable depth — the extra charges are
-  redundant, not missing (converges with the Gumbel meta-law). **Read 2**
+  redundant, not missing (converges with the Gumbel meta-law). *Anti-isolation
+  check* (asked afterward): the certificate is already conditional, but greedy
+  can miss synergy, so the whole cohort was also fit at once (ΔR²=−0.30) and with
+  all 6 pairwise interactions (ΔR²=−0.47) — both do WORSE than base, so the KILL
+  is not an isolation artifact; raw feature rows are persisted for offline
+  re-analysis. **Read 2**
   (`tests/gge_fdt.js`, two-slope FDT, THREE draws): **seat 3 REFUSED** — the
   response m_deep>1 in all draws (2.0–3.3; the slow positional sector really is
   out of equilibrium, a glass) but the spread SIGN FLIPS (Δr = +0.23, +0.15,

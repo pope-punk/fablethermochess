@@ -104,6 +104,21 @@
 //   ⇒ No seat carried to the shell for play; GGE mode's seat-1 (b₂) is an
 //     experimenter hook, refused by this certificate, not a validated evaluator.
 //
+//   ANTI-ISOLATION CHECK (added after the fact — "did it make sense to test these
+//   in isolation?"). The certificate is already CONDITIONAL (ΔI_k | ⟨Q⟩,S) with a
+//   forward-greedy pass, so charges were never tested apart from the seated pair.
+//   But greedy saturates at step 1 and cannot see SYNERGY (an XOR-type pair). So
+//   we also fit the WHOLE cohort at once and add every pairwise interaction:
+//        full cohort (4 seats)      ΔR² −0.30  (p 0.96)
+//        + 6 pairwise interactions  ΔR² −0.47  (p 0.74)
+//   Both make CV prediction WORSE, not better — no joint signal, no synergy. If a
+//   coupled/synergistic combination carried verdict-information, the full or
+//   interaction model would have lifted R² despite the n=42 overfitting penalty;
+//   it dropped further. The marginal KILL is NOT an isolation artifact. (Scope:
+//   this rules out isolation as the cause AT REACHABLE DEPTH; it does not test the
+//   non-additive built evaluator — that is the §9-deferred gauntlet — nor a deeper
+//   Y. Raw feature rows are now persisted in the JSON for offline re-analysis.)
+//
 //   node tests/gge_infodecomp.js            [DEEP=6] [NRAND=60] [SEED=1]
 const fs = require('fs'), path = require('path');
 const { recover } = require('./exposure_corpus.js');
