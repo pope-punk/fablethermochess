@@ -323,6 +323,34 @@ while (pool.length) {
   if (bestG < 0.002) { console.log('  … conditional gain < 0.002 — cohort saturated'); break; }
 }
 
+// (c) JOINT — the anti-isolation test. The marginal/greedy reads above can miss
+// SYNERGY (an XOR-type pair carrying joint verdict-information that neither member
+// carries alone). Fit the whole cohort SIMULTANEOUSLY (one representative per
+// seat), then add every pairwise product (standardised) as an explicit
+// interaction term. If the physical cohort decompresses the verdict jointly — as
+// a GGE's coupled multipliers would — the full and/or interaction model lifts CV
+// R² above {⟨Q⟩,S}; if not, isolation was not the reason the marginal reads died.
+const JOINT = ['C', 'domMass', 'rSpread', 'evenMod'];   // seat 1 / 2 / 3-proxy / 4
+function zcol(key) { const v = rows.map(r => r[key]); const m = v.reduce((a, b) => a + b, 0) / v.length; const sd = Math.sqrt(v.reduce((a, b) => a + (b - m) * (b - m), 0) / v.length) || 1; return v.map(x => (x - m) / sd); }
+const Z = {}; for (const k of JOINT) Z[k] = zcol(k);
+const inter = [];
+for (let a = 0; a < JOINT.length; a++) for (let b = a + 1; b < JOINT.length; b++) {
+  const nk = 'i_' + JOINT[a] + '_' + JOINT[b];
+  for (let i = 0; i < rows.length; i++) rows[i][nk] = Z[JOINT[a]][i] * Z[JOINT[b]][i];
+  inter.push(nk);
+}
+function permDelta(feats) { const arr = []; for (let p = 0; p < NPERM; p++) { const yp = y.slice(); for (let i = yp.length - 1; i > 0; i--) { const j = (rng() * (i + 1)) | 0;[yp[i], yp[j]] = [yp[j], yp[i]]; } arr.push(looR2(['avgQ', 'S', ...feats], yp) - looR2(['avgQ', 'S'], yp)); } arr.sort((a, b) => a - b); return arr; }
+const fullR2 = looR2(['avgQ', 'S', ...JOINT], y), dFull = fullR2 - baseR2;
+const interR2 = looR2(['avgQ', 'S', ...JOINT, ...inter], y), dInter = interR2 - baseR2;
+const jn = permDelta(JOINT), jp = jn.filter(v => v >= dFull).length / NPERM;
+const iAll = [...JOINT, ...inter], inl = permDelta(iAll), ip = inl.filter(v => v >= dInter).length / NPERM;
+console.log('\n(c) JOINT  the whole cohort at once — the anti-isolation / synergy test');
+console.log('  full cohort (4 seats)   ΔR² = ' + (dFull >= 0 ? '+' : '') + dFull.toFixed(4) + '   perm p ' + jp.toFixed(3) + '   (R² ' + fullR2.toFixed(4) + ' vs base ' + baseR2.toFixed(4) + ')');
+console.log('  + ' + inter.length + ' pairwise interactions ΔR² = ' + (dInter >= 0 ? '+' : '') + dInter.toFixed(4) + '   perm p ' + ip.toFixed(3) + '   (R² ' + interR2.toFixed(4) + ')');
+const jointHelps = (dFull > 0 && jp < 0.10) || (dInter > 0 && ip < 0.10);
+console.log('  → ' + (jointHelps ? 'JOINT SIGNAL: the cohort decompresses the verdict together though not one-at-a-time — isolation WAS misleading.'
+  : 'no joint signal: the full cohort and its interactions still do not beat {⟨Q⟩,S} — the marginal KILL was not an isolation artifact.'));
+
 // ── verdict ──
 const anyCand = results.some(r => r.pass);
 console.log('\n════ READ 1 VERDICT ════');
@@ -339,5 +367,10 @@ console.log('  positions (dropped when the deep depth was not reached), so the c
 console.log('  the slow sector 4–8 ply out is only partially in reach. Read as a lower bound on ΔI.');
 
 fs.writeFileSync(path.join(__dirname, 'results', 'gge_infodecomp.json'),
-  JSON.stringify({ D_LO, DEEP, N, baseR2, results, order, meanY, sdY }, null, 1));
-console.log('\nwrote results/gge_infodecomp.json');
+  JSON.stringify({ D_LO, DEEP, N, baseR2, results, order, meanY, sdY,
+    joint: { charges: JOINT, fullR2, dFull, jp, interR2, dInter, ip, jointHelps },
+    // persist the raw per-position feature matrix so the joint/interaction
+    // question is re-answerable offline forever, with no engine re-run
+    rows: rows.map(r => ({ tag: r.tag, Y: r.Y, avgQ: r.avgQ, S: r.S, C: r.C, Cslow: r.Cslow,
+      Sbasin: r.Sbasin, domMass: r.domMass, rSpread: r.rSpread, evenMod: r.evenMod })) }, null, 1));
+console.log('\nwrote results/gge_infodecomp.json (with joint model + raw feature rows)');
