@@ -67,6 +67,17 @@ const SCHEDULE = MODE === 'schedule' || BASINSCHED || MODE === 'allocsched' || G
 // Requires the GGE engine: ENGINE_SRC=chess_thermo_gge.html node extract_engine.js
 const GGE = MODE === 'gge';
 const GGE_BETA = 0.047;
+// Guard the silent-F trap: opts.gge/ggeBeta exist only in the GGE engine, so a
+// gge run against the jhat engine_current.js would quietly play plain F and
+// mislabel the results file. Assert the extracted engine actually honours it.
+if (GGE) {
+  const chk = E._runAnalyze({ fen: new E.Chess().fen(), dashDepth: 2, gge: true, ggeBeta: GGE_BETA });
+  if (!chk || !chk.lab || !chk.lab.ggeBeta) {
+    console.error('MODE=gge but the extracted engine does not honour opts.gge/ggeBeta.\n' +
+      'Run:  ENGINE_SRC=chess_thermo_gge.html node tests/extract_engine.js   before this gauntlet.');
+    process.exit(1);
+  }
+}
 const FLUX = MODE === 'flux' || MODE === 'measure' || SCHEDULE || LEAFMU || BACKUP !== undefined || HOP || ALLOC || EXK !== undefined || GIBBS || QCHECK || GGE;
 
 const OPENINGS = [

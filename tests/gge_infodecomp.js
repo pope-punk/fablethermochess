@@ -114,7 +114,9 @@
 //   rank/robust estimators for heavy-tailed charges. Raw rows are persisted in the
 //   JSON so this is re-checkable offline.
 //
-//   node tests/gge_infodecomp.js            [DEEP=6] [NRAND=60] [SEED=1]
+//   node tests/gge_infodecomp.js            [DEEP=4] [NRAND=25] [SEED=1]
+//   (defaults reproduce the committed results/gge_infodecomp.json: 17 exposure
+//    catastrophes + 25 quiet controls = n 42, d2→d4.)
 const fs = require('fs'), path = require('path');
 const { recover } = require('./exposure_corpus.js');
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }
@@ -122,8 +124,8 @@ const E0 = fresh();
 const MATE_NEAR = 100000 - 4096;
 
 const D_LO = 2;                                   // shallow horizon (even)
-const DEEP = +(process.env.DEEP || 6);            // deep verdict (even — matched parity, rule 5)
-const NRAND = +(process.env.NRAND || 60);         // random-walk control positions
+const DEEP = +(process.env.DEEP || 4);            // deep verdict (even — matched parity, rule 5)
+const NRAND = +(process.env.NRAND || 25);         // random-walk control positions
 let SEED = +(process.env.SEED || 1);
 function rng() { SEED = (SEED * 1103515245 + 12345) & 0x7fffffff; return SEED / 0x7fffffff; }
 
