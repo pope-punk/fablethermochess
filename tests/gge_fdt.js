@@ -47,6 +47,31 @@
 //              slow sector is out of equilibrium but T_eff is observable-
 //              dependent — seat 3 REFUSED, the diagnosis stands without a knob.
 //
+// ── VERDICT (July 2026, THREE independent N=10 draws, d2/d4, quiet-filtered) —
+//    SEAT 3 REFUSED; the glass_teff standoff reproduced under the cleaner gate ──
+//                         SEED=2   SEED=5   SEED=8
+//     (A) response m_deep  3.32     2.11     2.00    → m>1 in ALL (FDT violated,
+//                                                       slow sector out of equil.)
+//     (B) spread Δr        +0.23    +0.15    −0.15   → SIGN FLIPS across draws
+//     agreement            AGREE    AGREE    DISAGREE
+//   The RESPONSE estimator is robust: the slow positional sector's excess
+//   response (X = m > 1) is really present in every draw — the sector is out of
+//   equilibrium, aging, glassy. But the two INDEPENDENT estimators do not agree
+//   on the SIGN of T_eff, and the (dis)agreement is itself draw-dependent (the
+//   spread Δr flips + + −). Seat 3 is REFUSED: T_eff is observable-dependent, so
+//   there is no single scalar pricing dial (a wrong-signed pricing term is the
+//   mean/max-backup grave). This REPRODUCES glass_teff.js exactly, now with a
+//   pre-registered agreement gate instead of a post-hoc read.
+//
+//   METHOD NOTE (load-bearing). Draws 1–2 AGREED (both hotter) and, taken alone,
+//   would have INSTANTIATED seat 3 — the single-favorable-draw trap the lab's own
+//   method warns about (CLAUDE.md: "welding a suggestive number into a grand
+//   narrative before applying the lab's own robustness discipline"). Draw 3, the
+//   mandatory replication, refuted them. Two draws are not a result; three that
+//   split are. The quiet filter + wide d2→d4 band made estimator (A) cleaner than
+//   glass_teff's (m>1 with tighter CIs), but did NOT rescue the sign — the glass
+//   hands no knob, robustly.
+//
 //   node tests/gge_fdt.js            [N=24] [SEED=1] [T0=1.5]
 const fs = require('fs'), path = require('path');
 function fresh() { delete require.cache[require.resolve('./engine_current.js')]; return require('./engine_current.js'); }

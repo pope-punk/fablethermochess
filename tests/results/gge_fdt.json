@@ -1,0 +1,20 @@
+{
+ "n": 10,
+ "D_SHALLOW": 2,
+ "D_DEEP": 4,
+ "T0": 1.5,
+ "mShallow": [
+  2.4793087820565214,
+  5.341392054862128,
+  11.4756921308887
+ ],
+ "mDeep": [
+  1.2962670491934913,
+  2.0041729562965265,
+  3.2257046775783293
+ ],
+ "rShallow": 1.193138152545589,
+ "rDeep": 1.0460645503084292,
+ "dR": -0.14707360223715993,
+ "verdict": "FDT VIOLATED but estimators DISAGREE (response: hotter; spread: colder) — the glass_teff standoff reproduced. T_eff is observable-dependent ⇒ NO scalar pricing dial. Seat 3 REFUSED; the glass diagnosis stands without a knob."
+}

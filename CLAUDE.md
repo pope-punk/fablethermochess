@@ -78,6 +78,43 @@ compared with `node tests/ab_compare.js` against the relevant baseline
 
 ## Open threads (as of July 2026)
 
+- **The GGE charge-cohort frame — pre-registered, graded, NO new seat (July
+  2026)**: `docs/gge_charge_cohort.html` reframed the whole program as a
+  generalized-Gibbs ensemble — F = ⟨Q⟩ + T·S is the r=1 projection of the tree
+  ensemble; the constitution is that ensemble's consistency conditions; the
+  graveyard is a scan on four quantum numbers (r cumulant, p scale, s parity, τ
+  timescale); and it named four empty seats (slow capacity, basin occupations,
+  T_eff, even modulators) with a pre-registered validation protocol (§9). Both
+  reads were built and run this session (no gauntlet, per §9). **Read 1**
+  (`tests/gge_infodecomp.js`, incremental CV information about the off-horizon
+  verdict): **KILL** — base LOO-R²{⟨Q⟩,S}=0.18, every candidate charge has
+  *negative* cross-validated ΔR² (permutation p≥0.18); the weak partial-Spearman
+  hints (C, rSpread ρ≈0.25) don't survive CV. {⟨Q⟩,S} is a SUFFICIENT statistic
+  for the near-horizon verdict at reachable depth — the extra charges are
+  redundant, not missing (converges with the Gumbel meta-law). **Read 2**
+  (`tests/gge_fdt.js`, two-slope FDT, THREE draws): **seat 3 REFUSED** — the
+  response m_deep>1 in all draws (2.0–3.3; the slow positional sector really is
+  out of equilibrium, a glass) but the spread SIGN FLIPS (Δr = +0.23, +0.15,
+  −0.15) → no scalar T_eff, no pricing dial; the glass_teff standoff reproduced
+  under a cleaner pre-registered gate. **Method win recorded in-file**: draws 1–2
+  agreed (both hotter) and alone would have SEATED it — the favorable-draw trap;
+  draw 3, the mandatory replication, refuted them. NET: all four candidate seats
+  refused; the binding constraint is the HORIZON, not the ensemble pricing (both
+  reads point past reachable depth), exactly as the τ axis predicted. **The
+  shell + a new app**: a new operative file `chess_thermo_gge.html` (original
+  `chess_thermo_jhat.html` preserved untouched) carries the GGE engine shell
+  (`opts.gge` report frame = Φ≡F bit-identical; seat 1 = the lawful r=2 ensemble
+  RESHAPING `opts.ggeB2`, a multiplier on squared deviation — parity-clean, no
+  field on Q; 13/13 suite, 20/20 bit-identical-off) and a redesigned dashboard
+  that reports the cohort on its (r,p,s,τ) coordinates with live seat status.
+  A first-class **▶ GGE mode** toggle plays the cohort evaluation (seat 1 active,
+  authoritative over colliding Lab hooks); seat 1 is an experimenter hook,
+  refused by read 1, kept for the hand. `ENGINE_SRC=chess_thermo_gge.html node
+  tests/extract_engine.js` suite-tests the GGE engine. Candidate next legs
+  (unbuilt): a deeper Y (longer time control / fixed larger node budget) is the
+  one measurement that could still seat a charge — read 1 is a lower bound
+  (d2→d4, node-capped). Until then, no charge is warranted for play.
+
 - **The basin program — kinetics ladder complete (July 2026)**: continuations
   grouped into strategic cohorts ("plans") by inherent structure
   (`tests/basins.js`). Statics uses retired earlier (scheduler criterion
