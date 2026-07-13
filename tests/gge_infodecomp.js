@@ -72,78 +72,42 @@
 //   |partial ρ| ≥ 0.15) is a seat candidate carried to the shell, gated by
 //   read 2 for the temperature seat.
 //
-// ══ CORRECTION (July 2026, prompted by the owner) — the raw-ridge KILL below
-//    was a METRIC ARTIFACT; the robust redo RECOVERS a real signal. See
-//    gge_infodecomp_robust.js. ══
-//   Tell-tale: C_slow's raw ΔR² = −1.19 is impossible for a merely-uninformative
-//   feature (one column cannot honestly send LOO-CV R² from 0.18 to −1.0). Cause:
-//   the capacity charges are wildly heavy-tailed (C 0→139, C_slow 0→162 — max
-//   ≈130–180× the median), so standardising them leaves extreme high-leverage
-//   points and the closed-form LOO (y−ŷ)/(1−H_ii) blows up as H_ii→1. The partial
-//   Spearman was immune and already flagged a monotone hint (C +0.26, rSpread
-//   +0.25); my "both conditions" rule let the broken ridge veto it. Redone in
-//   RANK / normal-score space (tail-robust, monotone), n=42:
-//        C (capacity)  ΔR²(rank) +0.049  perm p 0.06   partial-ρ +0.33
-//        rSpread       ΔR²(rank) +0.026  perm p 0.10   partial-ρ +0.27
-//        JOINT cohort  ΔR²(rank) +0.099  perm p 0.03   (jackknife >0 in 42/42)
-//        interactions  negative (no synergy beyond the additive main effects)
-//   ⇒ the r=2 CAPACITY charge (Var_π, seat 1) carries real incremental off-
-//   horizon information, and the cohort clears p<0.05 JOINTLY — coherent with
-//   read 2, where the variance RESPONSE (m_deep>1) was the robust survivor. The
-//   informative sector is r=2 (the second moment), priced as the seat-1 charge
-//   (NOT a T_eff dial, which read 2 showed is sign-unsignable). Seat 1 is a
-//   genuine CANDIDATE. Caveats that keep it a candidate, not a validated seat:
-//   modest effect (~5–10% of rank-variance), borderline p, reachable-depth lower
-//   bound, and carrying ΔI is NECESSARY not sufficient — the strength test is the
-//   deferred gauntlet, where the Gumbel meta-law warns premium deflations lose.
-//   The raw-ridge verdict below is kept, struck through, as the autopsy record.
+// ══ VERDICT (July 2026, n=42: 17 exposure catastrophes + 25 quiet controls,
+//    shallow d2, deep d4, parity-clean) — the r=2 CAPACITY charge is a CANDIDATE ══
+//   Reported in the ROBUST (rank / normal-score) space — see the autopsy below for
+//   why the first pass got this wrong. Base rank-R²{⟨Q⟩,S} = 0.26.
+//        C (capacity, Var_π)  ΔR²(rank) +0.049  perm p 0.06   partial-ρ +0.33
+//        rSpread (√Var/T)     ΔR²(rank) +0.026  perm p 0.10   partial-ρ +0.27
+//        Sbasin / domMass / evenMod:   null (p > 0.13)
+//        JOINT cohort (4)     ΔR²(rank) +0.099  perm p 0.03   (jackknife >0 in 42/42)
+//        + pairwise interactions:      negative (additive — no synergy)
+//   ⇒ {⟨Q⟩,S} is NOT a sufficient statistic: the r=2 second moment (the value
+//   variance) carries real incremental off-horizon information, and the cohort is
+//   JOINTLY significant. Coherent with read 2, whose robust survivor was exactly
+//   the variance RESPONSE (m_deep>1). The informative sector is r=2, priced as the
+//   seat-1 CHARGE (not a T_eff dial — read 2 showed that sign is unsignable). Seat 1
+//   is a genuine CANDIDATE. It stays a candidate, not a validated seat: modest
+//   effect (~5–10% of rank-variance), borderline p, and this is the reachable-depth
+//   (d2→d4, node-capped) lower bound. Carrying ΔI is NECESSARY, not sufficient —
+//   the strength test is leg 3, the gauntlet (gge_seat1_derive.js sets the derived
+//   coupling; results/vs_sf1500_gge.json is the run), where the meta-law warns.
 //
-// ── [SUPERSEDED] VERDICT (raw-value ridge — heavy-tail artifact, see CORRECTION)
-//    n=42: 17 exposure catastrophes + 25 quiet controls, d2→d4, parity-clean ──
-//   base LOO-R² {⟨Q⟩,S} = 0.18 (the r=1 projection already predicts ~18% of the
-//   off-horizon revision variance). Every candidate charge has NEGATIVE
-//   cross-validated ΔR² — it adds noise, not signal — with permutation p ≥ 0.18:
-//        C (Varπ)  ΔR² −0.20  p 0.97   ρ +0.26
-//        C_slow    ΔR² −1.19  p 0.99   ρ +0.21   (numerically unstable feature)
-//        Sbasin    ΔR² −0.03  p 0.52   ρ +0.13
-//        domMass   ΔR² −0.05  p 0.81   ρ −0.06
-//        rSpread   ΔR² −0.00  p 0.18   ρ +0.25
-//        evenMod   ΔR² −0.05  p 0.74   ρ −0.28
-//   The weak positive partial-Spearman hints (C, C_slow, rSpread all ρ≈0.2–0.26)
-//   do NOT survive cross-validation, so under the pre-registered rule (ΔR² above
-//   null AND |ρ|≥0.15, BOTH) no seat is instantiated. Forward greedy saturates
-//   immediately (first add −0.003). The slow-sector verdict-information is not
-//   captured by these physical statistics beyond {⟨Q⟩,S} at this depth.
-//
-//   READING. This is the pre-registered KILL, and it converges with the program's
-//   two standing results: the Gumbel META-LAW (the premium is load-bearing at
-//   full size; deflations/reshapings of it read negative) and the document's own
-//   integrability hedge (the tree is not a GGE in the strict sense). The r=1
-//   projection {⟨Q⟩,S} is, at reachable depth, a SUFFICIENT statistic of the
-//   ensemble for predicting its own near-horizon revision — the extra charges are
-//   redundant, not missing. The one caveat that keeps this a LOWER bound, not a
-//   universal refutation: Y is a d2→d4 revision (node-capped, quiet-leaning
-//   corpus), so the slow sector 4–8 ply out is only partially in reach; the
-//   catastrophe content the exposure probe located past d8 is off this horizon
-//   too. A deeper Y (longer time control, or a fixed larger node budget) is the
-//   one measurement that could still seat a charge — but nothing here does.
-//   ⇒ No seat carried to the shell for play; GGE mode's seat-1 (b₂) is an
-//     experimenter hook, refused by this certificate, not a validated evaluator.
-//
-//   ANTI-ISOLATION CHECK (added after the fact — "did it make sense to test these
-//   in isolation?"). The certificate is already CONDITIONAL (ΔI_k | ⟨Q⟩,S) with a
-//   forward-greedy pass, so charges were never tested apart from the seated pair.
-//   But greedy saturates at step 1 and cannot see SYNERGY (an XOR-type pair). So
-//   we also fit the WHOLE cohort at once and add every pairwise interaction:
-//        full cohort (4 seats)      ΔR² −0.30  (p 0.96)
-//        + 6 pairwise interactions  ΔR² −0.47  (p 0.74)
-//   Both make CV prediction WORSE, not better — no joint signal, no synergy. If a
-//   coupled/synergistic combination carried verdict-information, the full or
-//   interaction model would have lifted R² despite the n=42 overfitting penalty;
-//   it dropped further. The marginal KILL is NOT an isolation artifact. (Scope:
-//   this rules out isolation as the cause AT REACHABLE DEPTH; it does not test the
-//   non-additive built evaluator — that is the §9-deferred gauntlet — nor a deeper
-//   Y. Raw feature rows are now persisted in the JSON for offline re-analysis.)
+//   AUTOPSY — why the first pass read a KILL (owner caught it). The original score
+//   used a ridge on RAW standardised features. But the capacity charges are wildly
+//   heavy-tailed (C 0→139, C_slow 0→162 — max ≈130–180× the median), so their
+//   standardised outliers become high-leverage points and the closed-form LOO
+//   (y−ŷ)/(1−H_ii) blows up as H_ii→1 — giving C_slow a raw ΔR² of −1.19, which is
+//   impossible for a merely-uninformative feature (one column cannot honestly send
+//   R² from 0.18 to −1.0). Every raw ΔR² was negative (marginal AND the joint/
+//   interaction anti-isolation fits, −0.30/−0.47) — all in that broken space; the
+//   tell was the rank Spearman disagreeing (+0.26). The "both conditions" rule then
+//   let the broken metric veto the real rank signal. Rank/normal-score space is
+//   immune, and it is also the correct ANTI-ISOLATION answer: tested jointly-and-
+//   robustly the cohort DOES beat {⟨Q⟩,S} (p 0.03), interactions add nothing, so
+//   the power is from combining weak-but-real additive main effects. Lesson (the
+//   lab's own "nonsense output is a result" rule): sanity-bound CV metrics; use
+//   rank/robust estimators for heavy-tailed charges. Raw rows are persisted in the
+//   JSON so this is re-checkable offline.
 //
 //   node tests/gge_infodecomp.js            [DEEP=6] [NRAND=60] [SEED=1]
 const fs = require('fs'), path = require('path');

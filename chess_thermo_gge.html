@@ -1629,7 +1629,8 @@ let GIBBS_MODE = false;
 // thermometer and keeps Φ 𝒞-odd. b2 = 0 recovers F bit-for-bit; it is a
 // laboratory hook (play never sets it) until the read-1 certificate seats it.
 let GGE_MODE = false;
-let GGE_B2 = 0;
+let GGE_B2 = 0;      // fixed manual seat-1 multiplier (lab override)
+let GGE_BETA = 0;    // DERIVED seat-1: per-node b2 = −GGE_BETA·Tn (β̂ measured, leg 1)
 function staticEval(g) {
     const base = g.fast_raw_mat();
     if (bathT <= T_FLOOR) return base;     // frozen bath: optionality is worthless
@@ -2534,18 +2535,26 @@ function computeF(Qs, n, cacheKey, tOver, mv, isUs) {
         }
         if (kBest > -Infinity) expSum += Math.exp((kBest - maxQ) / Tn);
         val = maxQ + Tn * Math.log(expSum);
-    } else if (GGE_B2 !== 0) {
+    } else if (GGE_B2 !== 0 || GGE_BETA !== 0) {
         // Seat 1 (r = 2, the capacity charge): a non-Boltzmann GGE. A second
         // multiplier b2 reshapes the weights by the squared value deviation,
         //     π_a ∝ exp( z_a − b2·z_a² ),   z_a = (Q_a − maxQ)/Tn ,
-        // and Φ = maxQ + Tn·ln Σ exp(z_a − b2·z_a²). b2 > 0 down-weights the
-        // spread (risk-averse: a wide, high-variance menu is discounted); b2 < 0
-        // up-weights it. b2 = 0 is F exactly. Lawful: z² is 𝒞-even, so it enters
-        // as a multiplier of an even statistic (never an additive charge, §3.2)
-        // and the leaf Q_a are untouched (rule 3 — no field on Q, no thermometer
-        // feedback). The whole Φ stays a free energy of the odd energy ⇒ 𝒞-odd.
+        // Φ = maxQ + Tn·ln Σ exp(z_a − b2·z_a²). b2 < 0 up-weights spread; b2 > 0
+        // down-weights it; b2 = 0 is F exactly. Lawful: z² is 𝒞-even, so it enters
+        // as a multiplier of an even statistic (never an additive charge, §3.2),
+        // the leaf Q_a are untouched (rule 3 — no field on Q, no thermometer
+        // feedback), and Φ stays a free energy of the odd energy ⇒ 𝒞-odd.
+        //   DERIVED form (GGE_BETA, leg 1 gge_seat1_derive.js): b2 = −β̂·Tn, with
+        //   β̂ = dY/dVar the MEASURED slope of the off-horizon verdict on the
+        //   ensemble variance (self-consistency, not a tune). β̂ > 0 (F under-
+        //   values spread) ⇒ b2 < 0. GGE_B2 (fixed) is the manual lab override.
+        //   GUARD: a reshaped move may never outrank the mode (cap the log-weight
+        //   at 0) — this bounds Φ ≤ maxQ + Tn·ln n and disarms the inverted-
+        //   Gaussian runaway of the b2<0 sign on any far-below-max move that
+        //   escapes the truncation window.
+        const b2 = GGE_BETA !== 0 ? -GGE_BETA * Tn : GGE_B2;
         let expSum = 0;
-        for (let i = 0; i < n; i++) { const z = (Qs[i] - maxQ) / Tn; expSum += Math.exp(z - GGE_B2 * z * z); }
+        for (let i = 0; i < n; i++) { const z = (Qs[i] - maxQ) / Tn; let e = z - b2 * z * z; if (e > 0) e = 0; expSum += Math.exp(e); }
         val = maxQ + Tn * Math.log(expSum);
     } else {
         let expSum = 0;
@@ -2752,6 +2761,7 @@ function annealRoot(g, opts) {
     GIBBS_MODE = !!opts.gibbs;
     GGE_MODE = !!opts.gge;
     GGE_B2 = (typeof opts.ggeB2 === 'number' && isFinite(opts.ggeB2)) ? opts.ggeB2 : 0;
+    GGE_BETA = (typeof opts.ggeBeta === 'number' && isFinite(opts.ggeBeta)) ? opts.ggeBeta : 0;
     QCHECK_MODE = !!opts.qCheck;
     QCHECK_MIN = opts.qCheckMin > 0 ? opts.qCheckMin : 20;
     hopFull = 0; hopSkip = 0;
@@ -3356,12 +3366,12 @@ function _runAnalyze(msg) {
             basinSched: !!msg.basinSched, hop: !!msg.hop, alloc: !!msg.alloc,
             exK: msg.exK, gibbs: !!msg.gibbs, qCheck: !!msg.qCheck, qCheckMin: msg.qCheckMin,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
-            premT: msg.premT, effS: msg.effS, backup: msg.backup, gge: !!msg.gge, ggeB2: msg.ggeB2 }
+            premT: msg.premT, effS: msg.effS, backup: msg.backup, gge: !!msg.gge, ggeB2: msg.ggeB2, ggeBeta: msg.ggeBeta }
         : { maxDepth: msg.dashDepth || 2, flux: msg.flux || false, shuffleSeed: msg.shuffleSeed,
             hop: !!msg.hop, alloc: !!msg.alloc,
             exK: msg.exK, gibbs: !!msg.gibbs, qCheck: !!msg.qCheck, qCheckMin: msg.qCheckMin,
             leafMu: !!msg.leafMu, pinT: msg.pinT, leafT: msg.leafT, themT: msg.themT,
-            premT: msg.premT, effS: msg.effS, backup: msg.backup, gge: !!msg.gge, ggeB2: msg.ggeB2 });
+            premT: msg.premT, effS: msg.effS, backup: msg.backup, gge: !!msg.gge, ggeB2: msg.ggeB2, ggeBeta: msg.ggeBeta });
     // Echo the laboratory state this analysis actually ran under, so the
     // dashboard can display it (external fields must be visible on the
     // instrument that feels them).
@@ -3370,7 +3380,8 @@ function _runAnalyze(msg) {
                 backup: msg.backup || '', effS: msg.effS === true ? 'both' : (msg.effS || ''),
                 basinSched: !!msg.basinSched, hop: !!msg.hop, alloc: !!msg.alloc,
                 exK: msg.exK === true ? 'both' : (msg.exK || ''), gibbs: !!msg.gibbs, qCheck: !!msg.qCheck,
-                gge: !!msg.gge, ggeB2: (typeof msg.ggeB2 === 'number' && msg.ggeB2 !== 0) ? msg.ggeB2 : 0 };
+                gge: !!msg.gge, ggeB2: (typeof msg.ggeB2 === 'number' && msg.ggeB2 !== 0) ? msg.ggeB2 : 0,
+                ggeBeta: (typeof msg.ggeBeta === 'number' && msg.ggeBeta !== 0) ? msg.ggeBeta : 0 };
     out.timeMs = Math.round(now() - t0);
     if (!th) return out;
     if (msg.timeLimit != null) out.san = th.moves[th.bestIdx];
@@ -3545,6 +3556,7 @@ function applyAnalysis(res, engineStats) {
         if (l.gibbs) parts.push('Gibbs leaf');
         if (l.qCheck) parts.push('qCheck');
         if (l.ggeB2) parts.push('▶ GGE seat 1 (r=2, b₂=' + l.ggeB2 + ')');
+        if (l.ggeBeta) parts.push('▶ GGE seat 1 (r=2, derived b₂=−' + l.ggeBeta + '·T)');
         if (parts.length) source += ' · ⚠ LAB: ' + parts.join(', ');
     }
     lastUw = res.Uw; lastUb = res.Ub; lastThermo = thermo; lastSource = source;
@@ -3602,10 +3614,12 @@ function effMode() {
 // to a build without the panel. Active fields are echoed back by the
 // analysis (res.lab) and displayed in the dashboard header, so no
 // perturbed reading can be mistaken for an unperturbed one.
-// Default strength of seat 1 (the r=2 capacity reshaping) when GGE mode is
-// switched on with no explicit b₂ set in the Lab panel. Experimenter-facing,
-// tunable — not a validated constant; b₂=0 recovers F exactly.
-const GGE_DEFAULT_B2 = 0.5;
+// The DERIVED seat-1 coupling: GGE mode with no manual b₂ applies the per-node
+// b₂(node) = −β̂·T, with β̂ = 0.047 the MEASURED slope of the off-horizon verdict
+// on the ensemble variance (gge_seat1_derive.js; sign +, stable across strata).
+// This is the self-consistent value the diagnostics support — not a tune. Set an
+// explicit b₂ in the Lab panel to override with a fixed reshaping instead.
+const GGE_DERIVED_BETA = 0.047;
 function ggeModeOn() { const el = document.getElementById('ggeMode'); return !!(el && el.checked); }
 function labOpts() {
     const num = id => { const el = document.getElementById(id);
@@ -3640,7 +3654,11 @@ function labOpts() {
     // the Gibbs leaf, exK, S_eff) can override or blend with it. You are then
     // guaranteed to be playing the GGE evaluation and nothing else.
     if (ggeModeOn()) {
-        o.ggeB2 = (isFinite(b2v) && b2v !== 0) ? b2v : GGE_DEFAULT_B2;
+        // Seat 1 active. If b₂ is set by hand, use that fixed value; otherwise
+        // use the DERIVED per-node coupling b₂(node) = −β̂·T (β̂ measured in
+        // gge_seat1_derive.js — the self-consistent value, not a tune).
+        if (isFinite(b2v) && b2v !== 0) { o.ggeB2 = b2v; }
+        else { o.ggeBeta = GGE_DERIVED_BETA; }
         o.backup = undefined; o.premT = undefined; o.gibbs = undefined;
         o.exK = undefined; o.effS = false;   // effS:false overrides effMode() (spread after labOpts)
     }
