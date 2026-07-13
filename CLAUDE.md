@@ -90,13 +90,20 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   verdict): **KILL** — base LOO-R²{⟨Q⟩,S}=0.18, every candidate charge has
   *negative* cross-validated ΔR² (permutation p≥0.18); the weak partial-Spearman
   hints (C, rSpread ρ≈0.25) don't survive CV. {⟨Q⟩,S} is a SUFFICIENT statistic
-  for the near-horizon verdict at reachable depth — the extra charges are
-  redundant, not missing (converges with the Gumbel meta-law). *Anti-isolation
-  check* (asked afterward): the certificate is already conditional, but greedy
-  can miss synergy, so the whole cohort was also fit at once (ΔR²=−0.30) and with
-  all 6 pairwise interactions (ΔR²=−0.47) — both do WORSE than base, so the KILL
-  is not an isolation artifact; raw feature rows are persisted for offline
-  re-analysis. **Read 2**
+  for the near-horizon verdict at reachable depth. **CORRECTION (owner-prompted,
+  `gge_infodecomp_robust.js`)**: that raw-value ridge KILL was a HEAVY-TAIL
+  ARTIFACT — the capacity charges span 0→160, their standardised outliers become
+  high-leverage points and the closed-form LOO (y−ŷ)/(1−H_ii) blows up (C_slow
+  ΔR² −1.19 is impossible for an uninformative feature; the partial Spearman was
+  immune and already hinted). Redone in RANK/normal-score space (tail-robust):
+  the **r=2 capacity charge C is a genuine candidate** (ΔR²(rank) +0.049, p≈0.06,
+  partial-ρ +0.33), rSpread borderline (p 0.10), and the **cohort clears p<0.05
+  jointly** (ΔR² +0.099, p 0.03, drop-one jackknife >0 in 42/42; interactions
+  negative — additive, no synergy). So {⟨Q⟩,S} is NOT sufficient: the second
+  moment carries off-horizon information, coherent with read 2 (the variance
+  RESPONSE was its robust survivor). Seat 1 is a candidate — necessary condition
+  met, still not the gauntlet (meta-law warns deflations lose). Method lesson:
+  sanity-bound CV metrics; rank/robust for heavy-tailed charges. **Read 2**
   (`tests/gge_fdt.js`, two-slope FDT, THREE draws): **seat 3 REFUSED** — the
   response m_deep>1 in all draws (2.0–3.3; the slow positional sector really is
   out of equilibrium, a glass) but the spread SIGN FLIPS (Δr = +0.23, +0.15,

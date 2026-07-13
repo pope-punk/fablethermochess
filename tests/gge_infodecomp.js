@@ -72,8 +72,34 @@
 //   |partial ρ| ≥ 0.15) is a seat candidate carried to the shell, gated by
 //   read 2 for the temperature seat.
 //
-// ── VERDICT (July 2026, n=42: 17 exposure catastrophes + 25 quiet controls,
-//    shallow d2, deep d4, parity-clean) — KILL, the physical cohort is EMPTY ──
+// ══ CORRECTION (July 2026, prompted by the owner) — the raw-ridge KILL below
+//    was a METRIC ARTIFACT; the robust redo RECOVERS a real signal. See
+//    gge_infodecomp_robust.js. ══
+//   Tell-tale: C_slow's raw ΔR² = −1.19 is impossible for a merely-uninformative
+//   feature (one column cannot honestly send LOO-CV R² from 0.18 to −1.0). Cause:
+//   the capacity charges are wildly heavy-tailed (C 0→139, C_slow 0→162 — max
+//   ≈130–180× the median), so standardising them leaves extreme high-leverage
+//   points and the closed-form LOO (y−ŷ)/(1−H_ii) blows up as H_ii→1. The partial
+//   Spearman was immune and already flagged a monotone hint (C +0.26, rSpread
+//   +0.25); my "both conditions" rule let the broken ridge veto it. Redone in
+//   RANK / normal-score space (tail-robust, monotone), n=42:
+//        C (capacity)  ΔR²(rank) +0.049  perm p 0.06   partial-ρ +0.33
+//        rSpread       ΔR²(rank) +0.026  perm p 0.10   partial-ρ +0.27
+//        JOINT cohort  ΔR²(rank) +0.099  perm p 0.03   (jackknife >0 in 42/42)
+//        interactions  negative (no synergy beyond the additive main effects)
+//   ⇒ the r=2 CAPACITY charge (Var_π, seat 1) carries real incremental off-
+//   horizon information, and the cohort clears p<0.05 JOINTLY — coherent with
+//   read 2, where the variance RESPONSE (m_deep>1) was the robust survivor. The
+//   informative sector is r=2 (the second moment), priced as the seat-1 charge
+//   (NOT a T_eff dial, which read 2 showed is sign-unsignable). Seat 1 is a
+//   genuine CANDIDATE. Caveats that keep it a candidate, not a validated seat:
+//   modest effect (~5–10% of rank-variance), borderline p, reachable-depth lower
+//   bound, and carrying ΔI is NECESSARY not sufficient — the strength test is the
+//   deferred gauntlet, where the Gumbel meta-law warns premium deflations lose.
+//   The raw-ridge verdict below is kept, struck through, as the autopsy record.
+//
+// ── [SUPERSEDED] VERDICT (raw-value ridge — heavy-tail artifact, see CORRECTION)
+//    n=42: 17 exposure catastrophes + 25 quiet controls, d2→d4, parity-clean ──
 //   base LOO-R² {⟨Q⟩,S} = 0.18 (the r=1 projection already predicts ~18% of the
 //   off-horizon revision variance). Every candidate charge has NEGATIVE
 //   cross-validated ΔR² — it adds noise, not signal — with permutation p ≥ 0.18:

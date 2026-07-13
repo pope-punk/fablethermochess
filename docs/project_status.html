@@ -280,9 +280,17 @@ seats with a pre-registered validation protocol (§9). Both reads were built and
 <b class="k">Read 1</b> (<span class="mono">gge_infodecomp.js</span> — incremental cross-validated information ΔI<sub>k</sub>
 about the off-horizon verdict): <b class="k">KILL</b>. Base LOO-R²{⟨Q⟩,S}&nbsp;=&nbsp;0.18; every candidate charge
 (capacity Var<sub>π</sub>, basin occupations, T<sub>eff</sub> proxy, even modulator) has <i>negative</i> CV ΔR²
-(permutation p&nbsp;≥&nbsp;0.18); the weak partial-Spearman hints (ρ≈0.25) don't survive cross-validation. <b class="k">{⟨Q⟩,S}
-is a sufficient statistic</b> for the near-horizon verdict at reachable depth — the extra charges are redundant, not
-missing (converges with the Gumbel meta-law). <b class="k">Read 2</b> (<span class="mono">gge_fdt.js</span> — two-slope
+(permutation p&nbsp;≥&nbsp;0.18). <b class="k">CORRECTION (owner-prompted — the raw-ridge KILL was a heavy-tail
+artifact):</b> C_slow's raw ΔR²&nbsp;=&nbsp;−1.19 is impossible for an uninformative feature — the capacity charges span
+0→160 and their standardised outliers blow up the closed-form leave-one-out (H<sub>ii</sub>→1). The partial Spearman was
+immune and already hinted (C&nbsp;+0.26). Redone tail-robustly in <b class="k">rank / normal-score space</b>
+(<span class="mono">gge_infodecomp_robust.js</span>): the <b class="k">r&nbsp;=&nbsp;2 capacity charge C is a genuine
+candidate</b> (ΔR²(rank)&nbsp;+0.049, p≈0.06, partial-ρ&nbsp;+0.33), and the <b class="k">cohort clears p&lt;0.05
+jointly</b> (ΔR²&nbsp;+0.099, p&nbsp;0.03, drop-one jackknife &gt;0 in 42/42; interactions negative — additive, no
+synergy). So {⟨Q⟩,S} is <i>not</i> sufficient — the second moment carries off-horizon information, coherent with read 2
+(the variance <i>response</i> was its robust survivor). Seat 1 is a candidate (necessary condition met; the strength test
+is still the deferred gauntlet, where the meta-law warns deflations lose). The method lesson — sanity-bound CV metrics,
+rank-robust for heavy-tailed charges — is itself the "nonsense output is a result" rule firing. <b class="k">Read 2</b> (<span class="mono">gge_fdt.js</span> — two-slope
 FDT, THREE draws): <b class="k">seat 3 REFUSED</b>. The response m<sub>deep</sub>&nbsp;&gt;&nbsp;1 in <i>all</i> draws
 (2.0–3.3; the slow positional sector really is out of equilibrium — a glass), but the spread <i>sign flips</i>
 (Δr&nbsp;=&nbsp;+0.23, +0.15, −0.15) → no scalar T<sub>eff</sub>, no pricing dial: the glass_teff standoff reproduced

@@ -268,7 +268,7 @@ label { font-size: 0.85em; }
     </div>
     <div id="lab-panel" title="Laboratory external fields — the test harness hooks, hand-applied, now read as displacements on the charge-cohort axes (r cumulant order, p partition scale, s color parity, τ timescale). Blank/F = honest play (GGE report frame: Φ ≡ F). Values take effect from the next search; active fields are echoed in the dashboard header.">
         <span class="lab-title">LAB · cohort scan</span>
-        <label title="seat 1 (r=2, the capacity charge): reshape the ensemble by a second multiplier on the squared value deviation — π ∝ exp(z − b₂·z²), z=(Q−maxQ)/T. b₂&gt;0 discounts a wide, high-variance menu (risk-averse); b₂&lt;0 rewards it. b₂=0 (blank) is F exactly. Lawful reshaping (rule 3/§3.2): multiplies the distribution, adds no field to Q. Awaiting the read-1 certificate.">gge b₂ <input id="labGgeB2" type="number" step="0.05" placeholder="&#8212;" onchange="labChanged()"></label>
+        <label title="seat 1 (r=2, the capacity charge): reshape the ensemble by a second multiplier on the squared value deviation — π ∝ exp(z − b₂·z²), z=(Q−maxQ)/T. b₂&gt;0 discounts a wide, high-variance menu (risk-averse); b₂&lt;0 rewards it. b₂=0 (blank) is F exactly. Lawful reshaping (rule 3/§3.2): multiplies the distribution, adds no field to Q. Read 1 (tail-robust) seats the r=2 capacity charge as a CANDIDATE (partial-ρ +0.33; cohort jointly p 0.03) — this is the one seat the diagnostics support; strength is the deferred gauntlet.">gge b₂ <input id="labGgeB2" type="number" step="0.05" placeholder="&#8212;" onchange="labChanged()"></label>
         <label title="pinT: pin the whole bath (search + leaf + thermometer) to this temperature">pinT <input id="labPinT" type="number" step="0.25" min="0" placeholder="&#8212;" onchange="labChanged()"></label>
         <label title="leafT: price only the leaf optionality T·(lnW_us − lnW_them) at this temperature">leafT <input id="labLeafT" type="number" step="0.25" min="0" placeholder="&#8212;" onchange="labChanged()"></label>
         <label title="themT: run only the OPPONENT's interior ensembles at this temperature">themT <input id="labThemT" type="number" step="0.25" min="0" placeholder="&#8212;" onchange="labChanged()"></label>
@@ -3875,32 +3875,35 @@ function fmt(v, d) {
 //            off-horizon verdict) — seats/refuses the additive & modulator charges;
 //   read 2 = tests/gge_fdt.js (two-slope FDT) — seats/refuses the T_eff charge.
 // 'seated'   = a validated member of Φ (⟨Q⟩, S — the r=1 projection).
+// 'candidate'= carries incremental off-horizon information (read-1 robust
+//              certificate); a lawful seat awaiting the gauntlet.
 // 'refused'  = failed its certificate (parity, or the read's kill criterion).
 // 'empty'    = a seat the frame REQUIRES but no measured signal yet occupies.
 //
-// GRADED (July 2026). read 1 (gge_infodecomp) = KILL: no charge adds cross-
-// validated information about the near-horizon verdict beyond {⟨Q⟩,S} (every
-// ΔR²<0, permutation p≥0.18) — the r=1 projection is a SUFFICIENT statistic at
-// reachable depth. read 2 (gge_fdt, 3 independent draws) = seat 3 REFUSED: the
-// FDT violation is REAL and robust (the slow-sector response m_deep ≈ 2.0–3.3 >
-// 1 in ALL draws — the sector is out of equilibrium), but the two estimators
-// DISAGREE on the SIGN of T_eff and the disagreement is draw-dependent (spread
-// Δr = +0.23, +0.15, −0.15) — the glass_teff standoff reproduced under a cleaner
-// pre-registered gate. T_eff is observable-dependent ⇒ NO scalar pricing dial.
-// (Draws 1–2 agreed and would have seated it; draw 3, the mandatory robustness
-// check, refuted them — the favorable-draw trap the method warns about.)
-// NET: all four candidate seats refused. {⟨Q⟩,S} — plain F — is a sufficient
-// statistic at reachable depth; the slow sector is glassy but hands no knob. The
-// binding constraint is the HORIZON, not the ensemble pricing (both reads point
-// past reachable depth), exactly as the frame's τ axis predicted.
+// GRADED (July 2026). read 1 (gge_infodecomp) FIRST read KILL — but that used a
+// raw-value ridge wrecked by the capacity charges' heavy tails (C spans 0→160;
+// C_slow's ΔR²=−1.19 was a leverage artifact, impossible for an uninformative
+// feature). REDONE tail-robustly in rank/normal-score space (gge_infodecomp_
+// robust.js): the r=2 CAPACITY charge C is a genuine CANDIDATE (ΔR²(rank) +0.049,
+// p≈0.06, partial-ρ +0.33) and the cohort clears p<0.05 JOINTLY (ΔR² +0.099,
+// p 0.03, drop-one jackknife >0 in 42/42; interactions negative). So {⟨Q⟩,S} is
+// NOT sufficient — the second moment carries off-horizon information. read 2
+// (gge_fdt, 3 draws) = the variance RESPONSE m_deep>1 is the robust survivor (the
+// slow sector is really out of equilibrium), but the T_eff SIGN is observable-
+// dependent (spread flips +0.23,+0.15,−0.15) → no scalar T_eff dial (seat 3
+// refused). The two reads agree: the informative sector is r=2 (the variance),
+// priced as the seat-1 CHARGE, not as a T_eff multiplier. Basin occupations and
+// the even modulator stay null even robustly. Candidate ≠ validated: carrying ΔI
+// is necessary, the gauntlet (where the meta-law warns deflations lose) is the
+// deferred sufficiency test.
 const COHORT_STATUS = {
     // key: [class, note]
-    Q:    ['seated',  'r=1, sufficient'],
-    S:    ['seated',  'r=1, sufficient'],
-    C:    ['refused', 'read 1: ΔI≈0'],
-    occ:  ['refused', 'read 1: ΔI≈0'],
-    teff: ['refused', 'read 2: glass real, no scalar T_eff'],
-    even: ['refused', 'read 1: ΔI≈0'],
+    Q:    ['seated',    'r=1, seated'],
+    S:    ['seated',    'r=1, seated'],
+    C:    ['candidate', 'read 1 (robust): ΔI>0, ρ+0.33'],
+    occ:  ['refused',   'read 1: ΔI≈0'],
+    teff: ['refused',   'read 2: glass real, no scalar T_eff'],
+    even: ['refused',   'read 1: ΔI≈0'],
 };
 function seatTag(key) {
     const s = COHORT_STATUS[key] || ['empty', ''];
@@ -3942,9 +3945,9 @@ function renderCohort(th) {
     }
     html += '</table>';
     html += '<div class="cohort-foot">Odd charges add; even statistics may only modulate a multiplier (Z₂ parity, §3.2). ' +
-            'GRADED: read 1 (info-decomposition) killed every additive/modulator charge — {⟨Q⟩,S} is a sufficient statistic for the near-horizon verdict; ' +
-            'read 2 (two-slope FDT, 3 draws) confirmed the slow sector is out of equilibrium (response m&gt;1 robustly) but found NO signable scalar T_eff (spread sign flips) — seat 3 refused. ' +
-            'All four candidate seats refused: Φ ≡ F. GGE mode activates seat 1 (b₂) as an experimental hook — refused by read 1, kept for the experimenter\'s hand.</div>';
+            'GRADED: read 1 (info-decomposition), done tail-robustly, seats the r=2 CAPACITY charge C as a candidate (ΔI&gt;0, partial-ρ +0.33; the cohort is jointly significant, p 0.03) — {⟨Q⟩,S} is NOT sufficient, the second moment carries off-horizon information. ' +
+            'read 2 (two-slope FDT, 3 draws): the variance RESPONSE is robustly out of equilibrium, but T_eff has no signable sign — so the informative sector (r=2) is priced as seat 1, not a T_eff dial. Basin/even charges stay null. ' +
+            'GGE mode activates seat 1 (b₂) — now the candidate read 1 seats; the gauntlet (sufficiency) is deferred.</div>';
     el.innerHTML = html;
 }
 
