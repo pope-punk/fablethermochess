@@ -137,6 +137,28 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   (unbuilt): a deeper Y (longer time control / fixed larger node budget) is the
   one measurement that could still seat a charge — read 1 is a lower bound
   (d2→d4, node-capped). Until then, no charge is warranted for play.
+  **Post-mortem synthesis — where a GGE parameter could still work (unbuilt):**
+  the failure pattern is uniform — every ENERGY term (a charge added to Φ, or a
+  reshaping of it) died: deflations by the meta-law, the one addition (seat-1
+  spread-reward) by Goodhart, leaf-tempo/exK by parity. Every WIN is on the τ
+  (attention) axis: σ_eff scheduler (+2.5), qCheck (neutral-correct), alloc. Rule
+  3, vindicated end-to-end: move the informative charges to the τ axis, not the
+  energy axis. `depth_discriminator.js` (results/depth_discriminator.json)
+  validated a τ-flag: oppOpt (the danger sense lnW_them−lnW_us) tells the exposure
+  catastrophes from eval-matched confident wins at AUC 0.70 (σ_eff AND β BLIND;
+  low Ceff a weaker second flag). Candidate parameters, best first: (1) **τ-charge**
+  — the capacity+danger flags as multipliers on the ln N depth budget (danger-
+  gated selective depth down the low-S̄ forcing frontier), NOT value terms; the one
+  channel every success lives in. (2) **even-field modulation of the premium
+  multiplier**: T·S → T·(1+γ·M_even)·S, M_even the color-even total optionality /
+  mutual forcing, γ measured — lawful (even modulates, §3.2), novel (all premium
+  work was global scaling), meta-law-safe (never deflates; RAISES the premium
+  where flexibility is real, ADDING what F's odd leaf can't see). (3) **bounded
+  opponent-T parity split** (the one value-side positive signal, Gibbs): price
+  their optionality at their measured T̂c with a geometry-derived saturation (the
+  finite mobility level count caps lnW_them — cures the recorded unbounded-them
+  flaw). (4) the **odd r=3 skew** charge as a danger-asymmetry attention flag.
+  Each gated by a read-1-style pre-screen before any gauntlet.
 
 - **The basin program — kinetics ladder complete (July 2026)**: continuations
   grouped into strategic cohorts ("plans") by inherent structure
