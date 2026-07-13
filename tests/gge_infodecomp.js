@@ -86,11 +86,16 @@
 //   JOINTLY significant. Coherent with read 2, whose robust survivor was exactly
 //   the variance RESPONSE (m_deep>1). The informative sector is r=2, priced as the
 //   seat-1 CHARGE (not a T_eff dial — read 2 showed that sign is unsignable). Seat 1
-//   is a genuine CANDIDATE. It stays a candidate, not a validated seat: modest
-//   effect (~5–10% of rank-variance), borderline p, and this is the reachable-depth
-//   (d2→d4, node-capped) lower bound. Carrying ΔI is NECESSARY, not sufficient —
-//   the strength test is leg 3, the gauntlet (gge_seat1_derive.js sets the derived
-//   coupling; results/vs_sf1500_gge.json is the run), where the meta-law warns.
+//   is a genuine CANDIDATE — but that is a NECESSARY, not sufficient, condition.
+//   LEG 1 (gge_seat1_derive.js) derived its coupling from the measured law
+//   (ρ +0.24 stable across strata ⇒ b₂ = −β̂·T, β̂=0.047 — F under-values spread);
+//   LEG 3 (results/vs_sf1500_gge.json) GAUNTLETED it: 5.5/12 vs the 7.5 baseline,
+//   mate losses 3→6, bath halved — NEGATIVE. Pricing the real signal LOSES:
+//   rewarding spread steers a weak tactician into sharp positions it can't
+//   convert (a Goodhart/selection effect — the static variance→improvement
+//   correlation does not survive being made an objective), the Gumbel meta-law
+//   the premium-deflation program keeps hitting. The frame's win is LOCATING the
+//   informative sector (r=2); the meta-law is that pricing it doesn't help play.
 //
 //   AUTOPSY — why the first pass read a KILL (owner caught it). The original score
 //   used a ridge on RAW standardised features. But the capacity charges are wildly

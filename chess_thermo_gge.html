@@ -3909,19 +3909,23 @@ function fmt(v, d) {
 // (gge_fdt, 3 draws) = the variance RESPONSE m_deep>1 is the robust survivor (the
 // slow sector is really out of equilibrium), but the T_eff SIGN is observable-
 // dependent (spread flips +0.23,+0.15,−0.15) → no scalar T_eff dial (seat 3
-// refused). The two reads agree: the informative sector is r=2 (the variance),
-// priced as the seat-1 CHARGE, not as a T_eff multiplier. Basin occupations and
-// the even modulator stay null even robustly. Candidate ≠ validated: carrying ΔI
-// is necessary, the gauntlet (where the meta-law warns deflations lose) is the
-// deferred sufficiency test.
+// refused). The two reads agree: the informative sector is r=2 (the variance).
+// LEG 1 (gge_seat1_derive) derived its coupling from the measured C→verdict law:
+// ρ +0.24 (stable across strata) ⇒ F under-values spread ⇒ b₂ = −β̂·T, β̂=0.047.
+// LEG 3 (results/vs_sf1500_gge) gauntleted that derived seat 1: 5.5/12 vs the 7.5
+// baseline, mate losses 3→6, bath halved — NEGATIVE. So seat 1 carries real ΔI
+// (necessary) but pricing it LOSES (not sufficient): rewarding spread steers a
+// weak tactician into sharp positions it can't convert — the Gumbel meta-law,
+// which the whole premium-deflation program keeps hitting. The frame's win is
+// LOCATING the informative sector; the meta-law is that pricing it doesn't help.
 const COHORT_STATUS = {
     // key: [class, note]
-    Q:    ['seated',    'r=1, seated'],
-    S:    ['seated',    'r=1, seated'],
-    C:    ['candidate', 'read 1 (robust): ΔI>0, ρ+0.33'],
-    occ:  ['refused',   'read 1: ΔI≈0'],
-    teff: ['refused',   'read 2: glass real, no scalar T_eff'],
-    even: ['refused',   'read 1: ΔI≈0'],
+    Q:    ['seated',   'r=1, seated'],
+    S:    ['seated',   'r=1, seated'],
+    C:    ['refused',  'ΔI>0 (read 1) but gauntlet 5.5/12 — meta-law'],
+    occ:  ['refused',  'read 1: ΔI≈0'],
+    teff: ['refused',  'read 2: glass real, no scalar T_eff'],
+    even: ['refused',  'read 1: ΔI≈0'],
 };
 function seatTag(key) {
     const s = COHORT_STATUS[key] || ['empty', ''];
@@ -3963,9 +3967,9 @@ function renderCohort(th) {
     }
     html += '</table>';
     html += '<div class="cohort-foot">Odd charges add; even statistics may only modulate a multiplier (Z₂ parity, §3.2). ' +
-            'GRADED: read 1 (info-decomposition), done tail-robustly, seats the r=2 CAPACITY charge C as a candidate (ΔI&gt;0, partial-ρ +0.33; the cohort is jointly significant, p 0.03) — {⟨Q⟩,S} is NOT sufficient, the second moment carries off-horizon information. ' +
-            'read 2 (two-slope FDT, 3 draws): the variance RESPONSE is robustly out of equilibrium, but T_eff has no signable sign — so the informative sector (r=2) is priced as seat 1, not a T_eff dial. Basin/even charges stay null. ' +
-            'GGE mode activates seat 1 (b₂) — now the candidate read 1 seats; the gauntlet (sufficiency) is deferred.</div>';
+            'GRADED end-to-end: read 1 (robust) found the r=2 CAPACITY charge carries real off-horizon information (partial-ρ +0.33; cohort jointly p 0.03) — the frame LOCATED the informative sector. ' +
+            'Leg 1 derived its coupling from that measurement (b₂ = −β̂·T, β̂=0.047); leg 3 GAUNTLETED it: 5.5/12 vs the 7.5 baseline, mate losses 3→6. ' +
+            'So the necessary condition (ΔI&gt;0) is met but NOT sufficient — pricing the spread-reward steers into sharp positions the engine can\'t convert (the Gumbel meta-law). GGE mode plays this derived seat 1 so you can feel it; it is refuted, not validated.</div>';
     el.innerHTML = html;
 }
 

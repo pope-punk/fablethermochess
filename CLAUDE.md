@@ -101,9 +101,20 @@ compared with `node tests/ab_compare.js` against the relevant baseline
   jointly** (ΔR² +0.099, p 0.03, drop-one jackknife >0 in 42/42; interactions
   negative — additive, no synergy). So {⟨Q⟩,S} is NOT sufficient: the second
   moment carries off-horizon information, coherent with read 2 (the variance
-  RESPONSE was its robust survivor). Seat 1 is a candidate — necessary condition
-  met, still not the gauntlet (meta-law warns deflations lose). Method lesson:
-  sanity-bound CV metrics; rank/robust for heavy-tailed charges. **Read 2**
+  RESPONSE was its robust survivor). Method lesson: sanity-bound CV metrics;
+  rank/robust for heavy-tailed charges. **LEG 1 → LEG 3 (built this session):**
+  the seat-1 coupling was DERIVED from that measurement (gge_seat1_derive.js:
+  ρ(Var,Y)=+0.24 stable across strata ⇒ F under-values spread ⇒ b₂ = −β̂·T,
+  β̂=0.047), the derived evaluator wired into the engine (per-node reshaping with
+  a stability guard against the b₂<0 inverted-Gaussian runaway) and GAUNTLETED
+  (vs_stockfish `gge` mode, results/vs_sf1500_gge.json): **5.5/12 vs the 7.5
+  baseline, mate losses 3→6, bath halved — NEGATIVE.** Seat 1 carries real ΔI
+  (necessary) but pricing it loses (not sufficient): rewarding spread steers a
+  weak tactician into sharp positions it can't convert — a Goodhart/selection
+  effect (the static variance→improvement correlation does not survive being made
+  an objective), the Gumbel meta-law the whole premium program keeps hitting. The
+  GGE frame's genuine win is LOCATING the informative sector (r=2 capacity); the
+  meta-law is that pricing it doesn't help play. **Read 2**
   (`tests/gge_fdt.js`, two-slope FDT, THREE draws): **seat 3 REFUSED** — the
   response m_deep>1 in all draws (2.0–3.3; the slow positional sector really is
   out of equilibrium, a glass) but the spread SIGN FLIPS (Δr = +0.23, +0.15,
